@@ -26,7 +26,8 @@ function Expand-Zip {
 
     $filePath = Resolve-Path $File
     $destinationPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
-
+    
+    Write-Host "Extract ZIP $File to $Destination"
     try {
         [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
         [System.IO.Compression.ZipFile]::ExtractToDirectory("$filePath", "$destinationPath")
@@ -40,7 +41,7 @@ if ([System.IO.Directory]::Exists($dotfilesInstallDir)) {[System.IO.Directory]::
 Expand-Zip $sourceFile $dotfilesTempDir
 
 Push-Location $dotfilesInstallDir
-& .\scripts\setup.ps1
+& .\setup-scripts\setup.ps1
 Pop-Location
 
 $newProcess = new-object System.Diagnostics.ProcessStartInfo "PowerShell";
