@@ -1,4 +1,4 @@
-# dotfiles-windows
+# dotfiles-windows (WIP)
 Dotfiles for Windows inspired from several other dotfiles.
 
 ## Installation
@@ -19,7 +19,7 @@ git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; 
 To install these dotfiles from PowerShell without Git:
 
 ```bash
-iex ((new-object net.webclient).DownloadString('https://raw.github.com/akbrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
+    iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
 ```
 
 ## Use & Configuration
@@ -77,7 +77,7 @@ $branch  = "main"
 
 And make sure to update the git-free installation command with the URL of your own repository.
 ```bash
-iex ((new-object net.webclient).DownloadString('https://raw.github.com/$account/$repo/$branch/setup/install.ps1'))
+iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/$account/$repo/$branch/setup/install.ps1'))
 ```
 
 ## Feedback
