@@ -6,4 +6,4 @@ Install-Module -Name Microsoft.WinGet.Configuration -AllowPrerelease -AcceptLice
 $env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 
 # Run the DSC configuration using the Winget Cmdlet. Winget.exe cannot run as system or install Windows Optional Features
-Get-WinGetConfiguration -File "$PSScriptRoot\dsc-configurations\base-configuration.yaml" | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
+Get-WinGetConfiguration -File "$PSScriptRoot\dsc-configurations\base.configuration.dsc.yaml" | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
