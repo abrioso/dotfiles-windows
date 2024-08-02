@@ -10,7 +10,8 @@ Dotfiles for Windows inspired from several other dotfiles.
 To clone the repository, you can choose any location you prefer. I personally keep it in `~\workspace\dotfiles-windows`. Once cloned, the bootstrapper script will run the setup scripts.
 
 From PowerShell:
-```posh
+
+```pwsh
 git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; cd setup-scripts; .\setup.ps1
 ```
 
@@ -18,14 +19,17 @@ git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; 
 
 To install these dotfiles from PowerShell without Git:
 
-```bash
-    iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
+```pwsh
+iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
 ```
 
 ## Use & Configuration
 
-### Desired State Configuration files
+### Desired State Configuration (DSC) files
 
+The folder "dsc-configurations" contains the DSC configuration files:
+
+- `.\dsc-configuration\base-configurations.yaml` : Base and must-have configuration.
 
 ### PowerShell Profile
 
@@ -69,14 +73,16 @@ Extras is designed to augment the existing settings and configuration. You could
 If you decide to fork this repository for your own custom configuration, make sure to modify the `install.ps1` file to reference your own repository instead of mine.
 
 Within `/scripts/install.ps1`, modify the Repository variables.
-```posh
+
+```pwsh
 $account = "abrioso"
 $repo    = "dotfiles-windows"
 $branch  = "main"
 ```
 
 And make sure to update the git-free installation command with the URL of your own repository.
-```bash
+
+```pwsh
 iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/$account/$repo/$branch/setup/install.ps1'))
 ```
 
@@ -89,8 +95,10 @@ Suggestions/improvements are
 
 ## Thanks to…
 
-* @[Anthony Cangialosi](https://github.com/acangialosi) and @[Jay Harris](https://github.com/jayharris)
+- @[Anthony Cangialosi](https://github.com/acangialosi)
+- @[Jay Harris](https://github.com/jayharris)
 
-For sharing their dotfiles that served as inspiration for mine:
-1. https://github.com/acangialosi/dotfiles
-2. https://github.com/jayharris/dotfiles-windows
+For the inspiration and for sharing their dotfiles:
+
+1. <https://github.com/acangialosi/dotfiles>
+2. <https://github.com/jayharris/dotfiles-windows>
