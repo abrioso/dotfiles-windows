@@ -111,3 +111,4 @@ Other Sources:
 3. <https://learn.microsoft.com/en-us/windows/package-manager/configuration/>
 4. <https://github.com/microsoft/winget-create/tree/main/Tools>
 5. <https://github.com/microsoft/winget-cli>
+6. <https://github.com/PowerShell/PSDscResources>
