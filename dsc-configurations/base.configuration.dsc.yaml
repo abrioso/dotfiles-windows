@@ -22,8 +22,6 @@ properties:
     ########################################
     ### Create workspace directory
     ### -------------------------------------
-    ### Format a new Dev Drive:
-    ### -------------------------------------
     - resource: File
       id: workspacedir
       directives:
@@ -43,6 +41,7 @@ properties:
         allowPrerelease: true
       settings:
         id: Git.Git
+        source: winget
     ### Clone dotfiles repository
     ### -------------------------------------
     - resource: GitDsc/GitClone
@@ -95,6 +94,7 @@ properties:
         allowPrerelease: true
       settings:
         id: Microsoft.DevHome
+        source: winget
     ### Install DevHome Azure Extension
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -105,6 +105,7 @@ properties:
         allowPrerelease: true
       settings:
         id: 9MV8F79FGXTR
+        source: msstore
     ### Install DevHome GitHub Extension
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -115,6 +116,7 @@ properties:
         allowPrerelease: true
       settings:
         id: 9NZCC27PR6N6
+        source: msstore
     ### Install Powershell
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -123,6 +125,7 @@ properties:
         allowPrerelease: true
       settings:
         id: Microsoft.PowerShell
+        source: winget
     ### Install OMP
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -132,6 +135,7 @@ properties:
         allowPrerelease: true
       settings:
         id: JanDeDobbeleer.OhMyPosh
+        source: winget
     ### Install Azure CLI
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -141,6 +145,7 @@ properties:
         allowPrerelease: true
       settings:
        id:  Microsoft.AzureCLI
+       source: winget
     ### Install Azd
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -149,6 +154,7 @@ properties:
         allowPrerelease: true
       settings:
         id: Microsoft.Azd
+        source: winget
     ### Install Visual Studio Code
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -158,6 +164,7 @@ properties:
         allowPrerelease: true
       settings:
         id: Microsoft.VisualStudioCode
+        source: winget
         ensure: Present
     ########################################
     ### Configure settings
@@ -233,5 +240,7 @@ properties:
       id: edge
       directives:
         description: Install Edge
+        allowPrerelease: true
       settings:
         id: Microsoft.Edge
+        source: winget
