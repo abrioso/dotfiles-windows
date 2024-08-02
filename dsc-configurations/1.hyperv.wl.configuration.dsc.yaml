@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://aka.ms/configuration-dsc-schema/0.2
+properties:
+  configurationVersion: 0.2.0
+  ########################################
+  ### ASSERTIONS: System Requirements
+  ########################################
+  assertions:
+    ### Assertion: OS Version
+    ### -------------------------------------
+    - resource: Microsoft.Windows.Developer/OsVersion
+      id: OsVersion
+      directives:
+        description: Minimum OS version requirement
+        allowPrerelease: true
+      settings:
+        MinVersion: "10.0.22000"
+  ########################################
+  resources:
+    ########################################
+    ### Initialization
+    ########################################
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: wsl
+      directives:
+        description: WSL
+        allowPrerelease: true
+      settings:
+        id: Microsoft.WSL
+        source: winget  
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      dependsOn:
+        - wsl
+      directives:
+        description: Ubuntu 22.04 LTS
+        allowPrerelease: true
+      settings:
+        id: Canonical.Ubuntu.2204
+        source: winget 
