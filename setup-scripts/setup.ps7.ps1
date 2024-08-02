@@ -10,4 +10,13 @@ $DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Pa
 
 
 # Run the DSC configuration using the Winget Cmdlet. Winget.exe cannot run as system or install Windows Optional Features
-Get-WinGetConfiguration -File "$DotFilesRoot\dsc-configurations\0.base.configuration.dsc.yaml" | Invoke-WinGetConfiguration -AcceptConfigurationAgreements -Verbose
+# The DSC configuration will install the required features and tools
+$DscConfigFolder = Join-Path $DotFilesRoot "dsc-configurations"
+$DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*.dsc.yaml"
+
+foreach ($DSCFile in $DSCFiles) {
+    Write-Host "Running DSC Configuration: $($DSCFile.FullName)"
+    Get-WinGetConfiguration -File $DSCFile.FullName | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
+}
+
+Write-Host "DSC Configuration Completed"
