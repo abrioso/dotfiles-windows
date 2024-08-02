@@ -166,6 +166,36 @@ properties:
         id: Microsoft.VisualStudioCode
         source: winget
         ensure: Present
+    ### Install Python
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: python
+      directives:
+        description: Install Python
+        allowPrerelease: true
+      settings:
+        id: Python.Python.3.12
+        source: winget
+    ### Install Windows Terminal
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: wterminal
+      directives:
+        description: Install Windows Terminal
+        allowPrerelease: true
+      settings:
+        id: Microsoft.WindowsTerminal
+        source: winget
+    ### Install Edge
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: edge
+      directives:
+        description: Install Edge
+        allowPrerelease: true
+      settings:
+        id: Microsoft.Edge
+        source: winget
     ########################################
     ### Configure settings
     ########################################
@@ -183,16 +213,16 @@ properties:
     ### WORKAROUND: GitDsc/GitConfigUserName not working right now.
     ### Git Configure Name
     ### -------------------------------------
-    - resource: PSDscResources/Script
-      dependsOn:
-        - git
-      directives:
-        description: Configure Git to use Default WAM account
-      settings:
-        SetScript: |
-          git config --global user.name "Andre Kakoo Brioso"
-        GetScript: return $false
-        TestScript: return $false
+    #- resource: PSDscResources/Script
+    #  dependsOn:
+    #    - git
+    #  directives:
+    #    description: Configure Git to use Default WAM account
+    #  settings:
+    #    SetScript: |
+    #      git config --global user.name "Andre Kakoo Brioso"
+    #    GetScript: return $false
+    #    TestScript: return $false
     ### Git Configure Email
     ### -------------------------------------
     - resource: GitDsc/GitConfigUserEmail
@@ -206,16 +236,16 @@ properties:
          ConfigLocation: "Global"
     ### Configure Git to use Default WAM account
     ### -------------------------------------
-    - resource: PSDscResources/Script
-      dependsOn:
-        - git
-      directives:
-        description: Configure Git to use Default WAM account
-      settings:
-        SetScript: |
-          git config --global credential.msauthUseDefaultAccount true
-        GetScript: return $false
-        TestScript: return $false
+    #- resource: PSDscResources/Script
+    #  dependsOn:
+    #    - git
+    #  directives:
+    #    description: Configure Git to use Default WAM account
+    #  settings:
+    #    SetScript: |
+    #      git config --global credential.msauthUseDefaultAccount true
+    #    GetScript: return $false
+    #    TestScript: return $false
     ### Install VS Code Extensions
     ### -------------------------------------
     - resource: PSDscResources/Script
@@ -234,13 +264,3 @@ properties:
           code --install-extension ms-azuretools.azure-dev
         GetScript: return $false
         TestScript: return $false
-    ### Install Edge
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: edge
-      directives:
-        description: Install Edge
-        allowPrerelease: true
-      settings:
-        id: Microsoft.Edge
-        source: winget
