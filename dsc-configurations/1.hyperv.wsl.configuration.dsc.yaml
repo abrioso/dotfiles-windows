@@ -22,7 +22,7 @@ properties:
     ########################################
     ### Install HypervisorPlatform Optional Feature
     ### -------------------------------------
-    - resource: PSDscResources/WindowsFeature
+    - resource: PSDscResources/WindowsOptionalFeature
       id: HypervisorPlatform
       directives:
         description: HypervisorPlatform
@@ -32,7 +32,7 @@ properties:
         Ensure: Present
     ### Install VirtualMachinePlatform Optional Feature
     ### -------------------------------------
-    - resource: PSDscResources/WindowsFeature
+    - resource: PSDscResources/WindowsOptionalFeature
       id: VirtualMachinePlatform
       directives:
         description: VirtualMachinePlatform
@@ -43,7 +43,7 @@ properties:
     ########################################
     ### Install HyperV
     ### -------------------------------------
-    - resource: PSDscResources/WindowsFeature
+    - resource: PSDscResources/WindowsOptionalFeature
       id: hyper-v 
       directives:
         description: Microsoft-Hyper-V-All 
@@ -54,7 +54,7 @@ properties:
     ########################################
     ### Install HyperV-Tools
     ### -------------------------------------
-    - resource: PSDscResources/WindowsFeature
+    - resource: PSDscResources/WindowsOptionalFeature
       id: hyperv-tools 
       directives:
         description: Microsoft-Hyper-V-All 
