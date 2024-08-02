@@ -6,8 +6,8 @@ Install-Module -Name Microsoft.WinGet.Configuration -AllowPrerelease -AcceptLice
 $env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 
 # Set the value of $PSScriptRoot to the directory path of the script
-$PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
+$DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 
 
 # Run the DSC configuration using the Winget Cmdlet. Winget.exe cannot run as system or install Windows Optional Features
-Get-WinGetConfiguration -File "$PSScriptRoot\dsc-configurations\base.configuration.dsc.yaml" | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
+Get-WinGetConfiguration -File "$DotFilesRoot\dsc-configurations\0.base.configuration.dsc.yaml" | Invoke-WinGetConfiguration -AcceptConfigurationAgreements -Verbose
