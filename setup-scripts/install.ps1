@@ -14,10 +14,12 @@ function Invoke-Download {
     [string]$file
   )
   Write-Host "Downloading $url to $file"
+  # wait 5 seconds for the download to start
+  Start-Sleep -Seconds 5
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
   Invoke-WebRequest -Uri $url -OutFile $file
-
 }
+
 function Expand-Zip {
     param (
         [string]$File,
@@ -28,6 +30,8 @@ function Expand-Zip {
     $destinationPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
     
     Write-Host "Extract ZIP $File to $Destination"
+    # wait 5 seconds before extracting the zip
+    Start-Sleep -Seconds 5
     try {
         [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
         [System.IO.Compression.ZipFile]::ExtractToDirectory("$filePath", "$destinationPath")
@@ -44,8 +48,8 @@ Push-Location $dotfilesInstallDir
 & .\setup-scripts\setup.ps1
 Pop-Location
 
-$newProcess = new-object System.Diagnostics.ProcessStartInfo "PowerShell";
-$newProcess.Arguments = "-nologo";
-[System.Diagnostics.Process]::Start($newProcess);
-exit
+#$newProcess = new-object System.Diagnostics.ProcessStartInfo "PowerShell";
+#$newProcess.Arguments = "-nologo";
+#[System.Diagnostics.Process]::Start($newProcess);
+#exit
 
