@@ -22,16 +22,18 @@ properties:
     ########################################
     ### Create workspace directory
     ### -------------------------------------
-    - resource: File
+    - resource: PSDscResources/Script
       id: workspacedir
       directives:
-        description: Create workspace directory
-        module: PSDesiredStateConfiguration
-        allowPrerelease: true
+       description: Create workspace directory
       settings:
-        Ensure: Present
-        Type: Directory
-        DestinationPath: $env:USERPROFILE\workspace
+        SetScript: |
+          $workspacePath = "$env:USERPROFILE\workspace"
+          if (-not (Test-Path $workspacePath)) {
+          New-Item -ItemType Directory -Path $workspacePath | Out-Null
+          }
+        GetScript: return $false
+        TestScript: return $false
     ### Install Git
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
