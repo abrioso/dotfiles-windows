@@ -19,6 +19,52 @@ properties:
     ########################################
     ### Initialization
     ########################################
+    ########################################
+    ### Install HypervisorPlatform Optional Feature
+    ### -------------------------------------
+    - resource: PSDscResources/WindowsFeature
+      id: HypervisorPlatform
+      directives:
+        description: HypervisorPlatform
+        allowPrerelease: true
+      settings:
+        Name: HypervisorPlatform
+        Ensure: Present
+    ### Install VirtualMachinePlatform Optional Feature
+    ### -------------------------------------
+    - resource: PSDscResources/WindowsFeature
+      id: VirtualMachinePlatform
+      directives:
+        description: VirtualMachinePlatform
+        allowPrerelease: true
+      settings:
+        Name: VirtualMachinePlatform
+        Ensure: Present
+    ########################################
+    ### Install HyperV
+    ### -------------------------------------
+    - resource: PSDscResources/WindowsFeature
+      id: hyper-v 
+      directives:
+        description: Microsoft-Hyper-V-All 
+        allowPrerelease: true
+      settings:
+        Name: Microsoft-Hyper-V-All 
+        Ensure: Present
+    ########################################
+    ### Install HyperV-Tools
+    ### -------------------------------------
+    - resource: PSDscResources/WindowsFeature
+      id: hyperv-tools 
+      directives:
+        description: Microsoft-Hyper-V-All 
+        allowPrerelease: true
+      settings:
+        Name: Microsoft-Hyper-V-Tools-All 
+        Ensure: Present
+    ########################################
+    ### Install Windows Subsystem for Linux
+    ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
       id: wsl
       directives:
@@ -27,6 +73,8 @@ properties:
       settings:
         id: Microsoft.WSL
         source: winget  
+    ### Install Ubunti 22.04 LTS (WSL)
+    ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
       dependsOn:
         - wsl
