@@ -16,7 +16,23 @@ $DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*.dsc.yaml"
 
 foreach ($DSCFile in $DSCFiles) {
     Write-Host "Running DSC Configuration: $($DSCFile.FullName)"
-    Get-WinGetConfiguration -File $DSCFile.FullName | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
+   $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
+
+    if ($DSCresult.ResultCode -ne 0) {
+        Write-Host "Failed to run DSC Configuration: $($DSCFile.FullName)"
+        Write-Host "Result Code: $($DSCresult.ResultCode)"
+        foreach ($unitResult in $DSCresult.UnitResults) {
+            if($unitResult.ResultCode -ne 0) {
+                Write-Host "Failed to run DSC Unit: $($unitResult.UnitName)"
+                Write-Host "Result Code: $($unitResult.ResultCode)"
+                Write-Host "Result Type: $($unitResult.Type)"
+                Write-Host "Result Message: $($unitResult.Message)"
+                Write-Host "Result Description: $($unitResult.Description)"
+#                Write-Host "Result Details: $($unitResult.Details)"
+                throw "DSC Configuration Failed"
+            }
+        }
+    }
 }
 
 Write-Host "DSC Configuration Completed"
