@@ -1,4 +1,5 @@
 # dotfiles-windows (WIP)
+
 Dotfiles for Windows inspired from several other dotfiles.
 
 ## Installation
@@ -36,11 +37,11 @@ The folder "dsc-configurations" contains the DSC configuration files:
 The following commands are executed every time you launch a new
 PowerShell window.
 
- - `.\components.ps1` : Load various PowerShell components and modules.
- - `.\functions.ps1` : Configure custom PowerShell functions.
- - `.\aliases.ps1` : Configure alias-based commands.
- - `.\exports.ps1` : Configure environment variables.
- - `.\extra.ps1` : Secrets and secret commands that are not tracked by the Git repository.
+- `.\components.ps1` : Load various PowerShell components and modules.
+- `.\functions.ps1` : Configure custom PowerShell functions.
+- `.\aliases.ps1` : Configure alias-based commands.
+- `.\exports.ps1` : Configure environment variables.
+- `.\extra.ps1` : Secrets and secret commands that are not tracked by the Git repository.
 
 Also included are default configurations for Git, Mercurial, Ruby, NPM, and vim.
 
@@ -102,3 +103,7 @@ For the inspiration and for sharing their dotfiles:
 
 1. <https://github.com/acangialosi/dotfiles>
 2. <https://github.com/jayharris/dotfiles-windows>
+
+Other Sources:
+
+1. <https://github.com/microsoft/devhome/tree/main/docs/sampleConfigurations/DscResources>
