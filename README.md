@@ -107,3 +107,4 @@ For the inspiration and for sharing their dotfiles:
 Other Sources:
 
 1. <https://github.com/microsoft/devhome/tree/main/docs/sampleConfigurations/DscResources>
+2. <https://nicksnettravels.builttoroam.com/winget-configuration/>
