@@ -108,3 +108,6 @@ Other Sources:
 
 1. <https://github.com/microsoft/devhome/tree/main/docs/sampleConfigurations/DscResources>
 2. <https://nicksnettravels.builttoroam.com/winget-configuration/>
+3. <https://learn.microsoft.com/en-us/windows/package-manager/configuration/>
+4. <https://github.com/microsoft/winget-create/tree/main/Tools>
+5. <https://github.com/microsoft/winget-cli>
