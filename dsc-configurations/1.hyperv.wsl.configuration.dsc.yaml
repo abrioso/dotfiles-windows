@@ -40,6 +40,16 @@ properties:
       settings:
         Name: VirtualMachinePlatform
         Ensure: Present
+    ### Install Microsoft-Windows-Subsystem-Linux Optional Feature
+    ### -------------------------------------
+    - resource: PSDscResources/WindowsOptionalFeature
+      id: Microsoft-Windows-Subsystem-Linux
+      directives:
+        description: Microsoft-Windows-Subsystem-Linux
+        allowPrerelease: true
+      settings:
+        Name: Microsoft-Windows-Subsystem-Linux
+        Ensure: Present
     ########################################
     ### Install HyperV
     ### -------------------------------------
@@ -67,13 +77,15 @@ properties:
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
       id: wsl
+      dependsOn:
+        - Microsoft-Windows-Subsystem-Linux
       directives:
         description: WSL
         allowPrerelease: true
       settings:
-        id: Microsoft.WSL
+        id: "Microsoft.WSL"
         source: winget  
-    ### Install Ubunti 22.04 LTS (WSL)
+    ### Install Ubuntu 22.04 LTS (WSL)
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
       dependsOn:
