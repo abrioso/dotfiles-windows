@@ -109,7 +109,9 @@ Other Sources:
 1. <https://github.com/microsoft/devhome/tree/main/docs/sampleConfigurations/DscResources>
 2. <https://nicksnettravels.builttoroam.com/winget-configuration/>
 3. <https://learn.microsoft.com/en-us/windows/package-manager/configuration/>
-4. <https://github.com/microsoft/winget-create/tree/main/Tools>
-5. <https://github.com/microsoft/winget-cli>
-6. <https://github.com/PowerShell/PSDscResources>
-7. <https://learn.microsoft.com/en-us/windows/wsl/setup/environment>
+4. <https://learn.microsoft.com/en-us/windows/package-manager/configuration/create>
+5. <https://github.com/microsoft/winget-create/tree/main/Tools>
+6. <https://github.com/microsoft/winget-cli>
+7. <https://github.com/PowerShell/PSDscResources>
+8. <https://learn.microsoft.com/en-us/windows/wsl/setup/environment>
+9. <https://learn.microsoft.com/en-us/windows/dev-home/>
