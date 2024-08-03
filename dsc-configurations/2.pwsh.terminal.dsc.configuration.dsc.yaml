@@ -244,19 +244,21 @@ properties:
     ########################################
     ### Configure Oh My Posh
     ### -------------------------------------
-    - resource: PSDscResources/Script
-      id: ohmyposhsettings
-      dependsOn:
-        - ohmyposh
-      directives:
-        description: Configure Oh My Posh
-      settings:
-        SetScript: |
-          $settings = Get-Content "$env:USERPROFILE\.config\oh-my-posh\poshthemes\robbyrussell.omp.json" -Raw | ConvertFrom-Json
-          $settings.prompt = "arrow"
-          $settings | ConvertTo-Json | Set-Content "$env:USERPROFILE\.config\oh-my-posh\poshthemes\robbyrussell.omp.json"
-        GetScript: return $false
-        TestScript: return $false
+    # Configure Oh My Posh
+    # -------------------------------------
+    # - resource: PSDscResources/Script
+    #   id: ohmyposhsettings
+    #   dependsOn:
+    #     - ohmyposh
+    #   directives:
+    #     description: Configure Oh My Posh
+    #   settings:
+    #     SetScript: |
+    #       $settings = Get-Content "$env:USERPROFILE\.config\oh-my-posh\poshthemes\robbyrussell.omp.json" -Raw | ConvertFrom-Json
+    #       $settings.prompt = "arrow"
+    #       $settings | ConvertTo-Json | Set-Content "$env:USERPROFILE\.config\oh-my-posh\poshthemes\robbyrussell.omp.json"
+    #   GetScript: return $false
+    #   TestScript: return $false
     ########################################
     ### Configure gsudo
     ### -------------------------------------
