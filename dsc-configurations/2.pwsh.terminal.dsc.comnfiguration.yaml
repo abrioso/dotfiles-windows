@@ -20,12 +20,12 @@ properties:
     ### Initialization
     ########################################
     ########################################
-    ### Create workspace directory
+    ### Create Powershell directory
     ### -------------------------------------
     - resource: PSDscResources/Script
       id: powershelldir
       directives:
-       description: Create Powershell directory
+        description: Create Powershell directory
       settings:
         SetScript: |
           $powershellPath = "$env:USERPROFILE\Documents\PowerShell"
@@ -34,6 +34,48 @@ properties:
           }
         GetScript: return $false
         TestScript: return $false
+    ########################################
+    ### Create (bare) Powershell Profiles
+    ### -------------------------------------
+    - resource: PSDscResources/Script
+      id: powershellprofiles
+      dependsOn:
+        - powershelldir
+      directives:
+       description: Create Powershell Profiles
+      settings:
+        SetScript: |
+          $powershellPath = "$env:USERPROFILE\Documents\PowerShell"
+          $powershellProfile = "$powershellPath\Microsoft.PowerShell_profile.ps1"
+          $vscodeProfile = "$powershellPath\Microsoft.VSCode_profile.ps1"
+          if (-not (Test-Path $powershellProfile)) {
+          New-Item -ItemType File -Path $powershellProfile | Out-Null
+          }
+          if (-not (Test-Path $vscodeProfile)) {
+          New-Item -ItemType File -Path $vscodeProfile | Out-Null
+          }
+        GetScript: return $false
+        TestScript: return $false
+    ########################################
+    ### Change Environment Variables
+    ### -------------------------------------
+    - resource: PSDscResources/Environment
+      id: Powershell_Profile_EnvironmentVariable
+      directives:
+        description: Change Profile Environment Variables
+      settings:
+        Name: "PROFILE"
+        Value: "$env:USERPROFILE\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1"
+    ########################################
+    ### Change Environment Variables
+    ### -------------------------------------
+    - resource: PSDscResources/Environment
+      id: VSCode_Profile_EnvironmentVariable
+      directives:
+        description: Change Profile Environment Variables
+      settings:
+        Name: "VSCODE_PROFILE"
+        Value: "$env:USERPROFILE\\Documents\PowerShell\\Microsoft.VSCode_profile.ps1"
     ########################################
     ### Install Powershell
     ### -------------------------------------
@@ -115,6 +157,7 @@ properties:
       id: powershellsettings
       dependsOn:
         - Powershell
+        - powershellprofiles
         - ohmyposh
       directives:
         description: Configure Powershell
