@@ -178,32 +178,38 @@ properties:
     ########################################
     ### Configure Windows Terminal
     ### -------------------------------------
-    - resource: PSDscResources/Script
-      id: terminalsettings
-      dependsOn:
-        - WindowsTerminal
-      directives:
-        description: Configure Windows Terminal
-      settings:
-        SetScript: |
-          $settings = Get-Content "$env:USERPROFILE\AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json" -Raw | ConvertFrom-Json
-          $settings.profiles.list | ForEach-Object {
-            if ($_.name -eq "Windows PowerShell") {
-              $_.icon = "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png"
-              $_.colorScheme = "Campbell"
-              $_.fontFace = "Cascadia Code PL"
-              $_.fontSize = 12
-            }
-            if ($_.name -eq "Azure Cloud Shell") {
-              $_.icon = "ms-appx:///ProfileIcons/{b453ae62-4e3d-5e58-b989-0a998ec441b8}.png"
-              $_.colorScheme = "Campbell"
-              $_.fontFace = "Cascadia Code PL"
-              $_.fontSize = 12
-            }
-          }
-          $settings | ConvertTo-Json | Set-Content "$env:USERPROFILE\AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-        GetScript: return $false
-        TestScript: return $false
+    #- resource: PSDscResources/Script
+    #  id: terminalsettings
+    #  dependsOn:
+    #    - WindowsTerminal
+      # Configure Windows Terminal
+      # -------------------------------------
+      # - resource: PSDscResources/Script
+      #   id: terminalsettings
+      #   dependsOn:
+      #     - WindowsTerminal
+      #   directives:
+      #     description: Configure Windows Terminal
+      #   settings:
+      #     SetScript: |
+      #       $settings = Get-Content "$env:USERPROFILE\AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json" -Raw | ConvertFrom-Json
+      #       $settings.profiles.list | ForEach-Object {
+      #         if ($_.name -eq "Windows PowerShell") {
+      #           $_.icon = "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png"
+      #           $_.colorScheme = "Campbell"
+      #           $_.fontFace = "Cascadia Code PL"
+      #           $_.fontSize = 12
+      #         }
+      #         if ($_.name -eq "Azure Cloud Shell") {
+      #           $_.icon = "ms-appx:///ProfileIcons/{b453ae62-4e3d-5e58-b989-0a998ec441b8}.png"
+      #           $_.colorScheme = "Campbell"
+      #           $_.fontFace = "Cascadia Code PL"
+      #           $_.fontSize = 12
+      #         }
+      #       }
+      #       $settings | ConvertTo-Json | Set-Content "$env:USERPROFILE\AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+      #   GetScript: return $false
+      #   TestScript: return $false
     ########################################
     ### Configure Oh My Posh
     ### -------------------------------------
@@ -218,6 +224,20 @@ properties:
           $settings = Get-Content "$env:USERPROFILE\.config\oh-my-posh\poshthemes\robbyrussell.omp.json" -Raw | ConvertFrom-Json
           $settings.prompt = "arrow"
           $settings | ConvertTo-Json | Set-Content "$env:USERPROFILE\.config\oh-my-posh\poshthemes\robbyrussell.omp.json"
+        GetScript: return $false
+        TestScript: return $false
+    ########################################
+    ### Configure gsudo
+    ### -------------------------------------
+    - resource: PSDscResources/Script
+      id: gsudoconfig
+      dependsOn:
+        - gsudo
+      directives:
+        description: Configure gsudo
+      settings:
+        SetScript: |
+          gsudo --install
         GetScript: return $false
         TestScript: return $false
     
