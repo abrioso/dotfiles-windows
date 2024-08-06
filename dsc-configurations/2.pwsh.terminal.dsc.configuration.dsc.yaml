@@ -37,93 +37,6 @@ properties:
         GetScript: return $false
         TestScript: return $false
     ########################################
-    ### Create (bare) Powershell Profiles
-    ### -------------------------------------
-    # - resource: PSDscResources/Script
-    #   id: powershellprofiles
-    #   dependsOn:
-    #     - powershelldir
-    #   directives:
-    #    description: Create Powershell Profiles
-    #   settings:
-    #     SetScript: |
-    #       $powershellPath = "$env:USERPROFILE\Documents\PowerShell"
-    #       $powershellProfile = "$powershellPath\Microsoft.PowerShell_profile.ps1"
-    #       $vscodeProfile = "$powershellPath\Microsoft.VSCode_profile.ps1"
-    #       if (-not (Test-Path $powershellProfile)) {
-    #       New-Item -ItemType File -Path $powershellProfile | Out-Null
-    #       }
-    #       if (-not (Test-Path $vscodeProfile)) {
-    #       New-Item -ItemType File -Path $vscodeProfile | Out-Null
-    #       }
-    #     GetScript: return $false
-    #     TestScript: return $false
-    ########################################
-    ### Download and Install a Nerd Font
-    ### -------------------------------------
-    - resource: PSDscResources/Script
-      id: nerdFont
-      directives:
-        description: Download and Install a Nerd Font
-      settings:
-        SetScript: |
-          # Define the URL for the Nerd Font zip file
-          $nerdFontUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/v2.1.0/FiraCode.zip"
-          # Define the path to download the zip file
-          $zipFilePath = "$env:TEMP\FiraCode.zip"
-          # Define the path to extract the zip file
-          $extractPath = "$env:TEMP\FiraCode"
-          # Define the Windows Fonts directory
-          $fontsDirectory = "$env:SystemRoot\Fonts"
-          # Download the Nerd Font zip file
-          Invoke-WebRequest -Uri $nerdFontUrl -OutFile $zipFilePath
-          # Extract the zip file
-          Expand-Archive -Path $zipFilePath -DestinationPath $extractPath
-          # Copy the font files to the Windows Fonts directory
-          Get-ChildItem -Path $extractPath -Filter *.ttf | ForEach-Object {
-              Copy-Item -Path $_.FullName -Destination $fontsDirectory
-          }
-          # Clean up the downloaded and extracted files
-          Remove-Item -Path $zipFilePath -Force
-          Remove-Item -Path $extractPath -Recurse -Force
-          # Refresh the font cache
-          $shell = New-Object -ComObject Shell.Application
-          $shell.Namespace(0x14).ParseName("C:\Windows\Fonts").InvokeVerb("Install")
-        GetScript: return $false
-        TestScript: return $false
-    ########################################
-    ### Install Terminal-Icons
-    ### -------------------------------------
-    - resource: PSDscResources/Script
-      id: terminalIcons
-      directives:
-        description: Install Terminal-Icons
-      settings:
-        SetScript: |
-          # Install Terminal-Icons
-          Install-Module -Name Terminal-Icons
-        GetScript: return $false
-        TestScript: return $false
-    ########################################
-    ### Change Environment Variables
-    ### -------------------------------------
-    # - resource: PSDscResources/Environment
-    #   id: Powershell_Profile_EnvironmentVariable
-    #   directives:
-    #     description: Change Profile Environment Variables
-    #   settings:
-    #     Name: "PROFILE"
-    #     Value: "$env:USERPROFILE\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1"
-    ########################################
-    ### Change Environment Variables
-    ### -------------------------------------
-    # - resource: PSDscResources/Environment
-    #   id: VSCode_Profile_EnvironmentVariable
-    #   directives:
-    #     description: Change Profile Environment Variables
-    #   settings:
-    #     Name: "VSCODE_PROFILE"
-    #     Value: "$env:USERPROFILE\\Documents\PowerShell\\Microsoft.VSCode_profile.ps1" ########################################
     ### Install Powershell
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -159,17 +72,6 @@ properties:
         id: JanDeDobbeleer.OhMyPosh
         source: winget
     ########################################
-    ### Install Cascadia Code PL
-    ### -------------------------------------
-    #- resource: Microsoft.WinGet.DSC/WinGetPackage
-    #  id: CascadiaCodePL
-    #  directives:
-    #    description: Install Cascadia Code PL
-    #    allowPrerelease: true
-    #  settings:
-    #    id: CascadiaCodePL
-    #    source: winget
-    ########################################
     ### Install Github CLI
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -198,84 +100,79 @@ properties:
     ########################################
     ### Configure settings
     ########################################
-    ### Configure Powershell
-    ### -------------------------------------
-    # Configure Powershell
-    # -------------------------------------
-    # - resource: PSDscResources/Script
-    #   id: powershellsettings
-    #   dependsOn:
-    #     - Powershell
-    #     - powershellprofiles
-    #     - ohmyposh
-    #   directives:
-    #     description: Configure Powershell
-    #   settings:
-    #     SetScript: |
-    #       $settings = Get-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" -Raw
-    #       if ($settings -notlike "*oh-my-posh*") {
-    #         Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" "Import-Module oh-my-posh"
-    #         Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" "Set-Theme robbyrussell"
-    #       }
-    #       $settings = Get-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1" -Raw
-    #       if ($settings -notlike "*oh-my-posh*") {
-    #         Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1" "Import-Module oh-my-posh"
-    #         Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1" "Set-Theme robbyrussell"
-    #       }
-    #   GetScript: return $false
-    #   TestScript: return $false
-    ### Configure Windows Terminal
-    ### -------------------------------------
-    #- resource: PSDscResources/Script
-    #  id: terminalsettings
-    #  dependsOn:
-    #    - WindowsTerminal
-      # Configure Windows Terminal
-      # -------------------------------------
-      # - resource: PSDscResources/Script
-      #   id: terminalsettings
-      #   dependsOn:
-      #     - WindowsTerminal
-      #   directives:
-      #     description: Configure Windows Terminal
-      #   settings:
-      #     SetScript: |
-      #       $settings = Get-Content "$env:USERPROFILE\AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json" -Raw | ConvertFrom-Json
-      #       $settings.profiles.list | ForEach-Object {
-      #         if ($_.name -eq "Windows PowerShell") {
-      #           $_.icon = "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png"
-      #           $_.colorScheme = "Campbell"
-      #           $_.fontFace = "Cascadia Code PL"
-      #           $_.fontSize = 12
-      #         }
-      #         if ($_.name -eq "Azure Cloud Shell") {
-      #           $_.icon = "ms-appx:///ProfileIcons/{b453ae62-4e3d-5e58-b989-0a998ec441b8}.png"
-      #           $_.colorScheme = "Campbell"
-      #           $_.fontFace = "Cascadia Code PL"
-      #           $_.fontSize = 12
-      #         }
-      #       }
-      #       $settings | ConvertTo-Json | Set-Content "$env:USERPROFILE\AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-      #   GetScript: return $false
-      #   TestScript: return $false
     ########################################
-    ### Configure Oh My Posh
+    ### Copy Powershell Profiles
     ### -------------------------------------
-    # Configure Oh My Posh
-    # -------------------------------------
-    # - resource: PSDscResources/Script
-    #   id: ohmyposhsettings
-    #   dependsOn:
-    #     - ohmyposh
-    #   directives:
-    #     description: Configure Oh My Posh
-    #   settings:
-    #     SetScript: |
-    #       $settings = Get-Content "$env:USERPROFILE\.config\oh-my-posh\poshthemes\robbyrussell.omp.json" -Raw | ConvertFrom-Json
-    #       $settings.prompt = "arrow"
-    #       $settings | ConvertTo-Json | Set-Content "$env:USERPROFILE\.config\oh-my-posh\poshthemes\robbyrussell.omp.json"
-    #   GetScript: return $false
-    #   TestScript: return $false
+    - resource: PSDscResources/Script
+      id: powershellprofiles
+      dependsOn:
+       - powershellprofiledir
+      directives:
+       description: Copy Powershell Profiles
+      settings:
+       SetScript: |
+        # Get the directory of the PowerShell profile
+        $powershellProfilePath = Split-Path -Parent $PROFILE
+        # Get the dotfiles directory
+        $dotfilesPowershellProfilesDirectory = "$env:USERPROFILE\workspace\dotfiles-windows\powershell-profiles"
+        $files = Get-ChildItem -Path $dotfilesPowershellProfilesDirectory -Filter "*.ps1"
+        foreach ($file in $files) {
+          $destination = Join-Path -Path $powershellProfilePath -ChildPath $file.Name
+          Copy-Item -Path $file.FullName -Destination $destination
+        }
+       GetScript: return $false
+       TestScript: return $false
+    ########################################
+    ### Copy Oh My Posh Custom Themes
+    ### -------------------------------------
+    - resource: PSDscResources/Script
+      id: customompthemes
+      dependsOn:
+       - powershellprofiledir
+      directives:
+       description: Copy custom oh-my-posh Themes
+      settings:
+       SetScript: |
+        # Get oh my posh directory
+        $ohMyPoshDirectory = "$env:USERPROFILE\.config\oh-my-posh\poshthemes"
+        # Ensure the directory exists
+        if (-not (Test-Path $ohMyPoshDirectory)) {
+            New-Item -ItemType Directory -Path $ohMyPoshDirectory | Out-Null
+        }
+        # Get the dotfiles directory
+        $dotfilesPoshDirectory = "$env:USERPROFILE\workspace\dotfiles-windows\poshthemes"
+        $files = Get-ChildItem -Path $dotfilesPoshDirectory -Filter "*.omp.json"
+        foreach ($file in $files) {
+          $destination = Join-Path -Path $ohMyPoshDirectory -ChildPath $file.Name
+          Copy-Item -Path $file.FullName -Destination $destination
+        }
+       GetScript: return $false
+       TestScript: return $false
+    ########################################
+    ### Download and Install a Nerd Font
+    ### -------------------------------------
+    - resource: PSDscResources/Script
+      id: nerdFont
+      directives:
+        description: Download and Install a Nerd Font (via oh-my-posh)
+      settings:
+        SetScript: |
+          oh-my-posh font install CascadiaCode
+        GetScript: return $false
+        TestScript: return $false
+    ########################################
+    ### Install Terminal-Icons
+    ### -------------------------------------
+    - resource: PSDscResources/Script
+      id: terminalIcons
+      directives:
+        description: Install Terminal-Icons
+      settings:
+        SetScript: |
+          # Install Terminal-Icons
+          Install-Module -Name Terminal-Icons
+        GetScript: return $false
+        TestScript: return $false
     ########################################
     ### Configure gsudo
     ### -------------------------------------
