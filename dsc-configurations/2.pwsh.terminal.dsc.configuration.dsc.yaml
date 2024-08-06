@@ -20,42 +20,44 @@ properties:
     ### Initialization
     ########################################
     ########################################
-    ### Create Powershell directory
+    ### Create Powershell Profile directory
     ### -------------------------------------
     - resource: PSDscResources/Script
-      id: powershelldir
+      id: powershellprofiledir
       directives:
-        description: Create Powershell directory
+        description: Create Powershell Profile directory
       settings:
         SetScript: |
-          $powershellPath = "$env:USERPROFILE\Documents\PowerShell"
-          if (-not (Test-Path $powershellPath)) {
-          New-Item -ItemType Directory -Path $powershellPath | Out-Null
+          # Get the directory of the PowerShell profile
+          $profileDirectory = Split-Path -Parent $PROFILE
+          # Ensure the directory exists
+          if (-not (Test-Path $profileDirectory)) {
+              New-Item -ItemType Directory -Path $profileDirectory | Out-Null
           }
         GetScript: return $false
         TestScript: return $false
     ########################################
     ### Create (bare) Powershell Profiles
     ### -------------------------------------
-    - resource: PSDscResources/Script
-      id: powershellprofiles
-      dependsOn:
-        - powershelldir
-      directives:
-       description: Create Powershell Profiles
-      settings:
-        SetScript: |
-          $powershellPath = "$env:USERPROFILE\Documents\PowerShell"
-          $powershellProfile = "$powershellPath\Microsoft.PowerShell_profile.ps1"
-          $vscodeProfile = "$powershellPath\Microsoft.VSCode_profile.ps1"
-          if (-not (Test-Path $powershellProfile)) {
-          New-Item -ItemType File -Path $powershellProfile | Out-Null
-          }
-          if (-not (Test-Path $vscodeProfile)) {
-          New-Item -ItemType File -Path $vscodeProfile | Out-Null
-          }
-        GetScript: return $false
-        TestScript: return $false
+    # - resource: PSDscResources/Script
+    #   id: powershellprofiles
+    #   dependsOn:
+    #     - powershelldir
+    #   directives:
+    #    description: Create Powershell Profiles
+    #   settings:
+    #     SetScript: |
+    #       $powershellPath = "$env:USERPROFILE\Documents\PowerShell"
+    #       $powershellProfile = "$powershellPath\Microsoft.PowerShell_profile.ps1"
+    #       $vscodeProfile = "$powershellPath\Microsoft.VSCode_profile.ps1"
+    #       if (-not (Test-Path $powershellProfile)) {
+    #       New-Item -ItemType File -Path $powershellProfile | Out-Null
+    #       }
+    #       if (-not (Test-Path $vscodeProfile)) {
+    #       New-Item -ItemType File -Path $vscodeProfile | Out-Null
+    #       }
+    #     GetScript: return $false
+    #     TestScript: return $false
     ########################################
     ### Download and Install a Nerd Font
     ### -------------------------------------
@@ -87,27 +89,41 @@ properties:
           # Refresh the font cache
           $shell = New-Object -ComObject Shell.Application
           $shell.Namespace(0x14).ParseName("C:\Windows\Fonts").InvokeVerb("Install")
+        GetScript: return $false
+        TestScript: return $false
+    ########################################
+    ### Install Terminal-Icons
+    ### -------------------------------------
+    - resource: PSDscResources/Script
+      id: terminalIcons
+      directives:
+        description: Install Terminal-Icons
+      settings:
+        SetScript: |
+          # Install Terminal-Icons
+          Install-Module -Name Terminal-Icons
+        GetScript: return $false
+        TestScript: return $false
     ########################################
     ### Change Environment Variables
     ### -------------------------------------
-    - resource: PSDscResources/Environment
-      id: Powershell_Profile_EnvironmentVariable
-      directives:
-        description: Change Profile Environment Variables
-      settings:
-        Name: "PROFILE"
-        Value: "$env:USERPROFILE\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1"
+    # - resource: PSDscResources/Environment
+    #   id: Powershell_Profile_EnvironmentVariable
+    #   directives:
+    #     description: Change Profile Environment Variables
+    #   settings:
+    #     Name: "PROFILE"
+    #     Value: "$env:USERPROFILE\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1"
     ########################################
     ### Change Environment Variables
     ### -------------------------------------
-    - resource: PSDscResources/Environment
-      id: VSCode_Profile_EnvironmentVariable
-      directives:
-        description: Change Profile Environment Variables
-      settings:
-        Name: "VSCODE_PROFILE"
-        Value: "$env:USERPROFILE\\Documents\PowerShell\\Microsoft.VSCode_profile.ps1"
-    ########################################
+    # - resource: PSDscResources/Environment
+    #   id: VSCode_Profile_EnvironmentVariable
+    #   directives:
+    #     description: Change Profile Environment Variables
+    #   settings:
+    #     Name: "VSCODE_PROFILE"
+    #     Value: "$env:USERPROFILE\\Documents\PowerShell\\Microsoft.VSCode_profile.ps1" ########################################
     ### Install Powershell
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -184,29 +200,30 @@ properties:
     ########################################
     ### Configure Powershell
     ### -------------------------------------
-    - resource: PSDscResources/Script
-      id: powershellsettings
-      dependsOn:
-        - Powershell
-        - powershellprofiles
-        - ohmyposh
-      directives:
-        description: Configure Powershell
-      settings:
-        SetScript: |
-          $settings = Get-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" -Raw
-          if ($settings -notlike "*oh-my-posh*") {
-            Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" "Import-Module oh-my-posh"
-            Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" "Set-Theme robbyrussell"
-          }
-          $settings = Get-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1" -Raw
-          if ($settings -notlike "*oh-my-posh*") {
-            Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1" "Import-Module oh-my-posh"
-            Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1" "Set-Theme robbyrussell"
-          }
-        GetScript: return $false
-        TestScript: return $false
-    ########################################
+    # Configure Powershell
+    # -------------------------------------
+    # - resource: PSDscResources/Script
+    #   id: powershellsettings
+    #   dependsOn:
+    #     - Powershell
+    #     - powershellprofiles
+    #     - ohmyposh
+    #   directives:
+    #     description: Configure Powershell
+    #   settings:
+    #     SetScript: |
+    #       $settings = Get-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" -Raw
+    #       if ($settings -notlike "*oh-my-posh*") {
+    #         Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" "Import-Module oh-my-posh"
+    #         Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" "Set-Theme robbyrussell"
+    #       }
+    #       $settings = Get-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1" -Raw
+    #       if ($settings -notlike "*oh-my-posh*") {
+    #         Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1" "Import-Module oh-my-posh"
+    #         Add-Content "$env:USERPROFILE\Documents\PowerShell\Microsoft.VSCode_profile.ps1" "Set-Theme robbyrussell"
+    #       }
+    #   GetScript: return $false
+    #   TestScript: return $false
     ### Configure Windows Terminal
     ### -------------------------------------
     #- resource: PSDscResources/Script
