@@ -4,5 +4,12 @@ $currentUserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).Us
 # Get the Hyper-V Administrators group
 $hyperVAdminsGroup = Get-LocalGroup -SID "S-1-5-32-578"
 
-# Add the current user to the Hyper-V Administrators group
-Add-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSid
+# If user is already a member of the Hyper-V Administrators group, exit
+if (Get-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSid) {
+    Write-Host "User is already a member of the Hyper-V Administrators group"
+    exit
+} else {
+    Write-Host "Adding user to the Hyper-V Administrators group"
+    # Add the current user to the Hyper-V Administrators group
+    Add-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSid
+}
