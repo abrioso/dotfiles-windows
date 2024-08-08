@@ -195,18 +195,5 @@ properties:
         }
        GetScript: return $false
        TestScript: return $false
-    ########################################
-    ### Configure gsudo
-    ### -------------------------------------
-    - resource: PSDscResources/Script
-      id: gsudoconfig
-      dependsOn:
-        - gsudo
-      directives:
-        description: Configure gsudo
-      settings:
-        SetScript: |
-          gsudo --install
-        GetScript: return $false
-        TestScript: return $false
+
     
