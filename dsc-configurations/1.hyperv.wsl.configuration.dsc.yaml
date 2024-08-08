@@ -54,7 +54,7 @@ properties:
     ### Install HyperV
     ### -------------------------------------
     - resource: PSDscResources/WindowsOptionalFeature
-      id: hyper-v 
+      id: hyperv 
       directives:
         description: Microsoft-Hyper-V-All 
         allowPrerelease: true
@@ -67,7 +67,7 @@ properties:
     - resource: PSDscResources/WindowsOptionalFeature
       id: hyperv-tools 
       directives:
-        description: Microsoft-Hyper-V-All 
+        description: Microsoft-Hyper-V-Tools-All 
         allowPrerelease: true
       settings:
         Name: Microsoft-Hyper-V-Tools-All 
@@ -96,3 +96,57 @@ properties:
       settings:
         id: Canonical.Ubuntu.2204
         source: winget 
+    ########################################
+    ### Install Powershell
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: Powershell
+      directives:
+        description: Install Powershell
+        allowPrerelease: true
+      settings:
+        id: Microsoft.PowerShell
+        source: winget
+    ########################################
+    ### Install Windows Terminal
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: WindowsTerminal
+      directives:
+        description: Install Windows Terminal
+        allowPrerelease: true
+      settings:
+        id: Microsoft.WindowsTerminal
+        source: winget
+    ########################################
+    ### Configuration
+    ########################################
+    ########################################
+    ### Add current user to Hyper-V Administrators group
+    ### -------------------------------------
+    - resource: PSDscResources/Script
+      id: HyperVAdminGroup
+      directives:
+        description: Add current user to Hyper-V Administrators group
+        allowPrerelease: true
+      settings:
+        SetScript: |
+          # Get the current user's SID
+          $currentUserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+          # Get the Hyper-V Administrators group
+          $hyperVAdminsGroup = Get-LocalGroup -SID "S-1-5-32-578"
+          # Add the current user to the Hyper-V Administrators group
+          Add-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSid
+          $user = Get-LocalUser -Name $env:USERNAME
+          if ($group.Members -notcontains $user) {
+            Add-LocalGroupMember -Group "Hyper-V Administrators" -Member $user
+          }
+        GetScript: |
+          $hyperVAdminsGroup = Get-LocalGroup -SID "S-1-5-32-578"
+          $currentUserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+          return $hyperVAdminsGroup.Members -contains $currentUserSid
+        TestScript: |
+          $hyperVAdminsGroup = Get-LocalGroup -SID "S-1-5-32-578"
+          $currentUserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+          return $hyperVAdminsGroup.Members -contains $currentUserSid
+    ########################################
