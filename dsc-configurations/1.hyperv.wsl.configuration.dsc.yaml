@@ -135,11 +135,10 @@ properties:
           $currentUserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
           # Get the Hyper-V Administrators group
           $hyperVAdminsGroup = Get-LocalGroup -SID "S-1-5-32-578"
-          # Add the current user to the Hyper-V Administrators group
-          Add-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSid
-          $user = Get-LocalUser -Name $env:USERNAME
-          if ($group.Members -notcontains $user) {
-            Add-LocalGroupMember -Group "Hyper-V Administrators" -Member $user
+          # If user is already a member of the Hyper-V Administrators group, exit
+          if ((!Get-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSid)) {
+            # Add the current user to the Hyper-V Administrators group
+            Add-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSid
           }
         GetScript: |
           return $false
