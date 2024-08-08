@@ -142,11 +142,7 @@ properties:
             Add-LocalGroupMember -Group "Hyper-V Administrators" -Member $user
           }
         GetScript: |
-          $hyperVAdminsGroup = Get-LocalGroup -SID "S-1-5-32-578"
-          $currentUserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-          return $hyperVAdminsGroup.Members -contains $currentUserSid
+          return $false
         TestScript: |
-          $hyperVAdminsGroup = Get-LocalGroup -SID "S-1-5-32-578"
-          $currentUserSid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-          return $hyperVAdminsGroup.Members -contains $currentUserSid
+          return $false
     ########################################
