@@ -136,7 +136,7 @@ properties:
           # Get the Hyper-V Administrators group
           $hyperVAdminsGroup = Get-LocalGroup -SID "S-1-5-32-578"
           # If user is already a member of the Hyper-V Administrators group, exit
-          if ((!Get-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSid)) {
+          if (!(Get-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSid)) {
             # Add the current user to the Hyper-V Administrators group
             Add-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSid
           }
