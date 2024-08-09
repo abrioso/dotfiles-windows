@@ -1,11 +1,12 @@
 import requests
 from xml.etree import ElementTree
+import json
 
 # Define the base URL and parameters
 base_url = "https://www.repository.utl.pt/oaiextended/request"
 params = {
     "verb": "GetRecord",
-    "identifier": "oai:repository.utl.pt:10400.5/29493",
+    "identifier": "oai:repository.utl.pt:10400.5/20605",
     "metadataPrefix": "oai_dc"
 }
 
@@ -27,10 +28,12 @@ if response.status_code == 200:
             tag = element.tag.split('}')[1]
             data.setdefault(tag, []).append(element.text)
 
-        # Print the extracted metadata
-        for key, value in data.items():
-            print(f"{key}: {value}")
+        # Write the extracted metadata to a JSON file
+        with open('metadata.json', 'w', encoding='utf-8') as json_file:
+            json.dump(data, json_file, ensure_ascii=False, indent=4)
+
+        print("Metadata has been written to metadata.json")
     else:
         print("No metadata found")
 else:
-    print(f"Failed to retrieve data: {response.status_code}")
+    print(f"Failed to retrieve data. HTTP Status Code: {response.status_code}")
