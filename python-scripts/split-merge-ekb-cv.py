@@ -27,10 +27,79 @@ def split_merge_pdfs(pdf_list, output):
 def ___main___():
     # Two dimension list with the pdf location and the pages to use
     pdf_list = [
-        ['pdf1.pdf', [0, 1, 2, 3]],
-        ['pdf2.pdf', [0, 1, 2, 3, 4, 5, 6, 7]],
-        ['pdf3.pdf', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
-        ['pdf4.pdf', [0-20]]
+        ['CV_EKB_Vol2.pdf', list(range(0, 18))],
+        ['A/A1.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(20, 21))],
+        ['A/A2.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(23, 24))],
+        ['A/A3.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(25, 26))],
+        ['A/A4.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(27, 28))],
+        ['A/A5.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(30, 31))],
+        ['A/A6.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(32, 33))],
+        ['A/A7.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(34, 35))],
+        ['A/A8.pdf', list(range(0, 3))],
+        ['CV_EKB_Vol2.pdf', list(range(38, 39))],
+        ['CV_EKB_Vol2.pdf', list(range(39, 40))],
+        ['CV_EKB_Vol2.pdf', list(range(40, 41))],   # TODO: Replace with 'B/B1.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(41, 42))],   
+        ['CV_EKB_Vol2.pdf', list(range(42, 43))],   # TODO: Replace with 'B/B2.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(43, 44))],   
+        ['B/B3.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(45, 46))],   
+        ['B/B4.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(47, 48))],
+        ['CV_EKB_Vol2.pdf', list(range(48, 49))],   # TODO: Replace with 'B/B5.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(49, 50))],
+        ['CV_EKB_Vol2.pdf', list(range(50, 51))],   # TODO: Replace with 'B/B6.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(51, 52))],
+        ['CV_EKB_Vol2.pdf', list(range(52, 53))],   # TODO: Replace with 'B/B7.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(53, 54))],
+        ['B/B8.pdf', list(range(0, 1))],   # TODO: Replace with  for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(55, 56))],
+        ['B/B9.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(57, 58))],
+        ['CV_EKB_Vol2.pdf', list(range(58, 59))],
+        ['C/C1.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(61, 62))],
+        ['C/C2.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(64, 65))],
+        ['C/C3.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(67, 68))],
+#        ['C/C4.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(70, 71))],
+        ['C/C5.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(73, 74))],
+        ['C/C6.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(76, 77))],
+        ['C/C7.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(79, 80))],
+        ['C/C8.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(82, 83))],
+        ['C/C9.1.pdf', list(range(0, 2))],
+        ['C/C9.2.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(87, 88))],
+#        ['C/C10.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(90, 91))],
+#        ['C/C11.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(93, 94))],
+        ['C/C12.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(96, 97))],
+#        ['C/C13.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(99, 100))],
+        ['C/C14.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(102, 103))],
+        ['C/C15.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(105, 106))],
+#        ['C/C16.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(108, 109))],
+#        ['C/C17.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(110, 111))],
+        ['CV_EKB_Vol2.pdf', list(range(111, 112))]
     ]
     # Output file name
     output = 'merged.pdf'
@@ -38,12 +107,12 @@ def ___main___():
     # List the PDF files to be merged
     print('PDF files to merge:')
     for pdf in pdf_list:
-        print('file: ' + pdf[0] + ' pages: ' + pdf[1])
+        print('file: ' + pdf[0] + ' pages: ' + pdf[1].__str__())
 
     # Merge the PDF files
     split_merge_pdfs(pdf_list, output)
     # Print a message to indicate that the PDF files have been merged
-    print('PDF files have been merged successfully to' + output + '!')
+    print('PDF files have been merged successfully to ' + output + '!')
 
 if __name__ == '__main__':
     ___main___()
