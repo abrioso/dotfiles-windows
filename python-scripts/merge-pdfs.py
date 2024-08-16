@@ -1,3 +1,11 @@
+#
+# This script merges multiple PDF files into a single PDF file. 
+# It uses the PyPDF2 library to read the input PDF files and write the merged PDF file. 
+# The merge_pdfs function takes a list of PDF files and an output file name as input, and merges the PDF files into a single PDF file. 
+# The main function lists the PDF files in the current directory, merges them using the merge_pdfs function, and saves the merged PDF file as 'merged.pdf'. 
+# The script can be run from the command line or as a standalone script to merge PDF files.
+#
+
 import os
 import PyPDF2
 
@@ -37,9 +45,3 @@ def ___main___():
 
 if __name__ == '__main__':
     ___main___()
-#
-# This script merges multiple PDF files into a single PDF file. 
-# It uses the PyPDF2 library to read the input PDF files and write the merged PDF file. 
-# The merge_pdfs function takes a list of PDF files and an output file name as input, and merges the PDF files into a single PDF file. 
-# The main function lists the PDF files in the current directory, merges them using the merge_pdfs function, and saves the merged PDF file as 'merged.pdf'. 
-# The script can be run from the command line or as a standalone script to merge PDF files.
