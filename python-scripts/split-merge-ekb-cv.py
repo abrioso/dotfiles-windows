@@ -202,6 +202,21 @@ def ___main___():
         ['E/E18.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(245, 246))],
         ['CV_EKB_Vol2.pdf', list(range(246, 247))],
+        ['F/F1.pdf', list(range(0, 5))],
+        ['CV_EKB_Vol2.pdf', list(range(252, 253))],
+        ['F/F2.pdf', list(range(0, 7))],
+        ['CV_EKB_Vol2.pdf', list(range(260, 261))],
+        ['F/F3.pdf', list(range(0, 6))],
+        ['CV_EKB_Vol2.pdf', list(range(267, 268))],
+        ['F/F4.pdf', list(range(0, 8))],
+        ['CV_EKB_Vol2.pdf', list(range(276, 277))],
+        ['F/F5.pdf', list(range(0, 7))],
+        ['CV_EKB_Vol2.pdf', list(range(284, 285))],
+        ['F/F6.pdf', list(range(0, 16))],
+        ['CV_EKB_Vol2.pdf', list(range(301, 302))],
+        ['F/F7.pdf', list(range(0, 7))],
+        ['CV_EKB_Vol2.pdf', list(range(309, 310))],
+        ['CV_EKB_Vol2.pdf', list(range(310, 311))]
     ]
 
     # Output file name
