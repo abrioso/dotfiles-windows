@@ -8,6 +8,7 @@
 
 import os
 import PyPDF2
+from decimal import Decimal
 
 def split_merge_pdfs(pdf_list, output):
     # Create a PDF writer object
@@ -16,8 +17,76 @@ def split_merge_pdfs(pdf_list, output):
     # Loop through all the PDF files
     for pdf in pdf_list:
         pdf_reader = PyPDF2.PdfReader(pdf[0])
+        # Write to console the pdf file name and the pages to use
+        print('Processing file: ' + pdf[0] + ' pages: ' + pdf[1].__str__())
+        # Loop through all the pages in the PDF file
         for page_num in pdf[1]:
             page = pdf_reader.pages[page_num]
+            # Write to console the page number
+            print('  Processing page: ' + page_num.__str__())
+            # Write to console the page size
+            width = float(page.mediabox.width)
+            height = float(page.mediabox.height)
+            print('    Page size: ' + str(width) + ' x ' + str(height))
+            
+            # Check if the page is in landscape or portrait mode
+            if width > height:
+                print('      Landscape mode')
+                # If page is not A4, then resize it to A4
+                if width != float(PyPDF2.PaperSize.A4.height) or height != float(PyPDF2.PaperSize.A4.width):
+                    # Write to console information about the page size change
+                    print('      Changing Page size to A4')
+                    # Calculate the scale factor to fit the page to A4
+                    scale_width = float(PyPDF2.PaperSize.A4.height) / float(width)
+                    scale_height = float(PyPDF2.PaperSize.A4.width) / float(height)
+                    scale = min(scale_width, scale_height)
+                    # Write to console the scale factor
+                    print('      Scale factor: ' + str(scale))
+                    # Center the page and scale it to fit the new size
+                    page.scale_by(scale)
+                    page.mediabox.lowerleft = ((PyPDF2.PaperSize.A4.height - width * scale) / 2, (PyPDF2.PaperSize.A4.width - height * scale) / 2)
+                    page.mediabox.upperright = (PyPDF2.PaperSize.A4.height - (PyPDF2.PaperSize.A4.height - width * scale) / 2, PyPDF2.PaperSize.A4.width - (PyPDF2.PaperSize.A4.width - height * scale) / 2)
+                    
+                    # Write to console the new page size
+                    width = float(page.mediabox.width)
+                    height = float(page.mediabox.height)
+                    print('    New page size: ' + str(width) + ' x ' + str(height))
+
+            else:
+                print('      Portrait mode')
+                # If page is not A4, then resize it to A4
+                if width != float(PyPDF2.PaperSize.A4.width) or height != float(PyPDF2.PaperSize.A4.height):
+                    # Write to console information about the page size change
+                    print('      Changing Page size to A4')
+
+                    # Calculate the scale factor to fit the page to A4
+                    scale_width = float(PyPDF2.PaperSize.A4.height) / float(height)
+                    scale_height = float(PyPDF2.PaperSize.A4.width) / float(width)
+                    scale = min(scale_width, scale_height)
+                    # Write to console the scale factor
+                    print('      Scale factor: ' + str(scale))
+                    # Center the page and scale it to fit the new size
+                    page.scale_by(scale)
+                    page.mediabox.lowerleft = ((PyPDF2.PaperSize.A4.height - width * scale) / 2, (PyPDF2.PaperSize.A4.width - height * scale) / 2)
+                    page.mediabox.upperright = (PyPDF2.PaperSize.A4.height - (PyPDF2.PaperSize.A4.height - width * scale) / 2, PyPDF2.PaperSize.A4.width - (PyPDF2.PaperSize.A4.width - height * scale) / 2)
+                    
+                    # Write to console the new page size
+                    width = float(page.mediabox.width)
+                    height = float(page.mediabox.height)
+                    print('    New page size: ' + str(width) + ' x ' + str(height))
+
+                    #TODO: Resize the page to A4
+                    page.scale_by(1)
+                    page.mediabox.lowerleft = (0, 0)
+                    page.mediabox.upperright = (PyPDF2.PaperSize.A4.width, PyPDF2.PaperSize.A4.height)
+                    
+                    width = float(page.mediabox.width)
+                    height = float(page.mediabox.height)
+                    print('    New page size: ' + str(width) + ' x ' + str(height))
+
+
+
+            # Add the page to the PDF writer object
             pdf_writer.add_page(page)
        
     # Save the merged PDF to a file
@@ -102,169 +171,185 @@ def ___main___():
         ['CV_EKB_Vol2.pdf', list(range(111, 112))],
         ['D/D1.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(114, 115))],
-#        ['D/D2.pdf', list(range(0, 2))],
-        ['CV_EKB_Vol2.pdf', list(range(117, 118))],
+        ['D/D2.pdf', list(range(0, 3))],
+        ['CV_EKB_Vol2.pdf', list(range(118, 119))],
 #        ['D/D3.pdf', list(range(0, 2))],
-        ['CV_EKB_Vol2.pdf', list(range(120, 121))],
+        ['CV_EKB_Vol2.pdf', list(range(121, 122))],
         ['D/D4.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(122, 123))],
+        ['CV_EKB_Vol2.pdf', list(range(123, 124))],
         ['D/D5.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(124, 125))],
+        ['CV_EKB_Vol2.pdf', list(range(125, 126))],
         ['D/D6.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(126, 127))],
+        ['CV_EKB_Vol2.pdf', list(range(127, 128))],
         ['D/D7.pdf', list(range(0, 2))],
-        ['CV_EKB_Vol2.pdf', list(range(129, 130))],
+        ['CV_EKB_Vol2.pdf', list(range(130, 131))],
         ['D/D8.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(131, 132))],
+        ['CV_EKB_Vol2.pdf', list(range(132, 133))],
         ['D/D9.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(133, 134))],
+        ['CV_EKB_Vol2.pdf', list(range(134, 135))],
         ['D/D10.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(135, 136))],
+        ['CV_EKB_Vol2.pdf', list(range(136, 137))],
         ['D/D11.pdf', list(range(0, 2))],
-        ['CV_EKB_Vol2.pdf', list(range(138, 139))],
+        ['CV_EKB_Vol2.pdf', list(range(139, 140))],
         ['D/D12.pdf', list(range(0, 23))],
-        ['CV_EKB_Vol2.pdf', list(range(162, 163))],
+        ['CV_EKB_Vol2.pdf', list(range(163, 164))],
         ['D/D13.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(164, 165))],
+        ['CV_EKB_Vol2.pdf', list(range(165, 166))],
         ['D/D14.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(166, 167))],
+        ['CV_EKB_Vol2.pdf', list(range(167, 168))],
         ['D/D15.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(168, 169))],
+        ['CV_EKB_Vol2.pdf', list(range(169, 170))],
         ['D/D16.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(170, 171))],
+        ['CV_EKB_Vol2.pdf', list(range(171, 172))],
         ['D/D17.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(172, 173))],
+        ['CV_EKB_Vol2.pdf', list(range(173, 174))],
         ['D/D18.pdf', list(range(0, 2))],
-        ['CV_EKB_Vol2.pdf', list(range(175, 176))],
+        ['CV_EKB_Vol2.pdf', list(range(176, 177))],
         ['D/D19.pdf', list(range(0, 2))],
-        ['CV_EKB_Vol2.pdf', list(range(178, 179))],
+        ['CV_EKB_Vol2.pdf', list(range(179, 180))],
         ['D/D20.pdf', list(range(0, 2))],
-        ['CV_EKB_Vol2.pdf', list(range(181, 182))],
+        ['CV_EKB_Vol2.pdf', list(range(182, 183))],
         ['D/D21.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(183, 184))],
+        ['CV_EKB_Vol2.pdf', list(range(184, 185))],
         ['D/D22.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(185, 186))],
+        ['CV_EKB_Vol2.pdf', list(range(186, 187))],
 #        ['D/D23.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(187, 188))],
+        ['CV_EKB_Vol2.pdf', list(range(188, 189))],
         ['D/D24.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(189, 190))],
+        ['CV_EKB_Vol2.pdf', list(range(190, 191))],
         ['D/D25.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(191, 192))],
+        ['CV_EKB_Vol2.pdf', list(range(192, 193))],
         ['D/D26.pdf', list(range(0, 2))],
-        ['CV_EKB_Vol2.pdf', list(range(194, 195))],
+        ['CV_EKB_Vol2.pdf', list(range(195, 196))],
         ['D/D27.pdf', list(range(0, 2))],
-        ['CV_EKB_Vol2.pdf', list(range(197, 198))],
+        ['CV_EKB_Vol2.pdf', list(range(198, 199))],
         ['D/D28.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(199, 200))],
+        ['CV_EKB_Vol2.pdf', list(range(200, 201))],
         ['D/D29.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(201, 202))],
+        ['CV_EKB_Vol2.pdf', list(range(202, 203))],
 #        ['D/D30.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(203, 204))],
+        ['CV_EKB_Vol2.pdf', list(range(204, 205))],
         ['D/D31.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(205, 206))],
+        ['CV_EKB_Vol2.pdf', list(range(206, 207))],
         ['D/D32.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(207, 208))],
         ['CV_EKB_Vol2.pdf', list(range(208, 209))],
+        ['CV_EKB_Vol2.pdf', list(range(209, 210))],
         ['E/E1.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(210, 211))],
+        ['CV_EKB_Vol2.pdf', list(range(211, 212))],
         ['E/E2.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(212, 213))],
+        ['CV_EKB_Vol2.pdf', list(range(213, 214))],
         ['E/E3.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(214, 215))],
+        ['CV_EKB_Vol2.pdf', list(range(215, 216))],
         ['E/E4.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(216, 217))],
+        ['CV_EKB_Vol2.pdf', list(range(217, 218))],
         ['E/E5.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(218, 219))],
+        ['CV_EKB_Vol2.pdf', list(range(219, 220))],
         ['E/E6.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(220, 221))],
+        ['CV_EKB_Vol2.pdf', list(range(221, 222))],
         ['E/E7.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(222, 223))],
+        ['CV_EKB_Vol2.pdf', list(range(223, 224))],
         ['E/E8.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(224, 225))],
+        ['CV_EKB_Vol2.pdf', list(range(225, 226))],
         ['E/E9.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(226, 227))],
+        ['CV_EKB_Vol2.pdf', list(range(227, 228))],
         ['E/E10.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(228, 229))],
+        ['CV_EKB_Vol2.pdf', list(range(229, 230))],
         ['E/E11.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(230, 231))],
+        ['CV_EKB_Vol2.pdf', list(range(231, 232))],
         ['E/E12.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(232, 233))],
+        ['CV_EKB_Vol2.pdf', list(range(233, 234))],
         ['E/E13.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(234, 235))],
+        ['CV_EKB_Vol2.pdf', list(range(235, 236))],
         ['E/E14.pdf', list(range(0, 2))],
-        ['CV_EKB_Vol2.pdf', list(range(237, 238))],
+        ['CV_EKB_Vol2.pdf', list(range(238, 239))],
         ['E/E15.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(239, 240))],
+        ['CV_EKB_Vol2.pdf', list(range(240, 241))],
         ['E/E16.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(241, 242))],
+        ['CV_EKB_Vol2.pdf', list(range(242, 243))],
         ['E/E17.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(243, 244))],
+        ['CV_EKB_Vol2.pdf', list(range(244, 245))],
         ['E/E18.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(245, 246))],
         ['CV_EKB_Vol2.pdf', list(range(246, 247))],
+        ['CV_EKB_Vol2.pdf', list(range(247, 248))],
         ['F/F1.pdf', list(range(0, 5))],
-        ['CV_EKB_Vol2.pdf', list(range(252, 253))],
+        ['CV_EKB_Vol2.pdf', list(range(253, 254))],
         ['F/F2.pdf', list(range(0, 7))],
-        ['CV_EKB_Vol2.pdf', list(range(260, 261))],
+        ['CV_EKB_Vol2.pdf', list(range(261, 262))],
         ['F/F3.pdf', list(range(0, 6))],
-        ['CV_EKB_Vol2.pdf', list(range(267, 268))],
+        ['CV_EKB_Vol2.pdf', list(range(268, 269))],
         ['F/F4.pdf', list(range(0, 8))],
-        ['CV_EKB_Vol2.pdf', list(range(276, 277))],
+        ['CV_EKB_Vol2.pdf', list(range(279, 278))],
         ['F/F5.pdf', list(range(0, 7))],
-        ['CV_EKB_Vol2.pdf', list(range(284, 285))],
+        ['CV_EKB_Vol2.pdf', list(range(285, 286))],
         ['F/F6.pdf', list(range(0, 16))],
-        ['CV_EKB_Vol2.pdf', list(range(301, 302))],
+        ['CV_EKB_Vol2.pdf', list(range(302, 303))],
         ['F/F7.pdf', list(range(0, 7))],
-        ['CV_EKB_Vol2.pdf', list(range(309, 310))],
         ['CV_EKB_Vol2.pdf', list(range(310, 311))],
+        ['CV_EKB_Vol2.pdf', list(range(311, 312))],
         ['G/G1/G1.1.pdf', list(range(0, 1))],
         ['G/G1/G1.2.pdf', list(range(0, 1))],
         ['G/G1/G1.3.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(314, 315))],
+        ['CV_EKB_Vol2.pdf', list(range(315, 316))],
         ['G/G2/G2.1.pdf', list(range(0, 1))],
         ['G/G2/G2.2.pdf', list(range(0, 1))],
         ['G/G2/G2.3.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(318, 319))],
+        ['CV_EKB_Vol2.pdf', list(range(319, 320))],
         ['G/G3/G3.1.pdf', list(range(0, 1))],
         ['G/G3/G3.2.pdf', list(range(0, 1))],
         ['G/G3/G3.3.pdf', list(range(0, 6))],
-        ['CV_EKB_Vol2.pdf', list(range(327, 328))],
+        ['CV_EKB_Vol2.pdf', list(range(328, 329))],
         ['G/G4/G4.1.pdf', list(range(0, 1))],
         ['G/G4/G4.2.pdf', list(range(0, 1))],
         ['G/G4/G4.3.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(331, 332))],
+        ['CV_EKB_Vol2.pdf', list(range(332, 333))],
         ['G/G5/G5.1.pdf', list(range(0, 1))],
         ['G/G5/G5.2.pdf', list(range(0, 1))],
         ['G/G5/G5.3.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(335, 336))],
+        ['CV_EKB_Vol2.pdf', list(range(336, 337))],
         ['G/G6/G6.1.pdf', list(range(0, 1))],
         ['G/G6/G6.2.pdf', list(range(0, 1))],
         ['G/G6/G6.3.pdf', list(range(0, 6))],
-        ['CV_EKB_Vol2.pdf', list(range(344, 345))],
+        ['CV_EKB_Vol2.pdf', list(range(345, 346))],
         ['G/G7/G7.1.pdf', list(range(0, 1))],
         ['G/G7/G7.2.pdf', list(range(0, 1))],
         ['G/G7/G7.3.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(348, 349))],
+        ['CV_EKB_Vol2.pdf', list(range(349, 350))],
         ['G/G8/G8.1.pdf', list(range(0, 1))],
         ['G/G8/G8.2.pdf', list(range(0, 1))],
         ['G/G8/G8.3.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(352, 353))],
+        ['CV_EKB_Vol2.pdf', list(range(353, 354))],
         ['G/G9/G9.1.pdf', list(range(0, 1))],
         ['G/G9/G9.2.pdf', list(range(0, 1))],
         ['G/G9/G9.3.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(356, 357))],
+        ['CV_EKB_Vol2.pdf', list(range(357, 358))],
         ['G/G10/G10.1.pdf', list(range(0, 1))],
         ['G/G10/G10.2.pdf', list(range(0, 1))],
         ['G/G10/G10.3.pdf', list(range(0, 5))],
-        ['CV_EKB_Vol2.pdf', list(range(364, 365))],
+        ['CV_EKB_Vol2.pdf', list(range(365, 366))],
         ['G/G11/G11.1.pdf', list(range(0, 1))],
         ['G/G11/G11.2.pdf', list(range(0, 1))],
         ['G/G11/G11.3.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(368, 369))],
+        ['CV_EKB_Vol2.pdf', list(range(369, 370))],
         ['G/G12/G12.1.pdf', list(range(0, 1))],
         ['G/G12/G12.2.pdf', list(range(0, 1))],
         ['G/G12/G12.3.pdf', list(range(0, 4))],
-        ['CV_EKB_Vol2.pdf', list(range(375, 376))]
+        ['CV_EKB_Vol2.pdf', list(range(376, 377))],
+        ['CV_EKB_Vol2.pdf', list(range(377, 378))],
+        ['H/H1.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(379, 380))],
+        ['H/H2.pdf', list(range(0, 18))],
+        ['CV_EKB_Vol2.pdf', list(range(398, 399))],
+        ['H/H3.pdf', list(range(0, 10))],
+        ['CV_EKB_Vol2.pdf', list(range(409, 410))],
+        ['H/H4.pdf', list(range(0, 17))],
+        ['CV_EKB_Vol2.pdf', list(range(427, 428))],
+        ['H/H5.pdf', list(range(0, 11))],
+        ['CV_EKB_Vol2.pdf', list(range(439, 440))],
+        ['H/H6.pdf', list(range(0, 27))],
+        ['CV_EKB_Vol2.pdf', list(range(467, 468))],
+        ['H/H7.pdf', list(range(0, 6))],
+        ['CV_EKB_Vol2.pdf', list(range(474, 475))]
+
     ]
 
     # Output file name
