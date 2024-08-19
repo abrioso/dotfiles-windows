@@ -8,6 +8,7 @@
 
 import os
 import PyPDF2
+from PyPDF2 import PdfWriter, PdfReader, PageObject, Transformation
 from decimal import Decimal
 
 def split_merge_pdfs(pdf_list, output):
@@ -21,12 +22,12 @@ def split_merge_pdfs(pdf_list, output):
         print('Processing file: ' + pdf[0] + ' pages: ' + pdf[1].__str__())
         # Loop through all the pages in the PDF file
         for page_num in pdf[1]:
-            page = pdf_reader.pages[page_num]
+            new_page = read_page = pdf_reader.pages[page_num]
             # Write to console the page number
             print('  Processing page: ' + page_num.__str__())
             # Write to console the page size
-            width = float(page.mediabox.width)
-            height = float(page.mediabox.height)
+            width = float(read_page.mediabox.width)
+            height = float(read_page.mediabox.height)
             print('    Page size: ' + str(width) + ' x ' + str(height))
             
             # Check if the page is in landscape or portrait mode
@@ -43,14 +44,34 @@ def split_merge_pdfs(pdf_list, output):
                     # Write to console the scale factor
                     print('      Scale factor: ' + str(scale))
                     # Center the page and scale it to fit the new size
-                    page.scale_by(scale)
-                    page.mediabox.lowerleft = ((PyPDF2.PaperSize.A4.height - width * scale) / 2, (PyPDF2.PaperSize.A4.width - height * scale) / 2)
-                    page.mediabox.upperright = (PyPDF2.PaperSize.A4.height - (PyPDF2.PaperSize.A4.height - width * scale) / 2, PyPDF2.PaperSize.A4.width - (PyPDF2.PaperSize.A4.width - height * scale) / 2)
+                    read_page.scale_by(scale)
+#                    read_page.mediabox.lowerleft = ((PyPDF2.PaperSize.A4.height - width * scale) / 2, (PyPDF2.PaperSize.A4.width - height * scale) / 2)
+#                    read_page.mediabox.upperright = (PyPDF2.PaperSize.A4.height - (PyPDF2.PaperSize.A4.height - width * scale) / 2, PyPDF2.PaperSize.A4.width - (PyPDF2.PaperSize.A4.width - height * scale) / 2)
                     
                     # Write to console the new page size
-                    width = float(page.mediabox.width)
-                    height = float(page.mediabox.height)
-                    print('    New page size: ' + str(width) + ' x ' + str(height))
+                    width = float(read_page.mediabox.width)
+                    height = float(read_page.mediabox.height)
+                    print('    New page size (1): ' + str(width) + ' x ' + str(height))
+
+                    #Correct page size back to A4
+                    new_width, new_height = float(PyPDF2.PaperSize.A4.height), float(PyPDF2.PaperSize.A4.width)
+                  
+                    new_page = PageObject.create_blank_page(width=new_width, height=new_height)
+                    
+                    # Calculate the position to center the scaled content on the blank page
+                    x_pos = (new_width - float(read_page.mediabox.width)) / 2
+                    y_pos = (new_height - float(read_page.mediabox.height)) / 2
+
+                    # Apply the translation transformation to the read_page
+                    page_transformation = Transformation().translate(tx=x_pos, ty=y_pos)
+                    read_page.add_transformation(page_transformation)
+
+                    # Merge the scaled content onto the blank page
+                    new_page.merge_page(read_page)
+
+                    width = float(new_page.mediabox.width)
+                    height = float(new_page.mediabox.height)
+                    print('    New page size (2): ' + str(width) + ' x ' + str(height))
 
             else:
                 print('      Portrait mode')
@@ -66,28 +87,41 @@ def split_merge_pdfs(pdf_list, output):
                     # Write to console the scale factor
                     print('      Scale factor: ' + str(scale))
                     # Center the page and scale it to fit the new size
-                    page.scale_by(scale)
-                    page.mediabox.lowerleft = ((PyPDF2.PaperSize.A4.height - width * scale) / 2, (PyPDF2.PaperSize.A4.width - height * scale) / 2)
-                    page.mediabox.upperright = (PyPDF2.PaperSize.A4.height - (PyPDF2.PaperSize.A4.height - width * scale) / 2, PyPDF2.PaperSize.A4.width - (PyPDF2.PaperSize.A4.width - height * scale) / 2)
+                    read_page.scale_by(scale)
+#                    read_page.mediabox.lowerleft = ((PyPDF2.PaperSize.A4.height - width * scale) / 2, (PyPDF2.PaperSize.A4.width - height * scale) / 2)
+#                    read_page.mediabox.upperright = (PyPDF2.PaperSize.A4.height - (PyPDF2.PaperSize.A4.height - width * scale) / 2, PyPDF2.PaperSize.A4.width - (PyPDF2.PaperSize.A4.width - height * scale) / 2)
                     
                     # Write to console the new page size
-                    width = float(page.mediabox.width)
-                    height = float(page.mediabox.height)
-                    print('    New page size: ' + str(width) + ' x ' + str(height))
+                    width = float(read_page.mediabox.width)
+                    height = float(read_page.mediabox.height)
+                    print('    New page size (1): ' + str(width) + ' x ' + str(height))
 
-                    #TODO: Resize the page to A4
-                    page.scale_by(1)
-                    page.mediabox.lowerleft = (0, 0)
-                    page.mediabox.upperright = (PyPDF2.PaperSize.A4.width, PyPDF2.PaperSize.A4.height)
+                    #Correct page size back to A4
+                    new_width, new_height = float(PyPDF2.PaperSize.A4.width), float(PyPDF2.PaperSize.A4.height)
+                  
+                    new_page = PageObject.create_blank_page(width=new_width, height=new_height)
+
                     
-                    width = float(page.mediabox.width)
-                    height = float(page.mediabox.height)
-                    print('    New page size: ' + str(width) + ' x ' + str(height))
+                    # Calculate the position to center the scaled content on the blank page
+                    x_pos = (new_width - float(read_page.mediabox.width)) / 2
+                    y_pos = (new_height - float(read_page.mediabox.height)) / 2
 
+                    # Apply the translation transformation to the read_page
+                    page_transformation = Transformation().translate(tx=x_pos, ty=y_pos)
+                    read_page.add_transformation(page_transformation)
 
+                    # Merge the scaled content onto the blank page
+                    new_page.merge_page(read_page)
+
+                    width = float(new_page.mediabox.width)
+                    height = float(new_page.mediabox.height)
+                    print('    New page size (2): ' + str(width) + ' x ' + str(height))
 
             # Add the page to the PDF writer object
-            pdf_writer.add_page(page)
+            pdf_writer.add_page(new_page)
+
+            # Write to console the total number of pages in the PDF writer object
+            print('    Added page: ' + len(pdf_writer.pages).__str__())
        
     # Save the merged PDF to a file
     with open(output, 'wb') as out:
@@ -139,6 +173,7 @@ def ___main___():
         ['CV_EKB_Vol2.pdf', list(range(64, 65))],
         ['C/C3.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(67, 68))],
+        ['CV_EKB_Vol2.pdf', list(range(68, 69))],   # TODO: Replace with 'C/C4.pdf', list(range(0, 2)) for the correct file (remove next line)
 #        ['C/C4.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(70, 71))],
         ['C/C5.pdf', list(range(0, 2))],
@@ -152,27 +187,33 @@ def ___main___():
         ['C/C9.1.pdf', list(range(0, 2))],
         ['C/C9.2.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(87, 88))],
+        ['CV_EKB_Vol2.pdf', list(range(88, 90))],   # TODO: Replace with 'C/C10.pdf', list(range(0, 2)) for the correct file (remove next line)
 #        ['C/C10.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(90, 91))],
+        ['CV_EKB_Vol2.pdf', list(range(91, 93))],   # TODO: Replace with 'C/C11.pdf', list(range(0, 2)) for the correct file (remove next line)
 #        ['C/C11.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(93, 94))],
         ['C/C12.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(96, 97))],
+        ['CV_EKB_Vol2.pdf', list(range(97, 99))],   # TODO: Replace with 'C/C13.pdf', list(range(0, 2)) for the correct file (remove next line)
 #        ['C/C13.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(99, 100))],
         ['C/C14.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(102, 103))],
         ['C/C15.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(105, 106))],
+        ['CV_EKB_Vol2.pdf', list(range(106, 108))],   # TODO: Replace with 'C/C16.pdf', list(range(0, 2)) for the correct file (remove next line)
 #        ['C/C16.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(108, 109))],
-#        ['C/C17.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(109, 110))],   # TODO: Replace with 'C/C17.pdf', list(range(0, 1)) for the correct file (remove next line)
+#        ['C/C17.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(110, 111))],
         ['CV_EKB_Vol2.pdf', list(range(111, 112))],
         ['D/D1.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(114, 115))],
         ['D/D2.pdf', list(range(0, 3))],
         ['CV_EKB_Vol2.pdf', list(range(118, 119))],
+        ['CV_EKB_Vol2.pdf', list(range(119, 121))],   # TODO: Replace with 'D/D3.pdf', list(range(0, 2)) for the correct file (remove next line)
 #        ['D/D3.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(121, 122))],
         ['D/D4.pdf', list(range(0, 1))],
@@ -213,6 +254,7 @@ def ___main___():
         ['CV_EKB_Vol2.pdf', list(range(184, 185))],
         ['D/D22.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(186, 187))],
+        ['CV_EKB_Vol2.pdf', list(range(187, 188))],     # TODO: Replace with 'D/D23.pdf', list(range(0, 1)) for the correct file (remove next line)
 #        ['D/D23.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(188, 189))],
         ['D/D24.pdf', list(range(0, 1))],
@@ -227,6 +269,7 @@ def ___main___():
         ['CV_EKB_Vol2.pdf', list(range(200, 201))],
         ['D/D29.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(202, 203))],
+        ['CV_EKB_Vol2.pdf', list(range(203, 204))],     # TODO: Replace with 'D/D30.pdf', list(range(0, 1)) for the correct file (remove next line)
 #        ['D/D30.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(204, 205))],
         ['D/D31.pdf', list(range(0, 1))],
@@ -382,7 +425,60 @@ def ___main___():
         ['CV_EKB_Vol2.pdf', list(range(541, 542))],
         ['H/H22.1.pdf', list(range(0, 1))],
         ['H/H22.2.pdf', list(range(0, 4))],
-        ['CV_EKB_Vol2.pdf', list(range(547, 548))]
+        ['CV_EKB_Vol2.pdf', list(range(547, 548))],
+        ['H/H23.1.pdf', list(range(0, 1))],
+        ['H/H23.2.pdf', list(range(0, 3))],
+        ['CV_EKB_Vol2.pdf', list(range(552, 553))],
+        ['H/H24.1.pdf', list(range(0, 1))],
+        ['H/H24.2.pdf', list(range(0, 10))],
+        ['CV_EKB_Vol2.pdf', list(range(564, 565))],
+        ['CV_EKB_Vol2.pdf', list(range(565, 566))],     #TODO: Replace with 'H/H25.1.pdf', list(range(0, 1)) for the correct file
+        ['H/H25.2.pdf', list(range(0, 5))],
+        ['CV_EKB_Vol2.pdf', list(range(571, 572))],
+        ['CV_EKB_Vol2.pdf', list(range(572, 573))],     #TODO: Replace with 'H/H26.1.pdf', list(range(0, 1)) for the correct file
+        ['H/H26.2.pdf', list(range(0, 6))],
+        ['CV_EKB_Vol2.pdf', list(range(579, 580))],
+        ['CV_EKB_Vol2.pdf', list(range(580, 581))],
+        ['I/I1.1.pdf', list(range(0, 1))],
+        ['I/I1.2.pdf', list(range(0, 18))],
+        ['CV_EKB_Vol2.pdf', list(range(600, 601))],
+        ['I/I2.1.pdf', list(range(0, 1))],
+        ['I/I2.2.pdf', list(range(0, 17))],
+        ['CV_EKB_Vol2.pdf', list(range(617, 618))],
+        ['I/I3.1.pdf', list(range(0, 1))],
+        ['I/I3.2.pdf', list(range(0, 5))],
+        ['CV_EKB_Vol2.pdf', list(range(623, 624))],
+        ['CV_EKB_Vol2.pdf', list(range(624, 625))],     #TODO: Replace with 'I/I4.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(625, 626))],
+        ['I/I5.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(628, 629))],
+        ['I/I6.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(630, 631))],
+        ['I/I7.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(632, 633))],
+        ['I/I8.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(634, 635))],
+        ['I/I9.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(636, 637))],
+        ['I/I10.pdf', list(range(0, 4))],
+        ['CV_EKB_Vol2.pdf', list(range(641, 642))],
+        ['CV_EKB_Vol2.pdf', list(range(642, 643))],
+        ['CV_EKB_Vol2.pdf', list(range(643, 644))],     #TODO: Replace with 'I/J1.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(644, 645))],
+        ['J/J2.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(646, 647))],
+        ['CV_EKB_Vol2.pdf', list(range(647, 648))],     #TODO: Replace with 'J/J3.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(651, 652))],
+        ['CV_EKB_Vol2.pdf', list(range(652, 653))],
+        ['K/K1.pdf', list(range(0, 10))],
+        ['CV_EKB_Vol2.pdf', list(range(663, 664))],
+        ['CV_EKB_Vol2.pdf', list(range(664, 665))],     #TODO: Replace with 'K/K2.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(665, 666))],
+        ['CV_EKB_Vol2.pdf', list(range(666, 667))]     #TODO: Replace with 'K/K3.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(667, 668))]
+        ['CV_EKB_Vol2.pdf', list(range(668, 669))]     #TODO: Replace with 'K/K4.pdf', list(range(0, 1)) for the correct file
+        
+
 
     ]
 
