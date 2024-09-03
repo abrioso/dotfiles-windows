@@ -121,7 +121,9 @@ def split_merge_pdfs(pdf_list, output):
             pdf_writer.add_page(new_page)
 
             # Write to console the total number of pages in the PDF writer object
-            print('    Added page: ' + len(pdf_writer.pages).__str__())
+            #print('Added page: ' + len(pdf_writer.pages).__str__())
+            # Change the foreground and background color
+            print('\033[43m' + 'Added page: ' + len(pdf_writer.pages).__str__() + '\033[0m')
        
     # Save the merged PDF to a file
     with open(output, 'wb') as out:
@@ -209,7 +211,7 @@ def ___main___():
 #        ['C/C17.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(110, 111))],
         ['CV_EKB_Vol2.pdf', list(range(111, 112))],
-        ['D/D1.pdf', list(range(0, 2))],
+        ['D/D1-new.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(114, 115))],
         ['D/D2.pdf', list(range(0, 3))],
         ['CV_EKB_Vol2.pdf', list(range(118, 119))],
@@ -355,15 +357,15 @@ def ___main___():
         ['CV_EKB_Vol2.pdf', list(range(345, 346))],
         ['G/G7/G7.1.pdf', list(range(0, 1))],
         ['G/G7/G7.2.pdf', list(range(0, 1))],
-        ['G/G7/G7.3.pdf', list(range(0, 1))],
+        ['G/G7/G7.3-new.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(349, 350))],
         ['G/G8/G8.1.pdf', list(range(0, 1))],
         ['G/G8/G8.2.pdf', list(range(0, 1))],
-        ['G/G8/G8.3.pdf', list(range(0, 1))],
+        ['G/G8/G8.3-new.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(353, 354))],
         ['G/G9/G9.1.pdf', list(range(0, 1))],
         ['G/G9/G9.2.pdf', list(range(0, 1))],
-        ['G/G9/G9.3.pdf', list(range(0, 1))],
+        ['G/G9/G9.3-new.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(357, 358))],
         ['G/G10/G10.1.pdf', list(range(0, 1))],
         ['G/G10/G10.2.pdf', list(range(0, 1))],
@@ -371,7 +373,7 @@ def ___main___():
         ['CV_EKB_Vol2.pdf', list(range(365, 366))],
         ['G/G11/G11.1.pdf', list(range(0, 1))],
         ['G/G11/G11.2.pdf', list(range(0, 1))],
-        ['G/G11/G11.3.pdf', list(range(0, 1))],
+        ['G/G11/G11.3-new.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(369, 370))],
         ['G/G12/G12.1.pdf', list(range(0, 1))],
         ['G/G12/G12.2.pdf', list(range(0, 1))],
@@ -410,7 +412,7 @@ def ___main___():
         ['CV_EKB_Vol2.pdf', list(range(490, 491))],
         ['H/H16.pdf', list(range(0, 15))],
         ['CV_EKB_Vol2.pdf', list(range(506, 507))],
-        ['H/H17.1.pdf', list(range(0, 1))],
+        ['H/H17.1-new.pdf', list(range(0, 1))],
         ['H/H17.2.pdf', list(range(0, 4))],
         ['CV_EKB_Vol2.pdf', list(range(512, 513))],
         ['H/H18.1.pdf', list(range(0, 1))],
@@ -447,35 +449,35 @@ def ___main___():
         ['CV_EKB_Vol2.pdf', list(range(617, 618))],
         ['I/I3.1.pdf', list(range(0, 1))],
         ['I/I3.2.pdf', list(range(0, 5))],
-        ['CV_EKB_Vol2.pdf', list(range(623, 624))],
-        ['CV_EKB_Vol2.pdf', list(range(624, 625))],     #TODO: Replace with 'I/I4.pdf', list(range(0, 1)) for the correct file
-        ['CV_EKB_Vol2.pdf', list(range(625, 626))],
-        ['I/I5.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(626, 627))],
+        ['CV_EKB_Vol2.pdf', list(range(627, 628))],     #TODO: Replace with 'I/I4.pdf', list(range(0, 1)) for the correct file
         ['CV_EKB_Vol2.pdf', list(range(628, 629))],
-        ['I/I6.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(630, 631))],
+        ['I/I5.pdf', list(range(0, 2))],
+        ['CV_EKB_Vol2.pdf', list(range(631, 632))],
+        ['I/I6-new.pdf', list(range(0, 1))],
+        ['CV_EKB_Vol2.pdf', list(range(633, 634))],
         ['I/I7.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(632, 633))],
+        ['CV_EKB_Vol2.pdf', list(range(635, 636))],
         ['I/I8.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(634, 635))],
+        ['CV_EKB_Vol2.pdf', list(range(637, 638))],
         ['I/I9.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(636, 637))],
+        ['CV_EKB_Vol2.pdf', list(range(639, 640))],
         ['I/I10.pdf', list(range(0, 4))],
-        ['CV_EKB_Vol2.pdf', list(range(641, 642))],
-        ['CV_EKB_Vol2.pdf', list(range(642, 643))],
-        ['CV_EKB_Vol2.pdf', list(range(643, 644))],     #TODO: Replace with 'I/J1.pdf', list(range(0, 1)) for the correct file
         ['CV_EKB_Vol2.pdf', list(range(644, 645))],
+        ['CV_EKB_Vol2.pdf', list(range(645, 646))],
+        ['CV_EKB_Vol2.pdf', list(range(646, 647))],     #TODO: Replace with 'I/J1.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(647, 648))],
         ['J/J2.pdf', list(range(0, 1))],
-        ['CV_EKB_Vol2.pdf', list(range(646, 647))],
-        ['CV_EKB_Vol2.pdf', list(range(647, 648))],     #TODO: Replace with 'J/J3.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(649, 650))],
+        ['CV_EKB_Vol2.pdf', list(range(650, 651))],     #TODO: Replace with 'J/J3.pdf', list(range(0, 1)) for the correct file
         ['CV_EKB_Vol2.pdf', list(range(651, 652))],
         ['CV_EKB_Vol2.pdf', list(range(652, 653))],
         ['K/K1.pdf', list(range(0, 10))],
         ['CV_EKB_Vol2.pdf', list(range(663, 664))],
         ['CV_EKB_Vol2.pdf', list(range(664, 665))],     #TODO: Replace with 'K/K2.pdf', list(range(0, 1)) for the correct file
         ['CV_EKB_Vol2.pdf', list(range(665, 666))],
-        ['CV_EKB_Vol2.pdf', list(range(666, 667))]     #TODO: Replace with 'K/K3.pdf', list(range(0, 1)) for the correct file
-        ['CV_EKB_Vol2.pdf', list(range(667, 668))]
+        ['CV_EKB_Vol2.pdf', list(range(666, 667))],     #TODO: Replace with 'K/K3.pdf', list(range(0, 1)) for the correct file
+        ['CV_EKB_Vol2.pdf', list(range(667, 668))],
         ['CV_EKB_Vol2.pdf', list(range(668, 669))]     #TODO: Replace with 'K/K4.pdf', list(range(0, 1)) for the correct file
         
 
