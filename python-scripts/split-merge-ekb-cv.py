@@ -132,7 +132,7 @@ def split_merge_pdfs(pdf_list, output):
 def ___main___():
     # Two dimension list with the pdf location and the pages to use
     pdf_list = [
-        ['CV_EKB_Vol2.pdf', list(range(0, 17))],
+        ['CV_EKB_Vol2.pdf', list(range(0, 16))],
         ['A/A1.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(18, 19))],
         ['A/A2.pdf', list(range(0, 2))],
@@ -444,7 +444,7 @@ def ___main___():
         ['I/I8.pdf', list(range(0, 4))],
         ['CV_EKB_Vol2.pdf', list(range(626, 627))],
         ['CV_EKB_Vol2.pdf', list(range(627, 628))],
-        ['I/J1.pdf', list(range(0, 2))],
+        ['J/J1.pdf', list(range(0, 2))],
         ['CV_EKB_Vol2.pdf', list(range(630, 631))],
         ['J/J2.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(632, 633))],
