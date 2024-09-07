@@ -154,7 +154,9 @@ def split_merge_pdfs(pdf_list, output):
                     })
                     print('\033[43m' + '    Annotation: ' + annotation.__str__() + ' to page: ' + len(pdf_writer.pages).__str__() + '\033[0m')
                     print('    Annotation object: ' + annotation_object.__str__())
-                temp_page[PyPDF2.generic.NameObject('/Annots')] = annotations
+                    temp_page[NameObject('/Annots')].append(annotation_object)
+                    print('    Added Annotation' + '\033[20m')
+ #               temp_page[PyPDF2.generic.NameObject('/Annots')] = annotations
 
 
     # Save the merged PDF to a file
