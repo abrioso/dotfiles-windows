@@ -9,7 +9,18 @@
 import os
 import PyPDF2
 from PyPDF2 import PdfWriter, PdfReader, PageObject, Transformation
+from PyPDF2.generic import ArrayObject, FloatObject, NameObject
 from decimal import Decimal
+
+def get_indirect_object_info(reader, obj_num, gen_num):
+        indirect_object = PyPDF2.generic.IndirectObject(obj_num, gen_num, reader)
+        actual_object = indirect_object.get_object()
+        return actual_object
+
+def extract_annotations(page):
+    if '/Annots' in page:
+        return page['/Annots']
+    return []
 
 def split_merge_pdfs(pdf_list, output):
     # Create a PDF writer object
@@ -18,17 +29,26 @@ def split_merge_pdfs(pdf_list, output):
     # Loop through all the PDF files
     for pdf in pdf_list:
         pdf_reader = PyPDF2.PdfReader(pdf[0])
+        
         # Write to console the pdf file name and the pages to use
         print('Processing file: ' + pdf[0] + ' pages: ' + pdf[1].__str__())
+        
         # Loop through all the pages in the PDF file
         for page_num in pdf[1]:
             new_page = read_page = pdf_reader.pages[page_num]
+            
             # Write to console the page number
             print('  Processing page: ' + page_num.__str__())
+
+            # Get the annotations from the page
+            annotations = extract_annotations(read_page)
+            print('    Annotations: ' + annotations.__str__())
+
             # Write to console the page size
             width = float(read_page.mediabox.width)
             height = float(read_page.mediabox.height)
             print('    Page size: ' + str(width) + ' x ' + str(height))
+
             
             # Check if the page is in landscape or portrait mode
             if width > height:
@@ -119,12 +139,24 @@ def split_merge_pdfs(pdf_list, output):
 
             # Add the page to the PDF writer object
             pdf_writer.add_page(new_page)
-
+            
             # Write to console the total number of pages in the PDF writer object
             #print('Added page: ' + len(pdf_writer.pages).__str__())
             # Change the foreground and background color
             print('\033[43m' + 'Added page: ' + len(pdf_writer.pages).__str__() + '\033[0m')
-       
+
+            if annotations:
+                temp_page = pdf_writer.pages[-1]
+                for annotation in annotations:
+                    annotation_object = get_indirect_object_info(pdf_reader, annotation.idnum, annotation.generation)
+                    annotation_object.update({
+                        '/Border': ArrayObject([FloatObject(0), FloatObject(0), FloatObject(1)])  # [Horizontal corner radius, Vertical corner radius, Border width]
+                    })
+                    print('\033[43m' + '    Annotation: ' + annotation.__str__() + ' to page: ' + len(pdf_writer.pages).__str__() + '\033[0m')
+                    print('    Annotation object: ' + annotation_object.__str__())
+                temp_page[PyPDF2.generic.NameObject('/Annots')] = annotations
+
+
     # Save the merged PDF to a file
     with open(output, 'wb') as out:
         pdf_writer.write(out)
