@@ -9,20 +9,31 @@
 import os
 import PyPDF2
 from PyPDF2 import PdfWriter, PdfReader, PageObject, Transformation
-from PyPDF2.generic import ArrayObject, FloatObject, NameObject
+#from PyPDF2.generic import ArrayObject, FloatObject, NameObject
 from decimal import Decimal
 
-def get_indirect_object_info(reader, obj_num, gen_num):
-        indirect_object = PyPDF2.generic.IndirectObject(obj_num, gen_num, reader)
-        actual_object = indirect_object.get_object()
-        return actual_object
-
-def extract_annotations(page):
-    if '/Annots' in page:
-        return page['/Annots']
-    return []
+#def get_indirect_object_info(reader, obj_num, gen_num):
+#        indirect_object = PyPDF2.generic.IndirectObject(obj_num, gen_num, reader)
+#        actual_object = indirect_object.get_object()
+#        return actual_object
+#
+#def extract_annotations(page):
+#    if '/Annots' in page:
+#        return page['/Annots']
+#    return []
 
 def split_merge_pdfs(pdf_list, output):
+    """
+    Splits and merges PDF files.
+    Args:
+        pdf_list (list): A list of tuples containing the path of the PDF file and the pages to use.
+        output (str): The path of the output file.
+    Returns:
+        None
+    Raises:
+        None
+    """
+    # Code implementation goes here
     # Create a PDF writer object
     pdf_writer = PyPDF2.PdfWriter()
 
@@ -40,9 +51,9 @@ def split_merge_pdfs(pdf_list, output):
             # Write to console the page number
             print('  Processing page: ' + page_num.__str__())
 
-            # Get the annotations from the page
-            annotations = extract_annotations(read_page)
-            print('    Annotations: ' + annotations.__str__())
+ #           # Get the annotations from the page
+ #           annotations = extract_annotations(read_page)
+ #           print('    Annotations: ' + annotations.__str__())
 
             # Write to console the page size
             width = float(read_page.mediabox.width)
@@ -145,18 +156,18 @@ def split_merge_pdfs(pdf_list, output):
             # Change the foreground and background color
             print('\033[43m' + 'Added page: ' + len(pdf_writer.pages).__str__() + '\033[0m')
 
-            if annotations:
-                temp_page = pdf_writer.pages[-1]
-                for annotation in annotations:
-                    annotation_object = get_indirect_object_info(pdf_reader, annotation.idnum, annotation.generation)
-                    annotation_object.update({
-                        '/Border': ArrayObject([FloatObject(0), FloatObject(0), FloatObject(1)])  # [Horizontal corner radius, Vertical corner radius, Border width]
-                    })
-                    print('\033[43m' + '    Annotation: ' + annotation.__str__() + ' to page: ' + len(pdf_writer.pages).__str__() + '\033[0m')
-                    print('    Annotation object: ' + annotation_object.__str__())
-                    temp_page[NameObject('/Annots')].append(annotation_object)
-                    print('    Added Annotation' + '\033[20m')
- #               temp_page[PyPDF2.generic.NameObject('/Annots')] = annotations
+#            if annotations:
+#                temp_page = pdf_writer.pages[-1]
+#                for annotation in annotations:
+#                    annotation_object = get_indirect_object_info(pdf_reader, annotation.idnum, annotation.generation)
+#                    annotation_object.update({
+#                        '/Border': ArrayObject([FloatObject(0), FloatObject(0), FloatObject(1)])  # [Horizontal corner radius, Vertical corner radius, Border width]
+#                    })
+#                    print('\033[43m' + '    Annotation: ' + annotation.__str__() + ' to page: ' + len(pdf_writer.pages).__str__() + '\033[0m')
+#                    print('    Annotation object: ' + annotation_object.__str__())
+#                    temp_page[NameObject('/Annots')].append(annotation_object)
+#                    print('    Added Annotation' + '\033[20m')
+# #               temp_page[PyPDF2.generic.NameObject('/Annots')] = annotations
 
 
     # Save the merged PDF to a file
