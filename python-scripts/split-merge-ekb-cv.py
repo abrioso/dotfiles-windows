@@ -197,7 +197,7 @@ def ___main___():
         ['CV_EKB_Vol2.pdf', list(range(37, 38))],
         ['B/B1.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(39, 40))],   
-        ['CV_EKB_Vol2.pdf', list(range(40, 41))],   # TODO: Replace with 'B/B2.pdf', list(range(0, 1)) for the correct file
+        ['B/B2.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(41, 42))],   
         ['B/B3.pdf', list(range(0, 1))],
         ['CV_EKB_Vol2.pdf', list(range(43, 44))],   
