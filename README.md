@@ -26,6 +26,13 @@ iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.co
 
 ## Use & Configuration
 
+### Setup Scripts
+
+The folder "setup-scripts" contains the Powershell scripts for the instalation and bootstrap setup:
+
+- `install.ps1` : Install script for the Git-free install. Downloads to a Temp folder the dotfiles and starts the setup.
+- `setup.ps1` : Main bootstrap script. Install the pre-requisites and starts the other setup scripts with Powershell 7  
+
 ### Desired State Configuration (DSC) files
 
 The folder "dsc-configurations" contains the DSC configuration files:
