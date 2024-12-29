@@ -30,7 +30,8 @@ iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.co
 
 The folder "dsc-configurations" contains the DSC configuration files:
 
-- `.\dsc-configuration\base-configurations.yaml` : Base and must-have configuration.
+- `.\dsc-configuration\0.base.configurations.yaml` : Base and must-have configuration.
+- `.\dsc-configuration\1.hyperv.wsl.configurations.yaml` : HyperV and WSL configuration.
 
 ### PowerShell Profile
 
