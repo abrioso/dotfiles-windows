@@ -30,8 +30,11 @@ iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.co
 
 The folder "setup-scripts" contains the Powershell scripts for the instalation and bootstrap setup:
 
-- `install.ps1` : Install script for the Git-free install. Downloads to a Temp folder the dotfiles and starts the setup.
-- `setup.ps1` : Main bootstrap script. Install the pre-requisites and starts the other setup scripts with Powershell 7  
+- `install.ps1` : Script for Git-free installation. Downloads the dotfiles to a temporary folder and initiates the setup.
+- `setup.ps1` : Main bootstrap script. Installs prerequisites and runs other setup scripts using PowerShell 7.
+- `setup.ps7-0-prerequisites-admin.ps1` : Script to install prerequisites that require administrative privileges.
+- `setup.ps7-1-dsc-configs-admin.ps1` : Script to apply DSC configurations that require administrative privileges.
+- `setup.ps7-0-dsc-configs-user.ps1` : Script to apply DSC configurations that do not require administrative privileges.
 
 ### Desired State Configuration (DSC) files
 
