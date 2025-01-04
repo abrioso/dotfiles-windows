@@ -34,7 +34,7 @@ The folder "setup-scripts" contains the Powershell scripts for the instalation a
 - `setup.ps1` : Main bootstrap script. Installs prerequisites and runs other setup scripts using PowerShell 7.
 - `setup.ps7-0-prerequisites-admin.ps1` : Script to install prerequisites that require administrative privileges.
 - `setup.ps7-1-dsc-configs-admin.ps1` : Script to apply DSC configurations that require administrative privileges.
-- `setup.ps7-0-dsc-configs-user.ps1` : Script to apply DSC configurations that do not require administrative privileges.
+- `setup.ps7-2-dsc-configs-user.ps1` : Script to apply DSC configurations that do not require administrative privileges.
 
 ### Desired State Configuration (DSC) files
 
