@@ -35,7 +35,7 @@ properties:
         description: Install Edge
         allowPrerelease: true
       settings:
-        id: Microsoft.MicrosoftEdge
+        id: Microsoft.Edge
         source: winget
 
     ########################################

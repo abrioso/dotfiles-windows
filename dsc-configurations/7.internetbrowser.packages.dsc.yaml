@@ -17,6 +17,19 @@ properties:
   ########################################
   resources:
     ########################################
+    ### Install Internet Browser Packages
+    ########################################
+    ### Install Microsoft Edge
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: edge
+      directives:
+        description: Install Microsoft Edge
+        allowPrerelease: true
+      settings:
+        id: Microsoft.Edge
+        source: winget
+    ########################################
     ### Install Google Chrome
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
