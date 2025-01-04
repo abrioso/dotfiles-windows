@@ -7,9 +7,13 @@ function Test-Elevated {
     $adm = [System.Security.Principal.WindowsBuiltInRole]::Administrator
     return $prp.IsInRole($adm)
 }
+# Current user
+$username = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+
+
 # Check to see if we are currently running "as Administrator"
 if (!(Test-Elevated)) {
-    Write-Host "Running $PSCommandPath as User [System.Security.Principal.WindowsIdentity]::GetCurrent().Name"
+    Write-Host "Running $PSCommandPath as $username"
  } else {
     Write-Host "Running $PSCommandPath as Administrator"
  }
@@ -22,14 +26,14 @@ $DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Pa
 # Run the DSC configuration using the Winget Cmdlet. Winget.exe cannot run as system or install Windows Optional Features
 # The DSC configuration will install the required features and tools
 $DscConfigFolder = Join-Path $DotFilesRoot "dsc-configurations"
-$DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*admin.dsc.yaml"
+$DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*user.dsc.yaml"
 
 foreach ($DSCFile in $DSCFiles) {
-    Write-Host "Running DSC Configuration (as Admin): $($DSCFile.FullName)"
+    Write-Host "Running DSC Configuration (as $username): $($DSCFile.FullName)"
    $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
 
     if ($DSCresult.ResultCode -ne 0) {
-        Write-Host "Failed to run DSC Configuration (as Admin): $($DSCFile.FullName)"
+        Write-Host "Failed to run DSC Configuration (as $username): $($DSCFile.FullName)"
         Write-Host "Result Code: $($DSCresult.ResultCode)"
         foreach ($unitResult in $DSCresult.UnitResults) {
             if($unitResult.ResultCode -ne 0) {
@@ -46,6 +50,6 @@ foreach ($DSCFile in $DSCFiles) {
     }
 }
 
-Write-Host "DSC Configuration (as Admin) Completed"
+Write-Host "DSC Configuration (as $username) Completed"
 Start-Sleep -Seconds 15
 # End of script

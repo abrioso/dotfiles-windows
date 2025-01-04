@@ -28,3 +28,5 @@ if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
 $env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 
 Write-Host "Pre-requisites installation completed"
+Start-Sleep -Seconds 15
+# End of script
