@@ -1,4 +1,5 @@
-# Run from an elevated PowerShell session
+# Can be run as a normal user
+
 # Elevate this powershell script to run as an administrator
 function Test-Elevated {
     $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -8,35 +9,27 @@ function Test-Elevated {
 }
 # Check to see if we are currently running "as Administrator"
 if (!(Test-Elevated)) {
-    Start-Process pwsh.exe -Verb RunAs -ArgumentList "-File `"$PSCommandPath`""
-    # Exit the current session
-    exit
+    Write-Host "Running $PSCommandPath as User [System.Security.Principal.WindowsIdentity]::GetCurrent().Name"
  } else {
-    Write-Host "Running as Administrator"
+    Write-Host "Running $PSCommandPath as Administrator"
  }
-
-
-# Install the Winget Cmdlet required for enabling Windows features and system-level installation
-Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-Install-Module -Name Microsoft.WinGet.Configuration -AllowPrerelease -AcceptLicense
 
 $env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 
 # Set the value of $PSScriptRoot to the directory path of the script
 $DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 
-
 # Run the DSC configuration using the Winget Cmdlet. Winget.exe cannot run as system or install Windows Optional Features
 # The DSC configuration will install the required features and tools
 $DscConfigFolder = Join-Path $DotFilesRoot "dsc-configurations"
-$DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*.dsc.yaml"
+$DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*admin.dsc.yaml"
 
 foreach ($DSCFile in $DSCFiles) {
-    Write-Host "Running DSC Configuration: $($DSCFile.FullName)"
+    Write-Host "Running DSC Configuration (as Admin): $($DSCFile.FullName)"
    $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
 
     if ($DSCresult.ResultCode -ne 0) {
-        Write-Host "Failed to run DSC Configuration: $($DSCFile.FullName)"
+        Write-Host "Failed to run DSC Configuration (as Admin): $($DSCFile.FullName)"
         Write-Host "Result Code: $($DSCresult.ResultCode)"
         foreach ($unitResult in $DSCresult.UnitResults) {
             if($unitResult.ResultCode -ne 0) {
@@ -46,10 +39,13 @@ foreach ($DSCFile in $DSCFiles) {
                 Write-Host "Result Message: $($unitResult.Message)"
                 Write-Host "Result Description: $($unitResult.Description)"
 #                Write-Host "Result Details: $($unitResult.Details)"
+                Start-Sleep -Seconds 15
                 throw "DSC Configuration Failed"
             }
         }
     }
 }
 
-Write-Host "DSC Configuration Completed"
+Write-Host "DSC Configuration (as Admin) Completed"
+Start-Sleep -Seconds 15
+# End of script
