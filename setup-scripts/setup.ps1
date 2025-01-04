@@ -1,6 +1,8 @@
-# Run from an elevated PowerShell session
+# Main bootstrap script. 
+# Installs the pre-requisites and starts the other setup scripts with Powershell 7 
+
 # Install PowerShell
-winget install Microsoft.PowerShell
+winget install --id Microsoft.PowerShell -e 
 
 # Update the system PATH variable
 $env:Path += ";$([System.Environment]::GetEnvironmentVariable('Path','Machine'))"
