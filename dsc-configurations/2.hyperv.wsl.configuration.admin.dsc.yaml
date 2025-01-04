@@ -91,10 +91,10 @@ properties:
       dependsOn:
         - wsl
       directives:
-        description: Ubuntu 22.04 LTS
+        description: Ubuntu 24.04 LTS
         allowPrerelease: true
       settings:
-        id: Canonical.Ubuntu.2204
+        id: Canonical.Ubuntu.2404
         source: winget 
     ########################################
     ### Install Powershell

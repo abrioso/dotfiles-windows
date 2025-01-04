@@ -15,10 +15,33 @@ properties:
       settings:
         MinVersion: "10.0.22000"
   ########################################
+
   resources:
     ########################################
-    ### Install Base Packages
+    ### Install Terminal and Shell Packages
     ########################################
+    ### Install Powershell
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      directives:
+        description: Install Powershell
+        allowPrerelease: true
+      settings:
+        id: Microsoft.PowerShell
+        source: winget
+    ### Install Windows Terminal
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: wterminal
+      directives:
+        description: Install Windows Terminal
+        allowPrerelease: true
+      settings:
+        id: Microsoft.WindowsTerminal
+        source: winget
+
+    ########################################
+    ### Install Git Packages
     ########################################
     ### Install Git
     ### -------------------------------------
@@ -30,60 +53,65 @@ properties:
       settings:
         id: Git.Git
         source: winget
-    ### Install Powershell
+    ### Install Git Credential Manager
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: gitcredmanager
       directives:
-        description: Install Powershell
+        description: Install Git Credential Manager
         allowPrerelease: true
       settings:
-        id: Microsoft.PowerShell
+        id: Microsoft.GitCredentialManager
         source: winget
-    ### Install OMP
+    ### Install Git LFS
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: OMP
+      id: gitlfs
       directives:
-        description: Install Oh My Posh
+        description: Install Git LFS
         allowPrerelease: true
       settings:
-        id: JanDeDobbeleer.OhMyPosh
+        id: Git.GitLFS
         source: winget
-
-
-    ########################################
-    ### Essential Configuration
-    ########################################
-    ########################################
-    ### Enable: Developer Mode
+    ### Install GitHub CLI
     ### -------------------------------------
-    - resource: Microsoft.Windows.Developer/DeveloperMode
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: ghcli
       directives:
-        description: Enable Developer Mode
+        description: Install GitHub CLI
         allowPrerelease: true
       settings:
-        Ensure: Present
-     ### Show file extensions and hidden files
-     ### -------------------------------------
-    - resource: Microsoft.Windows.Developer/WindowsExplorer
-      directives:
-        description: Show File Extensions and hidden files
-        allowPrerelease: true
-      settings:
-        FileExtensions: Show
-        HiddenFiles: Show
-    ### Set theme to Dark
-    ### -------------------------------------
-    - resource: Microsoft.Windows.Developer/EnableDarkMode
-      directives:
-        description: Set theme to Dark
-        allowPrerelease: true
-      settings:
-        Ensure: Present
-        RestartExplorer: true
+        id: GitHub.cli
+        source: winget
+    
 
     ########################################
-    ### Install CLIs, SDKs & Tools
+    ### Install Language and IDE Packages
+    ########################################
+    ### Install Visual Studio Code
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: vscode
+      directives:
+        description: Install Microsoft Visual Studio Code
+        allowPrerelease: true
+      settings:
+        id: Microsoft.VisualStudioCode
+        source: winget
+        ensure: Present
+    ### Install Python
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: python
+      directives:
+        description: Install Python
+        allowPrerelease: true
+      settings:
+        id: Python.Python.3.13
+        source: winget
+    
+    ########################################
+    ### Install Other Developer Tools
     ########################################
     ### Install DevHome
     ### -------------------------------------
@@ -136,65 +164,5 @@ properties:
       settings:
         id: Microsoft.Azd
         source: winget
-    ### Install Visual Studio Code
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: vscode
-      directives:
-        description: Install Microsoft Visual Studio Code
-        allowPrerelease: true
-      settings:
-        id: Microsoft.VisualStudioCode
-        source: winget
-        ensure: Present
-    ### Install Python
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: python
-      directives:
-        description: Install Python
-        allowPrerelease: true
-      settings:
-        id: Python.Python.3.12
-        source: winget
-    ### Install Windows Terminal
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: wterminal
-      directives:
-        description: Install Windows Terminal
-        allowPrerelease: true
-      settings:
-        id: Microsoft.WindowsTerminal
-        source: winget
-    ### Install Edge
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: edge
-      directives:
-        description: Install Edge
-        allowPrerelease: true
-      settings:
-        id: Microsoft.Edge
-        source: winget
-    ########################################
-    ### Configure settings
-    ########################################
-    ### Install VS Code Extensions
-    ### -------------------------------------
-    - resource: PSDscResources/Script
-      id: vscodeextensions
-      dependsOn:
-        - vscode
-      directives:
-        description: Install Python Extension for VS Code
-      settings:
-        SetScript: |
-          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
-          code --install-extension github.copilot
-          code --install-extension devcenter.ms-devbox
-          code --install-extension ms-vscode.powershell
-          code --install-extension ms-dotnettools.csdevkit
-          code --install-extension ms-azuretools.azure-dev
-        GetScript: return $false
-        TestScript: return $false
+        
+#######################################
