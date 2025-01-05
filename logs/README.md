@@ -18,7 +18,7 @@ The primary purpose of this folder is to organize and maintain the log files cre
 
 ## Example
 
-```
+```plaintext
 logs/
 ├── setup.ps1-log-2025-01-01.txt
 ├── setup.ps7-0-prerequisites-admin.ps1-log-2025-01-01.txt
