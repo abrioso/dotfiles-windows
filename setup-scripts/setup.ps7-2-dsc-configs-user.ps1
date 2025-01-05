@@ -1,3 +1,14 @@
+## Script to run DSC Configurations as a user
+
+# Get some useful data for logging
+$dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
+$logDir = Split-Path -Parent $PSScriptRoot
+$scriptName = Split-Path -Leaf $PSCommandPath
+$logFile = "$logDir/$scriptName-$dateTime.txt"
+
+# start logging
+Start-Transcript -Path $logFile
+
 # Can be run as a normal user
 
 # Elevate this powershell script to run as an administrator
@@ -52,4 +63,8 @@ foreach ($DSCFile in $DSCFiles) {
 
 Write-Host "DSC Configuration (as $username) Completed"
 Start-Sleep -Seconds 15
+
+# stop logging
+Stop-Transcript
+
 # End of script

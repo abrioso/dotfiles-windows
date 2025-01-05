@@ -1,3 +1,14 @@
+## Description: This script installs the pre-requisites for the dotfiles setup
+
+# Get some useful data for logging
+$dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
+$logDir = Split-Path -Parent $PSScriptRoot
+$scriptName = Split-Path -Leaf $PSCommandPath
+$logFile = "$logDir/$scriptName-$dateTime.txt"
+
+# start logging
+Start-Transcript -Path $logFile
+
 # Run from an elevated PowerShell session
 # Elevate this powershell script to run as an administrator
 function Test-Elevated {
@@ -29,4 +40,8 @@ $env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine
 
 Write-Host "Pre-requisites installation completed"
 Start-Sleep -Seconds 15
+
+# stop logging
+Stop-Transcript
+
 # End of script

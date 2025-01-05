@@ -1,5 +1,16 @@
-# Main bootstrap script. 
-# Installs the pre-requisites and starts the other setup scripts with Powershell 7 
+## Main bootstrap script. 
+## Installs the pre-requisites and starts the other setup scripts with Powershell 7 
+
+# Get some useful data for logging
+$dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
+$logDir = Split-Path -Parent $PSScriptRoot
+$logDir = Join-Path $logDir "logs"
+$scriptName = Split-Path -Leaf $PSCommandPath
+$logFile = "$logDir/$scriptName-$dateTime.txt"
+
+# start logging
+Start-Transcript -Path $logFile
+
 
 # Install PowerShell
 winget install --id Microsoft.PowerShell -e 
@@ -19,3 +30,7 @@ pwsh.exe -File $scriptPath
 # 2. Run the DSC configurations as a normal user
 $scriptPath = Join-Path $PSScriptRoot "setup.ps7-2-dsc-configs-user.ps1"
 pwsh.exe -File $scriptPath
+
+
+# stop logging
+Stop-Transcript
