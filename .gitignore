@@ -1,0 +1,4 @@
+### Git Ignore File ###
+
+#Exclude all the logs
+logs/*.txt
