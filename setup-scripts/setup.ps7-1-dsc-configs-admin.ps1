@@ -3,6 +3,7 @@
 # Get some useful data for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
 $logDir = Split-Path -Parent $PSScriptRoot
+$logDir = Join-Path $logDir "logs"
 $scriptName = Split-Path -Leaf $PSCommandPath
 $logFile = "$logDir/$scriptName-$dateTime.txt"
 
