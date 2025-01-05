@@ -13,7 +13,7 @@ To clone the repository, you can choose any location you prefer. I personally ke
 From PowerShell:
 
 ```pwsh
-git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows\setup-scripts\setup.ps1
+git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; .\setup-scripts\setup.ps1
 ```
 
 ### Git-free install
