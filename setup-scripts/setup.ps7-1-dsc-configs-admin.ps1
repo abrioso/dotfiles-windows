@@ -51,7 +51,7 @@ foreach ($DSCFile in $DSCFiles) {
                 Write-Host "Result Type: $($unitResult.Type)"
                 Write-Host "Result Message: $($unitResult.Message)"
                 Write-Host "Result Description: $($unitResult.Description)"
-#                Write-Host "Result Details: $($unitResult.Details)"
+                Write-Host "Result Details: $($unitResult.Details)"
                 Start-Sleep -Seconds 15
                 throw "DSC Configuration Failed"
             }
