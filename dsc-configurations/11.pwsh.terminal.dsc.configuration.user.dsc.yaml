@@ -77,18 +77,13 @@ properties:
         description: Create Powershell Profile directory
       settings:
         SetScript: |
-          # Check if the $PROFILE variable is set
-          if (-not $PROFILE) {
-              # Set the $PROFILE variable to a default value if it is not set
-              $PROFILE = [System.IO.Path]::Combine($env:USERPROFILE, 'Documents', 'PowerShell', 'Microsoft.PowerShell_profile.ps1')
-          }
-          # Now you can safely use the $PROFILE variable
-          Write-Output "The profile path is: $PROFILE"
-          # Get the directory of the PowerShell profile
-          $profileDirectory = Split-Path -Parent $PROFILE
+          $customProfileDirectory = [System.IO.Path]::Combine($env:USERPROFILE, 'PowerShell-Custom')
           # Ensure the directory exists
-          if (-not (Test-Path $profileDirectory)) {
+          if (-not (Test-Path $customProfileDirectory)) {
               New-Item -ItemType Directory -Path $profileDirectory | Out-Null
+          } else 
+          {
+              Write-Output "The directory $customProfileDirectory already exists"
           }
         GetScript: return $false
         TestScript: return $false
@@ -108,15 +103,12 @@ properties:
        description: Copy Powershell Profiles
       settings:
        SetScript: |
-        # Check if the $PROFILE variable is set
-        if (-not $PROFILE) {
-            # Set the $PROFILE variable to a default value if it is not set
-            $PROFILE = [System.IO.Path]::Combine($env:USERPROFILE, 'Documents', 'PowerShell', 'Microsoft.PowerShell_profile.ps1')
-        }
-        # Now you can safely use the $PROFILE variable
-        Write-Output "The profile path is: $PROFILE"
+        # Check if the $customProfileDirectory variable is set
+        $customProfileDirectory = [System.IO.Path]::Combine($env:USERPROFILE, 'PowerShell-Custom')
+        # Now you can safely use the $customProfileDirectory variable
+        Write-Output "The (custom) profile path is: $customProfileDirectory"
         # Get the directory of the PowerShell profile
-        $powershellProfilePath = Split-Path -Parent $PROFILE
+        $powershellProfilePath = $customProfileDirectory
         # Get the dotfiles directory
         $dotfilesPowershellProfilesDirectory = "$env:USERPROFILE\workspace\dotfiles-windows\powershell-profiles"
         $files = Get-ChildItem -Path $dotfilesPowershellProfilesDirectory -Filter "*.ps1"
