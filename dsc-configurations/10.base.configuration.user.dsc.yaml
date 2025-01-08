@@ -255,7 +255,7 @@ properties:
       dependsOn:
         - vscode
       directives:
-        description: Install Python Extension for VS Code
+        description: Install Extension for VS Code
       settings:
         SetScript: |
           $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
