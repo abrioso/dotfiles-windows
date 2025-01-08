@@ -108,6 +108,13 @@ properties:
        description: Copy Powershell Profiles
       settings:
        SetScript: |
+        # Check if the $PROFILE variable is set
+        if (-not $PROFILE) {
+            # Set the $PROFILE variable to a default value if it is not set
+            $PROFILE = [System.IO.Path]::Combine($env:USERPROFILE, 'Documents', 'PowerShell', 'Microsoft.PowerShell_profile.ps1')
+        }
+        # Now you can safely use the $PROFILE variable
+        Write-Output "The profile path is: $PROFILE"
         # Get the directory of the PowerShell profile
         $powershellProfilePath = Split-Path -Parent $PROFILE
         # Get the dotfiles directory
