@@ -20,7 +20,7 @@ function Test-Elevated {
 }
 # Check to see if we are currently running "as Administrator"
 if (!(Test-Elevated)) {
-    $process = Start-Process pwsh.exe -Verb RunAs -ArgumentList "-File `"$PSCommandPath`""
+    $process = Start-Process pwsh.exe -Verb RunAs -ArgumentList "-File `"$PSCommandPath`"" -PassThru
     Wait-Process -Id $process.Id
     Write-Output "Process exited with code: $($process.ExitCode)"
     # Exit the current session
