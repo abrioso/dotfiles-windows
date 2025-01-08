@@ -22,6 +22,7 @@ function Test-Elevated {
 if (!(Test-Elevated)) {
     $process = Start-Process pwsh.exe -Verb RunAs -ArgumentList "-File `"$PSCommandPath`""
     Wait-Process -Id $process.Id
+    Write-Output "Process exited with code: $($process.ExitCode)"
     # Exit the current session
     exit
  } else {
