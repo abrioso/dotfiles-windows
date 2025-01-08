@@ -11,7 +11,7 @@ $logFile = "$logDir/$scriptName-$dateTime.txt"
 Start-Transcript -Path $logFile
 
 # Run as a normal user
-    Write-Host "Running $PSCommandPath as $env:UserName"
+Write-Host "Running $PSCommandPath as $env:UserName"
 
 
 Write-Host "Installing the pre-requisites for the dotfiles setup"
