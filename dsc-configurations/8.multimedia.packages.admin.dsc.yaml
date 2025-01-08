@@ -28,7 +28,7 @@ properties:
         description: Install VideoLAN VLC Media Player
         allowPrerelease: true
       settings:
-        id: VideoLAN.VLCMediaPlayer
+        id: VideoLAN.VLC
         source: winget
     ### Install OBS Studio
     ### -------------------------------------
