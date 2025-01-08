@@ -23,16 +23,24 @@ $env:Path += ";$([System.Environment]::GetEnvironmentVariable('Path','Machine'))
 $scriptPath = Join-Path $PSScriptRoot "setup.ps7-0-prerequisites-admin.ps1"
 $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $scriptPath" -PassThru
 Wait-Process -Id $process.Id
+Write-Output "Process exited with code: $($process.ExitCode)"
+
+$scriptPath = Join-Path $PSScriptRoot "setup.ps7-0-prerequisites-user.ps1"
+$process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $scriptPath" -PassThru
+Wait-Process -Id $process.Id
+Write-Output "Process exited with code: $($process.ExitCode)"
 
 # 1. Run the DSC configurations
 $scriptPath = Join-Path $PSScriptRoot "setup.ps7-1-dsc-configs-admin.ps1"
 $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $scriptPath" -PassThru
 Wait-Process -Id $process.Id
+Write-Output "Process exited with code: $($process.ExitCode)"
 
 # 2. Run the DSC configurations as a normal user
 $scriptPath = Join-Path $PSScriptRoot "setup.ps7-2-dsc-configs-user.ps1"
 $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $scriptPath" -PassThru
 Wait-Process -Id $process.Id
+Write-Output "Process exited with code: $($process.ExitCode)"
 
 # stop logging
 Stop-Transcript
