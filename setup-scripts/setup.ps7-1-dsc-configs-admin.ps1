@@ -20,7 +20,8 @@ function Test-Elevated {
 }
 # Check to see if we are currently running "as Administrator"
 if (!(Test-Elevated)) {
-    Start-Process pwsh.exe -Verb RunAs -ArgumentList "-File `"$PSCommandPath`""
+    $process = Start-Process pwsh.exe -Verb RunAs -ArgumentList "-File `"$PSCommandPath`""
+    Wait-Process -Id $process.Id
     # Exit the current session
     exit
  } else {
@@ -29,7 +30,7 @@ if (!(Test-Elevated)) {
 
 $env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 
-# Set the value of $PSScriptRoot to the directory path of the script
+# Set the value of $DotFilesRoot to the directory path of the script
 $DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 
 # Run the DSC configuration using the Winget Cmdlet. Winget.exe cannot run as system or install Windows Optional Features
