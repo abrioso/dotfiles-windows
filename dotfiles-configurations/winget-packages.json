@@ -1,0 +1,7 @@
+{
+    "Packages": [
+        "VideoLAN.VLC",
+        "gerardog.gsud",
+        "Microsoft.PowerShell"
+    ]
+}
