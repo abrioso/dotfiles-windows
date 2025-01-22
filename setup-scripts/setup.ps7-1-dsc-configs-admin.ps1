@@ -39,6 +39,14 @@ $DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Pa
 $DscConfigFolder = Join-Path $DotFilesRoot "dsc-configurations"
 $DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*admin.dsc.yaml"
 
+$computerSystem = Get-WmiObject -Class Win32_ComputerSystem
+if ($computerSystem.Model -like "*Virtual Machine*") {
+    Write-Output "This machine is running inside a Hyper-V host."
+} else {
+    Write-Output "This machine is not running inside a Hyper-V host."
+}
+
+
 foreach ($DSCFile in $DSCFiles) {
     Write-Host "Running DSC Configuration (as Admin): $($DSCFile.FullName)"
    $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
