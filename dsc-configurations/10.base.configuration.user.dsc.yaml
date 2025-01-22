@@ -46,18 +46,18 @@ properties:
         source: winget
     ### Clone dotfiles repository
     ### -------------------------------------
-    - resource: GitDsc/GitClone
-      id: mydotfiles
-      dependsOn:
-        - git
-        - workspacedir
-      directives:
-        description: Clone my dotfiles GitHub repository
-        allowPrerelease: true
-      settings:
-        HttpsUrl: https://github.com/abrioso/dotfiles-windows
-        RootDirectory: $env:USERPROFILE\workspace
-        Ensure: Present
+    #- resource: GitDsc/GitClone
+    #  id: mydotfiles
+    #  dependsOn:
+    #    - git
+    #    - workspacedir
+    #  directives:
+    #    description: Clone my dotfiles GitHub repository
+    #    allowPrerelease: true
+    #  settings:
+    #    HttpsUrl: https://github.com/abrioso/dotfiles-windows
+    #    RootDirectory: $env:USERPROFILE\workspace
+    #    Ensure: Present
     ### Enable: Developer Mode
     ### -------------------------------------
     - resource: Microsoft.Windows.Developer/DeveloperMode
