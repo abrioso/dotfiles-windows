@@ -1,4 +1,8 @@
 ### Git Ignore File ###
 
+# Exclude .vscode folder
+.vscode/
+
 #Exclude all the logs
 logs/*.txt
+
