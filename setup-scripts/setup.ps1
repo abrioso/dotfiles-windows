@@ -19,11 +19,24 @@ Write-Host "Installing PowerShell & Git"
 winget install --id Microsoft.PowerShell -e 
 winget install --id Git.Git -e
 
+# Check if NuGet provider is installed
+if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+    Write-Host "NuGet provider is not installed. Installing now..."
+    Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+    Import-PackageProvider -Name NuGet -Force
+}
+
+# Register the default repository if not already registered
+if (-not (Get-PSRepository -Name "PSGallery" -ErrorAction SilentlyContinue)) {
+    Write-Host "Registering default PowerShell repository..."
+    Register-PSRepository -Default
+}
+
 # Install the Winget Cmdlet required for enabling Windows features and system-level installation
 Write-Host "Installing the Winget Cmdlet"
 Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
-    Update-Module -Name Microsoft.WinGet.Configuration
+    Update-Module -Name Microsoft.WinGet.Configuration -Force
 } else {
     Install-Module -Name Microsoft.WinGet.Configuration -AllowPrerelease -AcceptLicense
 }
@@ -31,45 +44,39 @@ if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
 # Update the system PATH variable
 $env:Path += ";$([System.Environment]::GetEnvironmentVariable('Path','Machine'))"
 
-# Create a symbolic link to the custom profile directory
-Write-Host "Creating a symbolic link to the custom profile directory"
-$customProfileDirectory = [System.IO.Path]::Combine($env:USERPROFILE, 'PowerShell-Custom')
-$profileDirectory = Split-Path -Parent $PROFILE
-if (-not (Test-Path $customProfileDirectory)) {
-    #create a link to $profileDirectory
-    New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force | Out-Null
-}
-
 ## Apply the dotfiles bootstrap variables
 # Get the directory path of the script
 $DotfilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 
 # Get the directory path of the config files
 $DotfilesConfigFolder = Join-Path $DotfilesRoot "dotfiles-configurations"
-$DotfilesVariablesFiles = Get-ChildItem -Path $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json"
+$DotfilesVariablesFile = Get-ChildItem -Path $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json"
 
-# For each config file, set the environment variables
-foreach ($DotfilesVariablesFile in $DotfilesVariablesFiles) {
-    Write-Host "Setting Dotfiles Bootstrap Variables from $($DotfilesVariablesFile.FullName)"
-    
-    # read the config file
+if ($DotfilesVariablesFile) {
     $DotfilesVariables = Get-Content -Path $DotfilesVariablesFile.FullName | ConvertFrom-Json
-    # for each config variable, set the environment variable
-    foreach ($DotfilesVariable in $DotfilesVariables.PSObject.Properties) {
-        Write-Host "Setting Dotfiles Bootstrap Variable: $($DotfilesVariable.Name) to $($DotfilesVariable.Value)"
-        [System.Environment]::SetEnvironmentVariable($DotfilesVariable.Name, $DotfilesVariable.Value, [System.EnvironmentVariableTarget]::User)
-    }
+} else {
+    Write-Host "The dotfiles-bootstrap-variables.json file was not found in the dotfiles-configurations folder"
+    Write-Host "Please make sure that the file exists and try again"
+    Exit
 }
 
-# Print the environment variables
-Write-Host "Environment Variables:"
-Get-ChildItem Env: | Format-Table -AutoSize
+Write-Host "Dotfiles Bootstrap Variables:"
+$DotfilesVariables | ForEach-Object { Write-Host "$($_.Key) = $($_.Value)" }
+
+# Create a symbolic link to the custom profile directory
+Write-Host "Creating a symbolic link to the custom profile directory"
+$customProfileDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.CUSTOM_PROFILE_FOLDER
+$profileDirectory = Split-Path -Parent $PROFILE
+if (-not (Test-Path $customProfileDirectory)) {
+    #create a link to $profileDirectory
+    New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force | Out-Null
+}
 
 # Create workspace directory if it does not exist
 Write-Host "Creating workspace directory"
-$workspaceDirectory = [System.IO.Path]::Combine($env:USERPROFILE, $env:WORKSPACE_FOLDER)
+$workspaceDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.WORKSPACE_FOLDER
 if (-not (Test-Path $workspaceDirectory)) {
-    #create a link to $profileDirectory
+    #create the workspace directory
     New-Item -ItemType Directory -Path $workspaceDirectory -Force | Out-Null
 }
 
