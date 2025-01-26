@@ -2,5 +2,6 @@
     "GITHUB_ACCOUNT": "abrioso",
     "GITHUB_DOTFILES_REPO": "dotfiles-windows",
     "GITHUB_DOTFILES_BRANCH": "main",
-    "WORKSPACE_FOLDER": "workspace"
+    "WORKSPACE_FOLDER": "workspace",
+    "CUSTOM_PROFILE_FOLDER": "Profile-Custom"
 }

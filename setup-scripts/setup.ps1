@@ -35,11 +35,15 @@ if (-not (Get-PSRepository -Name "PSGallery" -ErrorAction SilentlyContinue)) {
 # Install the Winget Cmdlet required for enabling Windows features and system-level installation
 Write-Host "Installing the Winget Cmdlet"
 Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+# Check if the module is already installed
 if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
-    Update-Module -Name Microsoft.WinGet.Configuration -Force
-} else {
-    Install-Module -Name Microsoft.WinGet.Configuration -AllowPrerelease -AcceptLicense
+    Write-Host "Uninstalling the existing Microsoft.WinGet.Configuration module..."
+    Uninstall-Module -Name Microsoft.WinGet.Configuration -AllVersions -Force
 }
+
+Write-Host "Installing the Microsoft.WinGet.Configuration module..."
+Install-Module -Name Microsoft.WinGet.Configuration -AllowPrerelease -AcceptLicense -Force
 
 # Update the system PATH variable
 $env:Path += ";$([System.Environment]::GetEnvironmentVariable('Path','Machine'))"
@@ -61,7 +65,7 @@ if ($DotfilesVariablesFile) {
 }
 
 Write-Host "Dotfiles Bootstrap Variables:"
-$DotfilesVariables | ForEach-Object { Write-Host "$($_.Key) = $($_.Value)" }
+Write-Host $DotfilesVariables | Format-List
 
 # Create a symbolic link to the custom profile directory
 Write-Host "Creating a symbolic link to the custom profile directory"
