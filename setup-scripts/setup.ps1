@@ -84,6 +84,15 @@ if (-not (Test-Path $workspaceDirectory)) {
     New-Item -ItemType Directory -Path $workspaceDirectory -Force | Out-Null
 }
 
+# Clone the dotfiles repository if it does not exist
+Write-Host "Cloning the dotfiles repository"
+$dotfilesRepositoryURL = "https://github.com/$($DotfilesVariables.GITHUB_ACCOUNT)/$($DotfilesVariables.GITHUB_DOTFILES_REPO).git"
+$dotfilesDirectory = Join-Path $workspaceDirectory $DotfilesVariables.GITHUB_DOTFILES_REPO
+if (-not (Test-Path $dotfilesDirectory)) {
+    #clone the dotfiles repository
+    git clone $dotfilesRepositoryURL $dotfilesDirectory
+}
+
 # Run the setup scripts
 # 0. Install the pre-requisites
 #$scriptPath = Join-Path $PSScriptRoot "setup.ps7-0-prerequisites-admin.ps1"
