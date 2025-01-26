@@ -22,7 +22,8 @@ winget install --id Git.Git -e
 # Check if NuGet provider is installed
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     Write-Host "NuGet provider is not installed. Installing now..."
-    Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+#    Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser
     Import-PackageProvider -Name NuGet -Force
 }
 
@@ -104,7 +105,7 @@ Write-Host "Running the setup scripts"
 $setupScripts = Get-ChildItem -Path $DotfilesScriptsFolder -Filter "setup.ps7-*.ps1"
 foreach ($script in $setupScripts) {
     Write-Host "Running $($script.Name)"
-    $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $ $script.FullName" -PassThru
+    $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $($script.FullName)" -PassThru
     Wait-Process -Id $process.Id
     Write-Output "Process exited with code: $($process.ExitCode)"
 }
