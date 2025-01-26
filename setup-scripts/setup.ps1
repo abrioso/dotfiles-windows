@@ -93,29 +93,21 @@ if (-not (Test-Path $dotfilesDirectory)) {
     git clone $dotfilesRepositoryURL $dotfilesDirectory
 }
 
+# Change the working directory to the dotfiles repository
+Set-Location $dotfilesDirectory
+$DotfilesScriptsFolder = Join-Path $dotfilesDirectory "setup-scripts"
+
 # Run the setup scripts
-# 0. Install the pre-requisites
-#$scriptPath = Join-Path $PSScriptRoot "setup.ps7-0-prerequisites-admin.ps1"
-#$process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $scriptPath" -PassThru
-#Wait-Process -Id $process.Id
-#Write-Output "Process exited with code: $($process.ExitCode)"
+Write-Host "Running the setup scripts"
 
-#$scriptPath = Join-Path $PSScriptRoot "setup.ps7-0-prerequisites-user.ps1"
-#$process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $scriptPath" -PassThru
-#Wait-Process -Id $process.Id
-#Write-Output "Process exited with code: $($process.ExitCode)"
-
-# 1. Run the DSC configurations
-$scriptPath = Join-Path $PSScriptRoot "setup.ps7-1-dsc-configs-admin.ps1"
-$process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $scriptPath" -PassThru
-Wait-Process -Id $process.Id
-Write-Output "Process exited with code: $($process.ExitCode)"
-
-# 2. Run the DSC configurations as a normal user
-$scriptPath = Join-Path $PSScriptRoot "setup.ps7-2-dsc-configs-user.ps1"
-$process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $scriptPath" -PassThru
-Wait-Process -Id $process.Id
-Write-Output "Process exited with code: $($process.ExitCode)"
+# For each script in the setup-scripts folder started with setup.ps7, run the script
+$setupScripts = Get-ChildItem -Path $DotfilesScriptsFolder -Filter "setup.ps7-*.ps1"
+foreach ($script in $setupScripts) {
+    Write-Host "Running $($script.Name)"
+    $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $ $script.FullName" -PassThru
+    Wait-Process -Id $process.Id
+    Write-Output "Process exited with code: $($process.ExitCode)"
+}
 
 # stop logging
 Stop-Transcript
