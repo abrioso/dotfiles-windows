@@ -1,3 +1,19 @@
+# 
+# This is the installer script that downloads the dotfiles repository and runs the setup script.
+# 
+# The installer script can be run from a PowerShell terminal. It will download the dotfiles repository
+# and run the setup script. The setup script is located in the setup-scripts/setup.ps1 file.
+# 
+# The installer script will download the dotfiles repository from GitHub and extract the contents to
+# a temporary folder. The setup script will then be executed from the temporary folder.
+#  
+# The installer script can be run from a PowerShell terminal by executing the following command:
+# 
+#   iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
+# 
+
+$ErrorActionPreference = "Stop"
+
 $account = "abrioso"
 $repo    = "dotfiles-windows"
 $branch  = "main"
@@ -47,9 +63,3 @@ Expand-Zip $sourceFile $dotfilesTempDir
 Push-Location $dotfilesInstallDir
 & .\setup-scripts\setup.ps1
 Pop-Location
-
-#$newProcess = new-object System.Diagnostics.ProcessStartInfo "PowerShell";
-#$newProcess.Arguments = "-nologo";
-#[System.Diagnostics.Process]::Start($newProcess);
-#exit
-

@@ -4,7 +4,7 @@ Dotfiles for Windows inspired from several other dotfiles.
 
 ## Installation
 
-> **Note:** To make this work, you need to set your execution policy to unrestricted (or at least bypass) by running `Set-ExecutionPolicy Unrestricted` from a PowerShell running as Administrator.
+> **Note:** To make this work, you need to set your execution policy to unrestricted (or at least bypass) by running `Set-ExecutionPolicy Unrestricted -Scope CurrentUser` from a PowerShell.
 
 ### Using Git and the bootstrap script
 
@@ -13,7 +13,7 @@ To clone the repository, you can choose any location you prefer. I personally ke
 From PowerShell:
 
 ```pwsh
-git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; cd setup-scripts; .\setup.ps1
+git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; .\setup-scripts\setup.ps1
 ```
 
 ### Git-free install
@@ -26,11 +26,22 @@ iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.co
 
 ## Use & Configuration
 
+### Setup Scripts
+
+The folder "setup-scripts" contains the Powershell scripts for the instalation and bootstrap setup:
+
+- `install.ps1` : Script for Git-free installation. Downloads the dotfiles to a temporary folder and initiates the setup.
+- `setup.ps1` : Main bootstrap script. Installs prerequisites and runs other setup scripts using PowerShell 7.
+- `setup.ps7-0-prerequisites-admin.ps1` : Script to install prerequisites that require administrative privileges.
+- `setup.ps7-1-dsc-configs-admin.ps1` : Script to apply DSC configurations that require administrative privileges.
+- `setup.ps7-2-dsc-configs-user.ps1` : Script to apply DSC configurations that do not require administrative privileges.
+
 ### Desired State Configuration (DSC) files
 
 The folder "dsc-configurations" contains the DSC configuration files:
 
-- `.\dsc-configuration\base-configurations.yaml` : Base and must-have configuration.
+- `.\dsc-configuration\0.base.configurations.yaml` : Base and must-have configuration.
+- `.\dsc-configuration\1.hyperv.wsl.configurations.yaml` : HyperV and WSL configuration.
 
 ### PowerShell Profile
 

@@ -1,0 +1,10 @@
+{
+    "Packages": [
+        "Microsoft.PowerShell",
+        "Git.Git",
+        "Microsoft.WindowsTerminal",
+        "Microsoft.VisualStudioCode",
+        "VideoLAN.VLC",
+        "gerardog.gsudo"
+    ]
+}

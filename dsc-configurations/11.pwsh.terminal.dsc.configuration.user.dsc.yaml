@@ -16,27 +16,21 @@ properties:
         MinVersion: "10.0.22000"
   ########################################
   resources:
+  
     ########################################
-    ### Initialization
+    ### Install Packages for Terminal 
+    ### Customization: 
     ########################################
-    ########################################
-    ### Create Powershell Profile directory
+    ### Install Windows Terminal
     ### -------------------------------------
-    - resource: PSDscResources/Script
-      id: powershellprofiledir
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: wterminal
       directives:
-        description: Create Powershell Profile directory
+        description: Install Windows Terminal
+        allowPrerelease: true
       settings:
-        SetScript: |
-          # Get the directory of the PowerShell profile
-          $profileDirectory = Split-Path -Parent $PROFILE
-          # Ensure the directory exists
-          if (-not (Test-Path $profileDirectory)) {
-              New-Item -ItemType Directory -Path $profileDirectory | Out-Null
-          }
-        GetScript: return $false
-        TestScript: return $false
-    ########################################
+        id: Microsoft.WindowsTerminal
+        source: winget
     ### Install Powershell
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -47,44 +41,16 @@ properties:
       settings:
         id: Microsoft.PowerShell
         source: winget
-    ########################################
-    ### Install Windows Terminal
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: WindowsTerminal
-      directives:
-        description: Install Windows Terminal
-        allowPrerelease: true
-      settings:
-        id: Microsoft.WindowsTerminal
-        source: winget
-    ########################################
     ### Install Oh My Posh
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: ohmyposh
+      id: OMP
       directives:
         description: Install Oh My Posh
         allowPrerelease: true
-      dependsOn:
-        - Powershell
       settings:
         id: JanDeDobbeleer.OhMyPosh
         source: winget
-    ########################################
-    ### Install Github CLI
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: githubcli
-      directives:
-        description: Install Github CLI
-        allowPrerelease: true
-      dependsOn:
-        - Powershell
-      settings:
-        id: GitHub.cli
-        source: winget
-    ########################################
     ### Install gsudo
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -97,6 +63,32 @@ properties:
       settings:
         id: gerardog.gsudo
         source: winget
+    
+
+    ########################################
+    ### Initialization
+    ########################################
+    ########################################
+    ### Create Powershell Profile directory
+    ### -------------------------------------
+    - resource: PSDscResources/Script
+      id: powershellprofiledir
+      directives:
+        description: Create Powershell Profile directory
+      settings:
+        SetScript: |
+          $customProfileDirectory = [System.IO.Path]::Combine($env:USERPROFILE, 'PowerShell-Custom')
+          # Ensure the directory exists
+          if (-not (Test-Path $customProfileDirectory)) {
+              New-Item -ItemType Directory -Path $profileDirectory | Out-Null
+          } else 
+          {
+              Write-Output "The directory $customProfileDirectory already exists"
+          }
+        GetScript: return $false
+        TestScript: return $false
+
+
     ########################################
     ### Configure settings
     ########################################
@@ -111,8 +103,12 @@ properties:
        description: Copy Powershell Profiles
       settings:
        SetScript: |
+        # Check if the $customProfileDirectory variable is set
+        $customProfileDirectory = [System.IO.Path]::Combine($env:USERPROFILE, 'PowerShell-Custom')
+        # Now you can safely use the $customProfileDirectory variable
+        Write-Output "The (custom) profile path is: $customProfileDirectory"
         # Get the directory of the PowerShell profile
-        $powershellProfilePath = Split-Path -Parent $PROFILE
+        $powershellProfilePath = $customProfileDirectory
         # Get the dotfiles directory
         $dotfilesPowershellProfilesDirectory = "$env:USERPROFILE\workspace\dotfiles-windows\powershell-profiles"
         $files = Get-ChildItem -Path $dotfilesPowershellProfilesDirectory -Filter "*.ps1"
@@ -153,6 +149,8 @@ properties:
     ### -------------------------------------
     - resource: PSDscResources/Script
       id: nerdFont
+      dependsOn:
+        - OMP
       directives:
         description: Download and Install a Nerd Font (via oh-my-posh)
       settings:
@@ -165,6 +163,8 @@ properties:
     ### -------------------------------------
     - resource: PSDscResources/Script
       id: terminalIcons
+      dependsOn:
+        - Powershell
       directives:
         description: Install Terminal-Icons
       settings:
