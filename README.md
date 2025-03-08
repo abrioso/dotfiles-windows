@@ -13,7 +13,7 @@ To clone the repository, you can choose any location you prefer. I personally ke
 From PowerShell:
 
 ```pwsh
-git clone https://github.com/abrioso/dotfiles-windows.git; cd ~\workspace\dotfiles-windows; .\setup-scripts\setup.ps1
+git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; .\setup-scripts\setup.ps1
 ```
 
 ### Git-free install
@@ -31,7 +31,7 @@ iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.co
 The folder "setup-scripts" contains the Powershell scripts for the instalation and bootstrap setup:
 
 - `install.ps1` : Script for Git-free installation. Downloads the dotfiles to a temporary folder and initiates the setup.
-- `setup.ps1` : Main bootstrap script. Installs prerequisites and runs other setup scripts using PowerShell 7.
+- `setup.ps1` : Main bootstrap script. This script installs the pre-requisites and starts the other setup scripts with Powershell 7. It also creates a symbolic link to the custom profile directory and clones the dotfiles repository.
 - `setup.ps7-0-prerequisites-admin.ps1` : Script to install prerequisites that require administrative privileges.
 - `setup.ps7-1-dsc-configs-admin.ps1` : Script to apply DSC configurations that require administrative privileges.
 - `setup.ps7-2-dsc-configs-user.ps1` : Script to apply DSC configurations that do not require administrative privileges.
