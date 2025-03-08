@@ -8,6 +8,11 @@ $logDir = Join-Path $logDir "logs"
 $scriptName = Split-Path -Leaf $PSCommandPath
 $logFile = "$logDir/$scriptName-$dateTime.txt"
 
+# Ensure log directory exists
+if (-not (Test-Path $logDir)) {
+    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+}
+
 # start logging
 Start-Transcript -Path $logFile
 
@@ -73,8 +78,15 @@ Write-Host "Creating a symbolic link to the custom profile directory"
 $customProfileDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.CUSTOM_PROFILE_FOLDER
 $profileDirectory = Split-Path -Parent $PROFILE
 if (-not (Test-Path $customProfileDirectory)) {
-    #create a link to $profileDirectory
-    New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force | Out-Null
+    try {
+        #create a link to $profileDirectory
+        New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force | Out-Null
+        Write-Host "Symbolic link to the custom profile directory created successfully"
+    } catch {
+        Write-Host "Failed to create a symbolic link to the custom profile directory. Exiting script."
+        Stop-Transcript
+        Exit 1
+    }
 }
 
 # Create workspace directory if it does not exist
@@ -92,17 +104,24 @@ $dotfilesDirectory = Join-Path $workspaceDirectory $DotfilesVariables.GITHUB_DOT
 if (-not (Test-Path $dotfilesDirectory)) {
     #clone the dotfiles repository
     git clone $dotfilesRepositoryURL $dotfilesDirectory
+
+    # Verify cloning succeeded
+    if (-not (Test-Path $dotfilesDirectory)) {
+        Write-Host "Failed to clone the dotfiles repository. Exiting script."
+        Stop-Transcript
+        Exit 1
+    }
 }
 
 # Change the working directory to the dotfiles repository
 Set-Location $dotfilesDirectory
-$DotfilesScriptsFolder = Join-Path $dotfilesDirectory "setup-scripts"
+$DotfilesSetupScriptsFolder = Join-Path $dotfilesDirectory "setup-scripts"
 
 # Run the setup scripts
 Write-Host "Running the setup scripts"
 
 # For each script in the setup-scripts folder started with setup.ps7, run the script
-$setupScripts = Get-ChildItem -Path $DotfilesScriptsFolder -Filter "setup.ps7-*.ps1"
+$setupScripts = Get-ChildItem -Path $DotfilesSetupScriptsFolder -Filter "setup.ps7-*.ps1"
 foreach ($script in $setupScripts) {
     Write-Host "Running $($script.Name)"
     $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $($script.FullName)" -PassThru
