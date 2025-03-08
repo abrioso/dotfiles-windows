@@ -6,7 +6,7 @@ $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
 $logDir = Split-Path -Parent $PSScriptRoot
 $logDir = Join-Path $logDir "logs"
 $scriptName = Split-Path -Leaf $PSCommandPath
-$logFile = "$logDir/$scriptName-$dateTime.txt"
+$logFile = "$logDir\$scriptName-$dateTime.txt"
 
 # Ensure log directory exists
 if (-not (Test-Path $logDir)) {
@@ -80,8 +80,16 @@ $profileDirectory = Split-Path -Parent $PROFILE
 if (-not (Test-Path $customProfileDirectory)) {
     try {
         #create a link to $profileDirectory
-        New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force | Out-Null
-        Write-Host "Symbolic link to the custom profile directory created successfully"
+        New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force -ErrorAction Stop | Out-Null
+        # if the link was created successfully, write a message
+        # otherwise, write an error message and exit the script
+        if(Test-Path $customProfileDirectory) {
+            Write-Host "Symbolic link to the custom profile directory created successfully"
+        } else {
+            Write-Host "Failed to create a symbolic link to the custom profile directory. Exiting script."
+            Stop-Transcript
+            Exit 1
+        }
     } catch {
         Write-Host "Failed to create a symbolic link to the custom profile directory. Exiting script."
         Stop-Transcript
