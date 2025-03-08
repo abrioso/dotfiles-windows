@@ -1,5 +1,10 @@
-## Main bootstrap script. 
-## Installs the pre-requisites and starts the other setup scripts with Powershell 7 
+## 
+# 
+# Main bootstrap script. 
+# This script installs the pre-requisites and starts the other setup scripts with Powershell 7
+# It also creates a symbolic link to the custom profile directory and clones the dotfiles repository
+#
+##
 
 # Get some useful data for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -66,11 +71,11 @@ if ($DotfilesVariablesFile) {
     $DotfilesVariables = Get-Content -Path $DotfilesVariablesFile.FullName | ConvertFrom-Json
 } else {
     Write-Host "The dotfiles-bootstrap-variables.json file was not found in the dotfiles-configurations folder"
-    Write-Host "Please make sure that the file exists and try again"
-    Exit
+    Write-Host "Please make sure that the file exists in " $DotfilesConfigFolder" and try again"
+    Exit(1)
 }
 
-Write-Host "Dotfiles Bootstrap Variables:"
+Write-Host "Dotfiles Bootstrap Variables to be aplied:"
 Write-Host $DotfilesVariables | Format-List
 
 # Create a symbolic link to the custom profile directory
