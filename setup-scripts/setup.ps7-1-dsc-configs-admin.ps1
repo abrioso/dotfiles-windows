@@ -1,4 +1,8 @@
-## Script to run DSC configurations as an Administrator
+##
+# 
+# Script to run DSC configurations as an Administrator
+# 
+##
 
 # Get some useful data for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -6,6 +10,11 @@ $logDir = Split-Path -Parent $PSScriptRoot
 $logDir = Join-Path $logDir "logs"
 $scriptName = Split-Path -Leaf $PSCommandPath
 $logFile = "$logDir/$scriptName-$dateTime.txt"
+
+# Create the log directory if it doesn't exist
+if (!(Test-Path -Path $logDir)) {
+    New-Item -Path $logDir -ItemType Directory | Out-Null
+}
 
 # start logging
 Start-Transcript -Path $logFile
@@ -29,7 +38,11 @@ if (!(Test-Elevated)) {
     Write-Host "Running $PSCommandPath as Administrator"
  }
 
-$env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+# Add the machine path to the environment path
+$machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+if (-not ($env:Path -split ";" | Where-Object { $_ -eq $machinePath })) {
+    $env:Path += ";$machinePath"
+}
 
 # Set the value of $DotFilesRoot to the directory path of the script
 $DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
@@ -39,7 +52,7 @@ $DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Pa
 $DscConfigFolder = Join-Path $DotFilesRoot "dsc-configurations"
 $DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*admin.dsc.yaml"
 
-$computerSystem = Get-WmiObject -Class Win32_ComputerSystem
+$computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
 if ($computerSystem.Model -like "*Virtual Machine*") {
     Write-Output "This machine is running inside a Hyper-V host."
 } else {
