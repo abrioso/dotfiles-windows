@@ -1,0 +1,18 @@
+{
+    "user.name": "Andre Kakoo Brioso",
+    "user.email": "akbrioso@iseg.ulisboa.pt",
+    "core.editor": "code --wait",
+    "core.autocrlf": "true",
+    "core.ignorecase": "true",
+    "core.filemode": "false",
+    "core.safecrlf": "true",
+    "init.defaultBranch": "main",
+    "pull.rebase": "false",
+    "push.default": "simple",
+    "alias.st": "status",
+    "alias.co": "checkout",
+    "alias.br": "branch",
+    "alias.ci": "commit",
+    "alias.df": "diff",
+    "alias.lg": "log --oneline --graph --decorate --all"
+}
