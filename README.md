@@ -51,6 +51,13 @@ The folder "dsc-configurations" contains the DSC configuration files:
 - `.\dsc-configuration\10.base.configuration.user.dsc` : Base and Developer configurations (User).
 - `.\dsc-configuration\11.pwsh.terminal.dsc.configuration.user.dsc` : Powershell and Windows Terminal configurations (User).
 
+### Dotfiles Configurations
+
+The folder "dotfiles-configurations" contains the dotfiles configuration files for bootstrap and reference:
+
+- `.\dot-configuration\dotfiles-bootstrap-variables` : Dotfiles bootstrap variables to be used in the `.\setup-scripts\setup.ps1` script
+- `.\dot-configuration\env-variables` : Environment variables to be set or overridden
+
 ### PowerShell Profile
 
 The following commands are executed every time you launch a new
