@@ -3,8 +3,12 @@
         "Microsoft.PowerShell",
         "Git.Git",
         "Microsoft.WindowsTerminal",
+        "Python.Python.3.13",
         "Microsoft.VisualStudioCode",
-        "VideoLAN.VLC",
-        "gerardog.gsudo"
+        "Microsoft.Edge",
+        "Microsoft.Powertoys",
+        "Microsoft.Sysinternals",
+        "gerardog.gsudo",
+        "VideoLAN.VLC"
     ]
 }
