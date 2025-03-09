@@ -42,41 +42,41 @@ properties:
         source: winget
     ### Install Audacity
     ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: audacity
-      directives:
-        description: Install Audacity
-        allowPrerelease: true
-      settings:
-        id: Audacity.Audacity
-        source: winget
+    #- resource: Microsoft.WinGet.DSC/WinGetPackage
+    #  id: audacity
+    #  directives:
+    #    description: Install Audacity
+    #    allowPrerelease: true
+    #  settings:
+    #    id: Audacity.Audacity
+    #    source: winget
     ### Install HandBrake
     ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: handbrake
-      directives:
-        description: Install HandBrake
-        allowPrerelease: true
-      settings:
-        id: HandBrake.HandBrake
-        source: winget
+    #- resource: Microsoft.WinGet.DSC/WinGetPackage
+    #  id: handbrake
+    #  directives:
+    #    description: Install HandBrake
+    #    allowPrerelease: true
+    #  settings:
+    #    id: HandBrake.HandBrake
+    #    source: winget
     ### Install GIMP
     ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: gimp
-      directives:
-        description: Install GIMP
-        allowPrerelease: true
-      settings:
-        id: GIMP.GIMP
-        source: winget
+    #- resource: Microsoft.WinGet.DSC/WinGetPackage
+    #  id: gimp
+    #  directives:
+    #    description: Install GIMP
+    #    allowPrerelease: true
+    #  settings:
+    #    id: GIMP.GIMP
+    #    source: winget
     ### Install Inkscape
     ### ------------------------------------- 
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: inkscape
-      directives:
-        description: Install Inkscape
-        allowPrerelease: true
-      settings:
-        id: Inkscape.Inkscape
-        source: winget
+    #- resource: Microsoft.WinGet.DSC/WinGetPackage
+    #  id: inkscape
+    #  directives:
+    #    description: Install Inkscape
+    #    allowPrerelease: true
+    #  settings:
+    #    id: Inkscape.Inkscape
+    #    source: winget
