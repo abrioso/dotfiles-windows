@@ -1,21 +1,3 @@
 {
-    "PATH": "C:\\Windows\\System32;C:\\Windows;C:\\Program Files\\Common Files",
-    "TEMP": "C:\\Users\\%USERNAME%\\AppData\\Local\\Temp",
-    "TMP": "C:\\Users\\%USERNAME%\\AppData\\Local\\Temp",
-    "HOMEPATH": "\\Users\\%USERNAME%",
-    "HOMEDRIVE": "C:",
-    "USERPROFILE": "C:\\Users\\%USERNAME%",
-    "APPDATA": "C:\\Users\\%USERNAME%\\AppData\\Roaming",
-    "LOCALAPPDATA": "C:\\Users\\%USERNAME%\\AppData\\Local",
-    "PROGRAMFILES": "C:\\Program Files",
-    "PROGRAMFILES(X86)": "C:\\Program Files (x86)",
-    "SYSTEMROOT": "C:\\Windows",
-    "COMSPEC": "C:\\Windows\\System32\\cmd.exe",
-    "WINDIR": "C:\\Windows",
-    "SHELL": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-    "EDITOR": "notepad.exe",
-    "GIT_SSH": "C:\\Program Files\\Git\\usr\\bin\\ssh.exe",
-    "VSCODE": "C:\\Program Files\\Microsoft VS Code\\Code.exe",
-    "NODE_PATH": "C:\\Program Files\\nodejs",
-    "PYTHONPATH": "C:\\Python39"
+
 }
