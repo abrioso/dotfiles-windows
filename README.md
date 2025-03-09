@@ -59,7 +59,6 @@ The folder "dotfiles-configurations" contains the dotfiles configuration files f
 - `.\dot-configuration\env-variables.json` : Environment variables to be set or overridden
 - `.\dot-configuration\git-variables.json` : Git variables to be used by the setup scripts
 
-
 ### PowerShell Profile
 
 The following commands are executed every time you launch a new
