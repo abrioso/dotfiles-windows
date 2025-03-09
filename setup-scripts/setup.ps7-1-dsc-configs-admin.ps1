@@ -93,15 +93,23 @@ $DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*admin.dsc.yaml"
 
 $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
 
+# Check if the machine is running inside a Hyper-V host
 if ($computerSystem.Model -like "*Virtual Machine*") {
     Write-Host "This machine is running inside a Hyper-V host."
+    $isVM = $true
 } else {
     Write-Host "This machine is not running inside a Hyper-V host."
+    $isVM = $false
 }
 
 foreach ($DSCFile in $DSCFiles) {
     Write-Host "Running DSC Configuration (as Admin): $($DSCFile.FullName)"
     try {
+        if ($DSCFile.Name -like "*hyperv*"-and $isVM) {
+            Write-Host "Skipping DSC Configuration for Hyper-V host"
+            continue
+        }
+        
         $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
 
         if ($DSCresult.ResultCode -ne 0) {
