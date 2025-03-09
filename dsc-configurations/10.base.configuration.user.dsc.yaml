@@ -203,15 +203,15 @@ properties:
     ########################################
     ### Git Configure Name
     ### -------------------------------------
-    - resource: GitDsc/GitConfigUserName
-      directives:
-        description: Configure Git
-        allowPrerelease: true
-      dependsOn:
-        - git
-      settings:
-         UserName: "Andre Kakoo Brioso"
-         ConfigLocation: "Global"
+    #- resource: GitDsc/GitConfigUserName
+    #  directives:
+    #    description: Configure Git
+    #    allowPrerelease: true
+    #  dependsOn:
+    #    - git
+    #  settings:
+    #     UserName: "Andre Kakoo Brioso"
+    #     ConfigLocation: "Global"
     ### WORKAROUND: GitDsc/GitConfigUserName not working right now.
     ### Git Configure Name
     ### -------------------------------------
@@ -227,15 +227,15 @@ properties:
     #    TestScript: return $false
     ### Git Configure Email
     ### -------------------------------------
-    - resource: GitDsc/GitConfigUserEmail
-      directives:
-        description: Configure Git
-        allowPrerelease: true
-      dependsOn:
-        - git
-      settings:
-         UserEmail: "akbrioso@iseg.ulisboa.pt"
-         ConfigLocation: "Global"
+    #- resource: GitDsc/GitConfigUserEmail
+    #  directives:
+    #    description: Configure Git
+    #   allowPrerelease: true
+    #  dependsOn:
+    #    - git
+    #  settings:
+    #     UserEmail: "akbrioso@iseg.ulisboa.pt"
+    #     ConfigLocation: "Global"
     ### Configure Git to use Default WAM account
     ### -------------------------------------
     #- resource: PSDscResources/Script
