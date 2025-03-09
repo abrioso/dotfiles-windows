@@ -32,7 +32,6 @@ The folder "setup-scripts" contains the Powershell scripts for the instalation a
 
 - `install.ps1` : Script for Git-free installation. Downloads the dotfiles to a temporary folder and initiates the setup.
 - `setup.ps1` : Main bootstrap script. This script installs the pre-requisites and starts the other setup scripts with Powershell 7. It also creates a symbolic link to the custom profile directory and clones the dotfiles repository.
-- `setup.ps7-0-prerequisites-admin.ps1` : Script to install prerequisites that require administrative privileges.
 - `setup.ps7-1-dsc-configs-admin.ps1` : Script to apply DSC configurations that require administrative privileges.
 - `setup.ps7-2-dsc-configs-user.ps1` : Script to apply DSC configurations that do not require administrative privileges.
 
@@ -40,8 +39,9 @@ The folder "setup-scripts" contains the Powershell scripts for the instalation a
 
 The folder "dsc-configurations" contains the DSC configuration files:
 
-- `.\dsc-configuration\0.base.configurations.yaml` : Base and must-have configuration.
-- `.\dsc-configuration\1.hyperv.wsl.configurations.yaml` : HyperV and WSL configuration.
+- `.\dsc-configuration\0.base.packages.admin.dsc` : Base and must-have packages to be installed.
+- `.\dsc-configuration\1.base.configuration.admin.dsc` : Base and must-have configurations.
+- `.\dsc-configuration\2.hyperv.wsl.configuration.admin.dsc` : HyperV and WSL configuration (only applied if it's not an Virtual Machine).
 
 ### PowerShell Profile
 
