@@ -55,8 +55,10 @@ The folder "dsc-configurations" contains the DSC configuration files:
 
 The folder "dotfiles-configurations" contains the dotfiles configuration files for bootstrap and reference:
 
-- `.\dot-configuration\dotfiles-bootstrap-variables` : Dotfiles bootstrap variables to be used in the `.\setup-scripts\setup.ps1` script
-- `.\dot-configuration\env-variables` : Environment variables to be set or overridden
+- `.\dot-configuration\dotfiles-bootstrap-variables.json` : Dotfiles bootstrap variables to be used in the `.\setup-scripts\setup.ps1` script
+- `.\dot-configuration\env-variables.json` : Environment variables to be set or overridden
+- `.\dot-configuration\git-variables.json` : Git variables to be used by the setup scripts
+
 
 ### PowerShell Profile
 
