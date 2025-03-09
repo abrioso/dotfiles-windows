@@ -85,7 +85,7 @@ properties:
       settings:
         id: "Microsoft.WSL"
         source: winget  
-    ### Install Ubuntu 22.04 LTS (WSL)
+    ### Install Ubuntu 24.04 LTS (WSL)
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
       dependsOn:
