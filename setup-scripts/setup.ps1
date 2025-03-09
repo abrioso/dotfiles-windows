@@ -26,8 +26,24 @@ Write-Host "Installing the pre-requisites for the dotfiles setup"
 
 # Install PowerShell & Git
 Write-Host "Installing PowerShell & Git"
-winget install --id Microsoft.PowerShell -e 
-winget install --id Git.Git -e
+try {
+    $result = winget install --id Microsoft.PowerShell -e
+    if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: " + $result}
+    
+    $result = winget install --id Git.Git -e
+    if ($LASTEXITCODE -ne 0) { throw "Failed to install Git: " + $result }
+    
+    # Verify installations
+    if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+        Write-Warning "PowerShell 7 was installed but is not available in the current path"
+    }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        Write-Warning "Git was installed but is not available in the current path"
+    }
+} catch {
+    Write-Host "Error installing prerequisites: $_" -ForegroundColor Red
+    Write-Host "Continuing with script, but some features may not work correctly."
+}
 
 # Check if NuGet provider is installed
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
@@ -56,8 +72,15 @@ if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
 Write-Host "Installing the Microsoft.WinGet.Configuration module..."
 Install-Module -Name Microsoft.WinGet.Configuration -AllowPrerelease -AcceptLicense -Force
 
-# Update the system PATH variable
-$env:Path += ";$([System.Environment]::GetEnvironmentVariable('Path','Machine'))"
+# Update the system PATH variable properly
+try {
+    # Refresh PATH from both Machine and User environment
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + 
+                [System.Environment]::GetEnvironmentVariable("Path", "User")
+    Write-Host "PATH environment variable refreshed successfully"
+} catch {
+    Write-Host "Failed to refresh PATH environment variable: $_" -ForegroundColor Yellow
+}
 
 ## Apply the dotfiles bootstrap variables
 # Get the directory path of the script
@@ -136,11 +159,32 @@ Write-Host "Running the setup scripts"
 # For each script in the setup-scripts folder started with setup.ps7, run the script
 $setupScripts = Get-ChildItem -Path $DotfilesSetupScriptsFolder -Filter "setup.ps7-*.ps1"
 foreach ($script in $setupScripts) {
-    Write-Host "Running $($script.Name)"
-    $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $($script.FullName)" -PassThru
-    Wait-Process -Id $process.Id
-    Write-Output "Process exited with code: $($process.ExitCode)"
+    Write-Host "Running $($script.Name)" -ForegroundColor Cyan
+    try {
+        if($script.Name -like "*admin*") {
+            $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $($script.FullName)" -Verb RunAs -PassThru -Wait
+        } else {
+            $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $($script.FullName)" -PassThru -Wait
+        }
+        if ($process.ExitCode -eq 0) {
+            Write-Host "Script $($script.Name) completed successfully" -ForegroundColor Green
+        } else {
+            Write-Host "Script $($script.Name) exited with code: $($process.ExitCode)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "Failed to execute $($script.Name): $_" -ForegroundColor Red
+    }
 }
+
+# Display summary
+Write-Host "`n==================== SETUP SUMMARY ====================" -ForegroundColor Cyan
+Write-Host "PowerShell 7 Installed: $(if (Get-Command pwsh -ErrorAction SilentlyContinue) {'Yes'} else {'No'})"
+Write-Host "Git Installed: $(if (Get-Command git -ErrorAction SilentlyContinue) {'Yes'} else {'No'})"
+Write-Host "Workspace Directory: $workspaceDirectory ($(if (Test-Path $workspaceDirectory) {'Exists'} else {'Missing'}))"
+Write-Host "Dotfiles Repository: $dotfilesDirectory ($(if (Test-Path $dotfilesDirectory) {'Cloned'} else {'Missing'}))"
+Write-Host "Custom Profile Directory: $customProfileDirectory ($(if (Test-Path $customProfileDirectory) {'Linked'} else {'Missing'}))"
+Write-Host "Log File: $logFile"
+Write-Host "========================================================"
 
 # stop logging
 Stop-Transcript
