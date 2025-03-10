@@ -3,5 +3,22 @@
     "GITHUB_DOTFILES_REPO": "dotfiles-windows",
     "GITHUB_DOTFILES_BRANCH": "main",
     "WORKSPACE_FOLDER": "workspace",
-    "CUSTOM_PROFILE_FOLDER": "Profile-Custom"
+    "CUSTOM_PROFILE_FOLDER": "Profile-Custom",
+    "INSTALL_TYPE": "windows",
+    "INSTALL_FEATURES": [
+        "hyperv",
+        "wsl"
+    ],
+    "INSTALL_PACKAGES": [    
+        "docker",
+        "pwsh",
+        "developer",
+        "produtivitytools",
+        "internetbrowser",
+        "multimedia"
+    ],
+    "INSTALL_SETTINGS": [
+    
+    ]
+
 }
