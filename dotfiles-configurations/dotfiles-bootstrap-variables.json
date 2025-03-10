@@ -4,12 +4,18 @@
     "GITHUB_DOTFILES_BRANCH": "main",
     "WORKSPACE_FOLDER": "workspace",
     "CUSTOM_PROFILE_FOLDER": "Profile-Custom",
+    "VM_EXCEPTIONS": [
+        "hyperv",
+        "wsl",
+        "docker"
+    ],
     "INSTALL_TYPE": "windows",
     "INSTALL_FEATURES": [
         "hyperv",
         "wsl"
     ],
-    "INSTALL_PACKAGES": [    
+    "INSTALL_PACKAGES": [ 
+        "base",   
         "docker",
         "pwsh",
         "developer",
@@ -18,7 +24,9 @@
         "multimedia"
     ],
     "INSTALL_SETTINGS": [
-    
+        "base",
+        "developer",
+        "pwsh"
     ]
 
 }
