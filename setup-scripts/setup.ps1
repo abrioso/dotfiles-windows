@@ -1,26 +1,52 @@
-## 
-# 
-# Main bootstrap script. 
-# This script installs the pre-requisites and starts the other setup scripts with Powershell 7
-# It also creates a symbolic link to the custom profile directory and clones the dotfiles repository
-#
-##
+<#
+.SYNOPSIS
+Main bootstrap script.
 
-# Get some useful data for logging
+.DESCRIPTION
+This script installs the pre-requisites and starts the other setup scripts with Powershell 7 
+It also creates a symbolic link to the custom profile directory and clones the dotfiles repository
+
+.NOTES
+To make this work, you need to set your execution policy to unrestricted (or at least bypass) by running Set-ExecutionPolicy Unrestricted -Scope CurrentUser from a PowerShell.
+
+#>
+
+
+
+# Variables for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
 $logDir = Split-Path -Parent $PSScriptRoot
 $logDir = Join-Path $logDir "logs"
 $scriptName = Split-Path -Leaf $PSCommandPath
-$logFile = "$logDir\$scriptName-$dateTime.txt"
+$logFile = "$logDir/$scriptName-$dateTime.txt"
 
-# Ensure log directory exists
-if (-not (Test-Path $logDir)) {
-    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+# Create the log directory if it doesn't exist
+if (!(Test-Path -Path $logDir)) {
+    try {
+        New-Item -Path $logDir -ItemType Directory | Out-Null
+    }
+    catch {
+        Write-Warning "Cannot create log directory: $($_.Exception.Message)"
+        $logFile = "$env:TEMP\$scriptName-$dateTime.txt"
+        Write-Warning "Logging to temporary location: $logFile"
+    }
 }
 
-# start logging
-Start-Transcript -Path $logFile
+# Start logging
+try {
+    Start-Transcript -Path $logFile -ErrorAction Stop
+}
+catch {
+    Write-Warning "Cannot start transcript: $($_.Exception.Message)"
+}
 
+# Check execution policy at script start
+$currentPolicy = Get-ExecutionPolicy
+Write-Host "Current execution policy: $currentPolicy"
+if ($currentPolicy -in @("Restricted", "AllSigned")) {
+    Write-Warning "Current execution policy may prevent script execution"
+    Write-Warning "Consider running: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser or Set-ExecutionPolicy Unrestricted -Scope CurrentUser"
+}
 
 Write-Host "Installing the pre-requisites for the dotfiles setup"
 
@@ -75,8 +101,15 @@ Install-Module -Name Microsoft.WinGet.Configuration -AllowPrerelease -AcceptLice
 # Update the system PATH variable properly
 try {
     # Refresh PATH from both Machine and User environment
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + 
-                [System.Environment]::GetEnvironmentVariable("Path", "User")
+    # Add the machine path to the environment path
+    $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    $machinePathEntries = $machinePath -split ";"
+    $currentPathEntries = $env:Path -split ";"
+    foreach ($entry in $machinePathEntries) {
+        if ($entry -and -not ($currentPathEntries -contains $entry)) {
+            $env:Path += ";$entry"
+        }
+    }
     Write-Host "PATH environment variable refreshed successfully"
 } catch {
     Write-Host "Failed to refresh PATH environment variable: $_" -ForegroundColor Yellow
@@ -100,6 +133,16 @@ if ($DotfilesVariablesFile) {
 
 Write-Host "Dotfiles Bootstrap Variables to be aplied:"
 Write-Host $DotfilesVariables | Format-List
+
+# Validate required configuration values
+$requiredVars = @("CUSTOM_PROFILE_FOLDER", "WORKSPACE_FOLDER", "GITHUB_ACCOUNT", "GITHUB_DOTFILES_REPO")
+$missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
+
+if ($missingVars) {
+    Write-Host "Missing required configuration variables: $($missingVars -join ', ')" -ForegroundColor Red
+    Stop-Transcript
+    Exit 1
+}
 
 # Create a symbolic link to the custom profile directory
 Write-Host "Creating a symbolic link to the custom profile directory"
@@ -158,6 +201,10 @@ Write-Host "Running the setup scripts"
 
 # For each script in the setup-scripts folder started with setup.ps7, run the script
 $setupScripts = Get-ChildItem -Path $DotfilesSetupScriptsFolder -Filter "setup.ps7-*.ps1"
+
+# Create a dictionary to store the script names and their exit codes
+$scriptResults = @{}
+
 foreach ($script in $setupScripts) {
     Write-Host "Running $($script.Name)" -ForegroundColor Cyan
     try {
@@ -166,6 +213,7 @@ foreach ($script in $setupScripts) {
         } else {
             $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $($script.FullName)" -PassThru -Wait
         }
+        $scriptResults.Add($script.Name, $process.ExitCode)
         if ($process.ExitCode -eq 0) {
             Write-Host "Script $($script.Name) completed successfully" -ForegroundColor Green
         } else {
@@ -183,6 +231,10 @@ Write-Host "Git Installed: $(if (Get-Command git -ErrorAction SilentlyContinue) 
 Write-Host "Workspace Directory: $workspaceDirectory ($(if (Test-Path $workspaceDirectory) {'Exists'} else {'Missing'}))"
 Write-Host "Dotfiles Repository: $dotfilesDirectory ($(if (Test-Path $dotfilesDirectory) {'Cloned'} else {'Missing'}))"
 Write-Host "Custom Profile Directory: $customProfileDirectory ($(if (Test-Path $customProfileDirectory) {'Linked'} else {'Missing'}))"
+Write-Host "Setup Scripts Results:"
+foreach ($script in $scriptResults.Keys) {
+    Write-Host " $script ": " $($scriptResults[$script])"
+}
 Write-Host "Log File: $logFile"
 Write-Host "========================================================"
 
