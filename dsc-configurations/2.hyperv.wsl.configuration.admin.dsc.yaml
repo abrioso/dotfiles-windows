@@ -131,14 +131,27 @@ properties:
         allowPrerelease: true
       settings:
         SetScript: |
-          # Get the current user's Name
-          $currentUserName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+          # Get the current user's SID instead of name
+          $currentUserSID = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
           # Get the Hyper-V Administrators group
           $hyperVAdminsGroup = Get-LocalGroup -SID "S-1-5-32-578"
-          # If user is already a member of the Hyper-V Administrators group, exit
-          if (!(Get-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserName)) {
-            # Add the current user to the Hyper-V Administrators group
-            Add-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserName
+          # Try to get the membership using SID
+          try {
+            # If user is already a member of the Hyper-V Administrators group, exit
+            $members = Get-LocalGroupMember -Group $hyperVAdminsGroup -ErrorAction SilentlyContinue
+            $isMember = $members | Where-Object { $_.SID -eq $currentUserSID }
+            
+            if (-not $isMember) {
+              # Add the current user to the Hyper-V Administrators group by SID
+              Add-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSID
+              Write-Host "Added current user to Hyper-V Administrators group"
+            } else {
+              Write-Host "User is already a member of Hyper-V Administrators group"
+            }
+          }
+          catch {
+            Write-Host "Error managing Hyper-V Administrators group: $_"
+            throw $_
           }
         GetScript: |
           return $false
