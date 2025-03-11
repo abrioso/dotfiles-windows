@@ -131,22 +131,49 @@ properties:
         allowPrerelease: true
       settings:
         SetScript: |
-          # Get the current user's SID instead of name
-          $currentUserSID = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-          # Get the Hyper-V Administrators group
-          $hyperVAdminsGroup = Get-LocalGroup -SID "S-1-5-32-578"
-          # Try to get the membership using SID
           try {
-            # If user is already a member of the Hyper-V Administrators group, exit
-            $members = Get-LocalGroupMember -Group $hyperVAdminsGroup -ErrorAction SilentlyContinue
-            $isMember = $members | Where-Object { $_.SID -eq $currentUserSID }
+            # Get the current user identity
+            $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+            $currentUserSID = $currentUser.User.Value
             
-            if (-not $isMember) {
-              # Add the current user to the Hyper-V Administrators group by SID
-              Add-LocalGroupMember -Group $hyperVAdminsGroup -Member $currentUserSID
-              Write-Host "Added current user to Hyper-V Administrators group"
-            } else {
-              Write-Host "User is already a member of Hyper-V Administrators group"
+            # Direct approach using NET command which works better with Azure AD accounts
+            $username = $currentUser.Name
+            Write-Host "Current user: $username (SID: $currentUserSID)"
+            
+            # Try the .NET method first
+            try {
+              $hyperVGroup = [ADSI]"WinNT://./Hyper-V Administrators,group"
+              $members = @($hyperVGroup.Invoke("Members"))
+              $isAlreadyMember = $false
+              
+              foreach ($member in $members) {
+                $memberPath = $member.GetType().InvokeMember("ADsPath", 'GetProperty', $null, $member, $null)
+                if ($memberPath -match $currentUserSID) {
+                  $isAlreadyMember = $true
+                  break
+                }
+              }
+              
+              if (-not $isAlreadyMember) {
+                # Using the native NET command as a fallback which works better with Azure AD
+                $result = net localgroup "Hyper-V Administrators" $username /add
+                Write-Host "Added $username to Hyper-V Administrators group using NET command"
+              } else {
+                Write-Host "User is already a member of Hyper-V Administrators group"
+              }
+            }
+            catch {
+              Write-Host "First method failed: $_"
+              
+              # Fallback to NET command
+              try {
+                $result = net localgroup "Hyper-V Administrators" $username /add
+                Write-Host "Added $username to Hyper-V Administrators group using NET command"
+              }
+              catch {
+                Write-Host "Failed to add user to Hyper-V Administrators: $_"
+                throw $_
+              }
             }
           }
           catch {
@@ -154,7 +181,8 @@ properties:
             throw $_
           }
         GetScript: |
-          return $false
+          return @{ Result = "N/A" }
         TestScript: |
-          return $false
-    ########################################
+          # Always return false to ensure SetScript runs
+          return $false    
+          ########################################
