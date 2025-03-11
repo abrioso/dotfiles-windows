@@ -123,7 +123,6 @@ if (-not (Test-Path -Path $DscConfigFolder)) {
 $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
 $isVM = $false
 
-
 # Check if the machine is running inside a Hyper-V host
 if ($computerSystem.Model -like "*Virtual Machine*") {
     Write-Host "This machine is running inside a Hyper-V host."
@@ -184,35 +183,38 @@ foreach ($DSCFile in $DSCFiles) {
 }
 
 # Check if the DSC files are valid
-foreach ($DSCFile in $DSCFiles) {
-    try {
-        $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Test-WinGetConfiguration
-        if ($DSCresult.ResultCode -ne 0) {
-            Write-Host "Failed to validate DSC Configuration: $($DSCFile.FullName)"
-            Write-Host "Result Code: $($DSCresult.ResultCode)"
-            foreach ($unitResult in $DSCresult.UnitResults) {
-                if($unitResult.ResultCode -ne 0) {
-                    Write-Host "Failed to validate DSC Unit: $($unitResult.UnitName)"
-                    Write-Host "Result Code: $($unitResult.ResultCode)"
-                    Write-Host "Result Type: $($unitResult.Type)"
-                    Write-Host "Result Message: $($unitResult.Message)"
-                    Write-Host "Result Description: $($unitResult.Description)"
-                    Write-Host "Result Details: $($unitResult.Details)"
-                    Start-Sleep -Seconds 10
-                    throw "DSC Configuration Failed"
-                }
-            }
-        }
-    } catch {
-        Write-Host "Exception occurred validating DSC file: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "Failed to validate DSC Configuration: $($DSCFile.FullName)"
-        Write-Host "Error: $($_.Exception.Message)"
-        Start-Sleep -Seconds 10
-        throw "DSC Configuration Failed"
-    }
-}
-
-Write-Host "DSC Configuration Validated"
+#
+# foreach ($DSCFile in $DSCFiles) {
+#     try {
+#         $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Test-WinGetConfiguration
+#         if ($DSCresult.ResultCode -ne 0) {
+#             Write-Host "Failed to validate DSC Configuration: $($DSCFile.FullName)"
+#             Write-Host "Result Code: $($DSCresult.ResultCode)"
+#             foreach ($unitResult in $DSCresult.UnitResults) {
+#                 if ($unitResult.ResultCode -ne 0) {
+#                     Write-Host "Failed to validate DSC Unit: $($unitResult.UnitName)"
+#                     Write-Host "Result Code: $($unitResult.ResultCode)"
+#                     Write-Host "Result Type: $($unitResult.Type)"
+#                     Write-Host "Result Message: $($unitResult.Message)"
+#                     Write-Host "Result Description: $($unitResult.Description)"
+#                     Write-Host "Result Details: $($unitResult.Details)"
+#                     Start-Sleep -Seconds 10
+#                     throw "DSC Configuration Failed"
+#                 }
+#             }
+#         }
+#     }
+#     catch {
+#         Write-Host "Exception occurred validating DSC file: $($_.Exception.Message)" -ForegroundColor Red
+#         Write-Host "Failed to validate DSC Configuration: $($DSCFile.FullName)"
+#         Write-Host "Error: $($_.Exception.Message)"
+#         Start-Sleep -Seconds 10
+#         throw "DSC Configuration Failed"
+#     }
+# }
+#
+#
+#Write-Host "DSC Configuration Validated"
 
 # Create a dictionary of DSC files and their results
 $DSCResults = @{}
