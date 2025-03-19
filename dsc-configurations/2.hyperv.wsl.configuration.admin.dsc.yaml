@@ -124,6 +124,7 @@ properties:
     ########################################
     ### Add current user to Hyper-V Administrators group
     ### -------------------------------------
+    # In the HyperVAdminGroup resource settings:
     - resource: PSDscResources/Script
       id: HyperVAdminGroup
       directives:
@@ -139,6 +140,15 @@ properties:
             # Direct approach using NET command which works better with Azure AD accounts
             $username = $currentUser.Name
             Write-Host "Current user: $username (SID: $currentUserSID)"
+            
+            # First check if user is already a member using direct command
+            $groupMembers = net localgroup "Hyper-V Administrators" | Out-String
+            
+            if ($groupMembers -match [regex]::Escape($username)) {
+              Write-Host "User is already a member of Hyper-V Administrators group (verified with NET command)"
+              # Exit early - success condition
+              return
+            }
             
             # Try the .NET method first
             try {
@@ -156,10 +166,22 @@ properties:
               
               if (-not $isAlreadyMember) {
                 # Using the native NET command as a fallback which works better with Azure AD
-                $result = net localgroup "Hyper-V Administrators" $username /add
-                Write-Host "Added $username to Hyper-V Administrators group using NET command"
+                try {
+                  $result = net localgroup "Hyper-V Administrators" $username /add
+                  Write-Host "Added $username to Hyper-V Administrators group using NET command"
+                }
+                catch {
+                  # Check if the error is "already a member"
+                  if ($_.Exception.Message -match "already a member" -or $_.Exception.Message -match "1378") {
+                    Write-Host "User is already a member of Hyper-V Administrators group (detected from error)"
+                    # Not a real error - this is actually a success condition
+                  }
+                  else {
+                    throw $_
+                  }
+                }
               } else {
-                Write-Host "User is already a member of Hyper-V Administrators group"
+                Write-Host "User is already a member of Hyper-V Administrators group (detected with ADSI)"
               }
             }
             catch {
@@ -171,18 +193,43 @@ properties:
                 Write-Host "Added $username to Hyper-V Administrators group using NET command"
               }
               catch {
-                Write-Host "Failed to add user to Hyper-V Administrators: $_"
-                throw $_
+                # Check if the error is "already a member"
+                if ($_.Exception.Message -match "already a member" -or $_.Exception.Message -match "1378") {
+                  Write-Host "User is already a member of Hyper-V Administrators group (detected from error)"
+                  # Not a real error - this is actually a success condition
+                }
+                else {
+                  Write-Host "Failed to add user to Hyper-V Administrators: $_"
+                  throw $_
+                }
               }
             }
           }
           catch {
-            Write-Host "Error managing Hyper-V Administrators group: $_"
-            throw $_
+            # Check if the error is about "already a member"
+            if ($_.Exception.Message -match "already a member" -or $_.Exception.Message -match "1378") {
+              Write-Host "User is already a member of Hyper-V Administrators group (caught in outer catch)"
+              # This is actually a success scenario
+            }
+            else {
+              Write-Host "Error managing Hyper-V Administrators group: $_"
+              throw $_
+            }
           }
         GetScript: |
           return @{ Result = "N/A" }
         TestScript: |
-          # Always return false to ensure SetScript runs
-          return $false    
-    ########################################
+          # Check if the user is already a member of the Hyper-V Administrators group
+          try {
+            $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+            $username = $currentUser.Name
+            
+            # Use NET command to check membership
+            $groupMembers = net localgroup "Hyper-V Administrators" | Out-String
+            return ($groupMembers -match [regex]::Escape($username))
+          }
+          catch {
+            # If we can't determine membership, assume we need to run the script
+            return $false
+          }
+########################################
