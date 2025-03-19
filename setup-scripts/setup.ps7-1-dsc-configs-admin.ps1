@@ -223,34 +223,66 @@ $DSCResults = @{}
 foreach ($DSCFile in $DSCFiles) {
     Write-Host "Running DSC Configuration (as Admin): $($DSCFile.FullName)"
     try {
-
+        # Add error handling for the specific pipe error
         $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
-        $DSCResults.Add($DSCFile.FullName, $DSCresult)
-        if ($DSCresult.ResultCode -ne 0) {
-            Write-Host "Failed to run DSC Configuration (as Admin): $($DSCFile.FullName)"
-            Write-Host "Result Code: $($DSCresult.ResultCode)"
-            foreach ($unitResult in $DSCresult.UnitResults) {
-                if($unitResult.ResultCode -ne 0) {
-                    Write-Host "Failed to run DSC Unit: $($unitResult.UnitName)"
-                    Write-Host "Result Code: $($unitResult.ResultCode)"
-                    Write-Host "Result Type: $($unitResult.Type)"
-                    Write-Host "Result Message: $($unitResult.Message)"
-                    Write-Host "Result Description: $($unitResult.Description)"
-                    Write-Host "Result Details: $($unitResult.Details)"
+        
+        # Add the result to the dictionary, handling null results gracefully
+        if ($DSCresult) {
+            $DSCResults.Add($DSCFile.FullName, $DSCresult)
+            
+            if ($DSCresult.ResultCode -ne 0) {
+                Write-Host "Failed to run DSC Configuration (as Admin): $($DSCFile.FullName)" -ForegroundColor Yellow
+                Write-Host "Result Code: $($DSCresult.ResultCode)"
+                
+                $containsPipeError = $false
+                foreach ($unitResult in $DSCresult.UnitResults) {
+                    if ($unitResult.ResultCode -ne 0) {
+                        Write-Host "Failed to run DSC Unit: $($unitResult.UnitName)"
+                        Write-Host "Result Code: $($unitResult.ResultCode)"
+                        Write-Host "Result Type: $($unitResult.Type)"
+                        Write-Host "Result Message: $($unitResult.Message)"
+                        Write-Host "Result Description: $($unitResult.Description)"
+                                                
+                        if ($unitResult.Description -match "The specified account name is already a member of the group" -or 
+                            $unitResult.Description -match "System error 1378" -or 
+                            $unitResult.Message -match "already a member") {
+                            Write-Host "User already in group - continuing" -ForegroundColor Yellow
+                            $containsPipeError = $true  # Treat as non-critical error
+                        }
+                        # Check for pipe error and handle it differently
+                        if ($unitResult.Description -match "TransactNamedPipe" -or $unitResult.Message -match "TransactNamedPipe") {
+                            $containsPipeError = $true
+                            Write-Host "Pipe communication error detected - this usually happens with GUI applications or browsers" -ForegroundColor Yellow
+                        }
+                    }
+                }
+                
+                # Only throw an error if it's not a pipe error or based on your preference
+                if (-not $containsPipeError) {
+                    Write-Host "Configuration failed with serious error - stopping" -ForegroundColor Red
                     Start-Sleep -Seconds 10
                     throw "DSC Configuration Failed"
+                } else {
+                    Write-Host "Continuing despite pipe error - this may be expected behavior" -ForegroundColor Yellow
                 }
             }
+        } else {
+            Write-Host "Warning: DSC result was null for $($DSCFile.FullName)" -ForegroundColor Yellow
         }
     } catch {
         Write-Host "Exception occurred processing DSC file: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host "Failed to run DSC Configuration (as Admin): $($DSCFile.FullName)"
         Write-Host "Error: $($_.Exception.Message)"
-        Start-Sleep -Seconds 10
-        throw "DSC Configuration Failed"
+        
+        # Check if it's a pipe error and handle it differently
+        if ($_.Exception.Message -match "TransactNamedPipe") {
+            Write-Host "Pipe communication error detected - continuing" -ForegroundColor Yellow
+        } else {
+            Start-Sleep -Seconds 10
+            throw "DSC Configuration Failed"
+        }
     }
 }
-
 Write-Host "DSC Configuration (as Admin) Completed"
 
 # Write the script execution summary
