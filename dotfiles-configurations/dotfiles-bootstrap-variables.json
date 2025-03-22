@@ -4,6 +4,8 @@
     "GITHUB_DOTFILES_BRANCH": "main",
     "WORKSPACE_FOLDER": "workspace",
     "CUSTOM_PROFILE_FOLDER": "Profile-Custom",
+    "CULTURE": "pt-PT",
+    "TIMEZONE": "GMT Standard Time",
     "VM_EXCEPTIONS": [
         "hyperv",
         "wsl",
