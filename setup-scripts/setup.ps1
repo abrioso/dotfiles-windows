@@ -51,18 +51,25 @@ if ($currentPolicy -in @("Restricted", "AllSigned")) {
 Write-Host "Installing the pre-requisites for the dotfiles setup"
 
 # Install PowerShell & Git
-Write-Host "Installing PowerShell & Git"
+Write-Host "Installing PowerShell"
 try {
-    $result = winget install --id Microsoft.PowerShell -e
+    $result = winget install --id Microsoft.PowerShell -e --force --accept-source-agreements --accept-package-agreements
     if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: " + $result}
-    
-    $result = winget install --id Git.Git -e
-    if ($LASTEXITCODE -ne 0) { throw "Failed to install Git: " + $result }
-    
-    # Verify installations
+     
+    # Verify installation
     if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
         Write-Warning "PowerShell 7 was installed but is not available in the current path"
     }
+} catch {
+    Write-Host "Error installing prerequisites: $_" -ForegroundColor Red
+    Write-Host "Continuing with script, but some features may not work correctly."
+}
+Write-Host "Installing Git"
+try {
+    $result = winget install --id Git.Git -e --force --accept-source-agreements --accept-package-agreements
+    if ($LASTEXITCODE -ne 0) { throw "Failed to install Git: " + $result }
+
+    # Verify installation
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         Write-Warning "Git was installed but is not available in the current path"
     }
@@ -96,7 +103,7 @@ if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
 }
 
 Write-Host "Installing the Microsoft.WinGet.Configuration module..."
-Install-Module -Name Microsoft.WinGet.Configuration -AllowPrerelease -AcceptLicense -Force
+Install-Module -Name Microsoft.WinGet.Configuration -AcceptLicense -Force
 
 # Update the system PATH variable properly
 try {
