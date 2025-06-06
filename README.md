@@ -28,7 +28,7 @@ iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.co
 
 ### Setup Scripts
 
-The folder "setup-scripts" contains the Powershell scripts for the instalation and bootstrap setup:
+The folder "setup-scripts" contains the Powershell scripts for the installation and bootstrap setup:
 
 - `install.ps1` : Script for Git-free installation. Downloads the dotfiles to a temporary folder and initiates the setup.
 - `setup.ps1` : Main bootstrap script. This script installs the pre-requisites and starts the other setup scripts with Powershell 7. It also creates a symbolic link to the custom profile directory and clones the dotfiles repository.
