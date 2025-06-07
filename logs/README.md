@@ -20,8 +20,8 @@ The primary purpose of this folder is to organize and maintain the log files cre
 
 ```plaintext
 logs/
+├── install.ps1-log-2025-01-01.txt
 ├── setup.ps1-log-2025-01-01.txt
-├── setup.ps7-0-prerequisites-admin.ps1-log-2025-01-01.txt
 ├── setup.ps7-1-dsc-configs-admin.ps1-log-2025-01-01.txt
 └── setup.ps7-2-dsc-configs-user.ps1-log-2025-01-01.txt
 ```
