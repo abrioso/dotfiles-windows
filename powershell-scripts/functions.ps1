@@ -207,8 +207,12 @@ function Set-Environment([String] $variable, [String] $value) {
 }
 
 # Add a folder to $env:Path
-function Prepend-EnvPath([String]$path) { $env:PATH = $env:PATH + ";$path" }
-function Prepend-EnvPathIfExists([String]$path) { if (Test-Path $path) { Prepend-EnvPath $path } }
+function Prepend-EnvPath([String] $path) {
+    $env:PATH = "$path;$env:PATH"
+}
+function Prepend-EnvPathIfExists([String] $path) {
+    if (Test-Path $path) { Prepend-EnvPath $path }
+}
 function Append-EnvPath([String]$path) { $env:PATH = $env:PATH + ";$path" }
 function Append-EnvPathIfExists([String]$path) { if (Test-Path $path) { Append-EnvPath $path } }
 
