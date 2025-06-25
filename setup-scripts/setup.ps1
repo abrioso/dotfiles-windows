@@ -50,32 +50,32 @@ if ($currentPolicy -in @("Restricted", "AllSigned")) {
 
 Write-Host "Installing the pre-requisites for the dotfiles setup"
 
-# Install PowerShell & Git
-Write-Host "Installing PowerShell"
-try {
-    $result = winget install --id Microsoft.PowerShell -e --force --accept-source-agreements --accept-package-agreements
-    if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: " + $result}
-     
-    # Verify installation
-    if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
-        Write-Warning "PowerShell 7 was installed but is not available in the current path"
+# Install PowerShell if not present
+if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing PowerShell"
+    try {
+        $result = winget install --id Microsoft.PowerShell -e --force --accept-source-agreements --accept-package-agreements
+        if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: " + $result }
+    } catch {
+        Write-Host "Error installing PowerShell: $_" -ForegroundColor Red
+        Write-Host "Continuing with script, but some features may not work correctly."
     }
-} catch {
-    Write-Host "Error installing prerequisites: $_" -ForegroundColor Red
-    Write-Host "Continuing with script, but some features may not work correctly."
+} else {
+    Write-Host "PowerShell 7 is already installed, skipping installation."
 }
-Write-Host "Installing Git"
-try {
-    $result = winget install --id Git.Git -e --force --accept-source-agreements --accept-package-agreements
-    if ($LASTEXITCODE -ne 0) { throw "Failed to install Git: " + $result }
 
-    # Verify installation
-    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        Write-Warning "Git was installed but is not available in the current path"
+# Install Git if not present
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing Git"
+    try {
+        $result = winget install --id Git.Git -e --force --accept-source-agreements --accept-package-agreements
+        if ($LASTEXITCODE -ne 0) { throw "Failed to install Git: " + $result }
+    } catch {
+        Write-Host "Error installing Git: $_" -ForegroundColor Red
+        Write-Host "Continuing with script, but some features may not work correctly."
     }
-} catch {
-    Write-Host "Error installing prerequisites: $_" -ForegroundColor Red
-    Write-Host "Continuing with script, but some features may not work correctly."
+} else {
+    Write-Host "Git is already installed, skipping installation."
 }
 
 # Check if NuGet provider is installed
@@ -151,6 +151,22 @@ $missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
 
 if ($missingVars) {
     Write-Host "Missing required configuration variables: $($missingVars -join ', ')" -ForegroundColor Red
+    Stop-Transcript
+    Exit 1
+}
+
+# Check for Developer Mode or admin rights before creating a symbolic link
+function Test-DeveloperMode {
+    try {
+        $reg = Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock" -Name "AllowDevelopmentWithoutDevLicense" -ErrorAction Stop
+        return $reg.AllowDevelopmentWithoutDevLicense -eq 1
+    } catch {
+        return $false
+    }
+}
+
+if (-not ([bool](New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) -and -not (Test-DeveloperMode)) {
+    Write-Host "You must run this script as Administrator or enable Developer Mode to create symbolic links." -ForegroundColor Red
     Stop-Transcript
     Exit 1
 }
