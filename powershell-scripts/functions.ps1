@@ -167,7 +167,7 @@ function CreateAndSet-Directory([String] $path) { New-Item $path -ItemType Direc
 function Get-DiskUsage([string] $path=(Get-Location).Path) {
     Convert-ToDiskSize `
         ( `
-            Get-ChildItem .\ -recurse -ErrorAction SilentlyContinue `
+            Get-ChildItem $path -Recurse -ErrorAction SilentlyContinue `
             | Measure-Object -property length -sum -ErrorAction SilentlyContinue
         ).Sum `
         1
