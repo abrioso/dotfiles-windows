@@ -103,7 +103,12 @@ if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
 }
 
 Write-Host "Installing the Microsoft.WinGet.Configuration module..."
-Install-Module -Name Microsoft.WinGet.Configuration -AcceptLicense -Force
+# Use AcceptLicense switch if available
+if ($AcceptLicenseSwitch) {
+    Install-Module -Name Microsoft.WinGet.Configuration -Force @($AcceptLicenseSwitch)
+} else {
+    Install-Module -Name Microsoft.WinGet.Configuration -Force
+}
 
 # Update the system PATH variable properly
 try {
