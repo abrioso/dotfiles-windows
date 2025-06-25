@@ -188,24 +188,30 @@ if (-not (Test-DeveloperMode)) {
 Write-Host "Creating a symbolic link to the custom profile directory"
 $customProfileDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.CUSTOM_PROFILE_FOLDER
 $profileDirectory = Split-Path -Parent $PROFILE
+
 if (-not (Test-Path $customProfileDirectory)) {
     try {
-        #create a link to $profileDirectory
+        # Try to create a symbolic link
         New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force -ErrorAction Stop | Out-Null
-        # if the link was created successfully, write a message
-        # otherwise, write an error message and exit the script
-        if(Test-Path $customProfileDirectory) {
+        if (Test-Path $customProfileDirectory) {
             Write-Host "Symbolic link to the custom profile directory created successfully"
         } else {
-            Write-Host "Failed to create a symbolic link to the custom profile directory. Exiting script."
+            throw "Unknown error: symlink not created"
+        }
+    } catch {
+        Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
+        Write-Host "Attempting to create a normal directory as a fallback..."
+        try {
+            New-Item -ItemType Directory -Path $customProfileDirectory -Force -ErrorAction Stop | Out-Null
+            Write-Warning "Fallback: Created a normal directory instead of a symlink. Some features may not work as intended."
+        } catch {
+            Write-Host "Failed to create the custom profile directory. Exiting script. Error: $($_.Exception.Message)"
             Stop-Transcript
             Exit 1
         }
-    } catch {
-        Write-Host "Failed to create a symbolic link to the custom profile directory. Exiting script."
-        Stop-Transcript
-        Exit 1
     }
+} else {
+    Write-Host "Custom profile directory already exists: $customProfileDirectory"
 }
 
 # Create workspace directory if it does not exist
