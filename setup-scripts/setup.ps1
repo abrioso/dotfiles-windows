@@ -81,7 +81,6 @@ try {
 # Check if NuGet provider is installed
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     Write-Host "NuGet provider is not installed. Installing now..."
-#    Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser
     Import-PackageProvider -Name NuGet -Force
 }
@@ -99,15 +98,15 @@ Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 # Check if the module is already installed
 if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
     Write-Host "Uninstalling the existing Microsoft.WinGet.Configuration module..."
-    Uninstall-Module -Name Microsoft.WinGet.Configuration -AllVersions -Force
+    Uninstall-Module -Name Microsoft.WinGet.Configuration -AllVersions -Force -Scope CurrentUser
 }
 
 Write-Host "Installing the Microsoft.WinGet.Configuration module..."
 # Use AcceptLicense switch if available
 if ($AcceptLicenseSwitch) {
-    Install-Module -Name Microsoft.WinGet.Configuration -Force @($AcceptLicenseSwitch)
+    Install-Module -Name Microsoft.WinGet.Configuration -Force -Scope CurrentUser @($AcceptLicenseSwitch)
 } else {
-    Install-Module -Name Microsoft.WinGet.Configuration -Force
+    Install-Module -Name Microsoft.WinGet.Configuration -Force -Scope CurrentUser
 }
 
 # Update the system PATH variable properly
