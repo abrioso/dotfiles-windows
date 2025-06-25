@@ -155,6 +155,13 @@ if ($missingVars) {
     Exit 1
 }
 
+function Enable-DeveloperMode {
+    Write-Host "Enabling Developer Mode (requires elevation)..."
+    $command = 'reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"'
+    Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Hidden -Command $command" -Verb RunAs -Wait
+    Write-Host "Developer Mode should now be enabled. Please re-run this script if you still see errors."
+}
+
 # Check for Developer Mode or admin rights before creating a symbolic link
 function Test-DeveloperMode {
     try {
@@ -165,10 +172,16 @@ function Test-DeveloperMode {
     }
 }
 
-if (-not ([bool](New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) -and -not (Test-DeveloperMode)) {
-    Write-Host "You must run this script as Administrator or enable Developer Mode to create symbolic links." -ForegroundColor Red
-    Stop-Transcript
-    Exit 1
+if (-not (Test-DeveloperMode)) {
+    if (-not ([bool](New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))) {
+        Enable-DeveloperMode
+        # Re-check Developer Mode after attempting to enable
+        if (-not (Test-DeveloperMode)) {
+            Write-Host "Failed to enable Developer Mode. Please enable it manually or run this script as Administrator." -ForegroundColor Red
+            Stop-Transcript
+            Exit 1
+        }
+    }
 }
 
 # Create a symbolic link to the custom profile directory
