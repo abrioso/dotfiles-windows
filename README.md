@@ -41,7 +41,7 @@ The folder "dsc-configurations" contains the DSC configuration files:
 
 - `.\dsc-configuration\0.base.packages.admin.dsc` : Base and must-have packages to be installed.
 - `.\dsc-configuration\1.base.configuration.admin.dsc` : Base and must-have configurations.
-- `.\dsc-configuration\2.hyperv.wsl.configuration.admin.dsc` : HyperV and WSL configuration (only applied if it's not an Virtual Machine).
+- `.\dsc-configuration\2.hyperv.wsl.configuration.admin.dsc` : Hyper-V and WSL configuration (only applied if it's not a Virtual Machine).
 - `.\dsc-configuration\3.pwsh.terminal.dsc.configuration.admin.dsc` : Powershell and Windows Terminal related packages to be installed.
 - `.\dsc-configuration\4.developer.packages.admin.dsc` : Developer related packages to be installed.
 - `.\dsc-configuration\5.developer.configuration.admin.dsc` : Developer configurations.
