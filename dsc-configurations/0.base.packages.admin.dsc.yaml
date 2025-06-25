@@ -92,14 +92,14 @@ properties:
         source: winget
     ### Install Microsoft Sysinternals
     ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: sysinternals
-      directives:
-        description: Install Microsoft Sysinternals
-        allowPrerelease: true
-      settings:
-        id: Microsoft.Sysinternals
-        source: winget
+    #- resource: Microsoft.WinGet.DSC/WinGetPackage
+    #  id: sysinternals
+    #  directives:
+    #    description: Install Microsoft Sysinternals
+    #    allowPrerelease: true
+    #  settings:
+    #    id: Microsoft.Sysinternals
+    #    source: winget
     ### Install gsudo
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
