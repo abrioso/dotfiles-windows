@@ -11,7 +11,7 @@ To make this work, you need to set your execution policy to unrestricted (or at 
 
 #>
 
-
+Import-Module "$PSScriptRoot\setup-functions.ps1"
 
 # Variables for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -20,25 +20,8 @@ $logDir = Join-Path $logDir "logs"
 $scriptName = Split-Path -Leaf $PSCommandPath
 $logFile = "$logDir/$scriptName-$dateTime.txt"
 
-# Create the log directory if it doesn't exist
-if (!(Test-Path -Path $logDir)) {
-    try {
-        New-Item -Path $logDir -ItemType Directory | Out-Null
-    }
-    catch {
-        Write-Warning "Cannot create log directory: $($_.Exception.Message)"
-        $logFile = "$env:TEMP\$scriptName-$dateTime.txt"
-        Write-Warning "Logging to temporary location: $logFile"
-    }
-}
-
 # Start logging
-try {
-    Start-Transcript -Path $logFile -ErrorAction Stop
-}
-catch {
-    Write-Warning "Cannot start transcript: $($_.Exception.Message)"
-}
+Start-Logging -LogFilePath $logFile
 
 # Check execution policy at script start
 $currentPolicy = Get-ExecutionPolicy
@@ -73,7 +56,7 @@ if ($psGetVersion -ge [Version]"2.0.0") {
 if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
     Write-Host "Installing PowerShell"
     try {
-        $result = winget install --id Microsoft.PowerShell -e --force --accept-source-agreements --accept-package-agreements
+        $result = winget install --id Microsoft.PowerShell -e --global --force --accept-source-agreements --accept-package-agreements
         if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: " + $result }
     } catch {
         Write-Host "Error installing PowerShell: $_" -ForegroundColor Red
@@ -304,4 +287,4 @@ Write-Host "Log File: $logFile"
 Write-Host "========================================================"
 
 # stop logging
-Stop-Transcript
+Stop-Logging
