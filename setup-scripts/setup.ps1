@@ -56,7 +56,7 @@ if ($psGetVersion -ge [Version]"2.0.0") {
 if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
     Write-Host "Installing PowerShell"
     try {
-        $result = winget install --id Microsoft.PowerShell -e --global --force --accept-source-agreements --accept-package-agreements
+        $result = winget install --scope machine --id Microsoft.PowerShell -e --global --force --accept-source-agreements --accept-package-agreements
         if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: " + $result }
     } catch {
         Write-Host "Error installing PowerShell: $_" -ForegroundColor Red
@@ -202,15 +202,6 @@ if (-not (Test-Path $customProfileDirectory)) {
         }
     } catch {
         Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
-        Write-Host "Attempting to create a normal directory as a fallback..."
-        try {
-            New-Item -ItemType Directory -Path $customProfileDirectory -Force -ErrorAction Stop | Out-Null
-            Write-Warning "Fallback: Created a normal directory instead of a symlink. Some features may not work as intended."
-        } catch {
-            Write-Host "Failed to create the custom profile directory. Exiting script. Error: $($_.Exception.Message)"
-            Stop-Transcript
-            Exit 1
-        }
     }
 } else {
     Write-Host "Custom profile directory already exists: $customProfileDirectory"
