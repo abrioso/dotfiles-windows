@@ -24,26 +24,6 @@ if (![System.IO.Directory]::Exists($dotfilesTempDir)) {[System.IO.Directory]::Cr
 $sourceFile = Join-Path $dotfilesTempDir "dotfiles.zip"
 $dotfilesInstallDir = Join-Path $dotfilesTempDir "$repo-$branch"
 
-
-# Ensure NuGet and PowerShellGet are up to date and set AcceptLicense switch if supported
-try {
-    Write-Host "Ensuring NuGet and PowerShellGet are up to date..."
-    Install-PackageProvider -Name NuGet -Force -Scope CurrentUser -ErrorAction SilentlyContinue
-    Install-Module -Name PowerShellGet -Force -Scope CurrentUser -ErrorAction SilentlyContinue
-    Import-Module PowerShellGet -Force -ErrorAction SilentlyContinue
-} catch {
-    Write-Warning "Could not update NuGet or PowerShellGet: $_"
-}
-
-# Determine if -AcceptLicense is supported
-$psGetVersion = (Get-Module PowerShellGet -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1).Version
-if ($psGetVersion -ge [Version]"2.0.0") {
-    $AcceptLicenseSwitch = '-AcceptLicense'
-} else {
-    $AcceptLicenseSwitch = ''
-}
-
-
 function Invoke-Download {
   param (
     [string]$url,
