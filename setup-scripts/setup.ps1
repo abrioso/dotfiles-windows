@@ -153,7 +153,7 @@ $missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
 
 if ($missingVars) {
     Write-Host "Missing required configuration variables: $($missingVars -join ', ')" -ForegroundColor Red
-    Stop-Transcript
+    Stop-Logging
     Exit 1
 }
 
