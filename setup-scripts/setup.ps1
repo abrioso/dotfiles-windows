@@ -45,22 +45,28 @@ try {
 
 # Determine if -AcceptLicense is supported
 $psGetVersion = (Get-Module PowerShellGet -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1).Version
+$installModuleParams = @{}
 if ($psGetVersion -ge [Version]"2.0.0") {
-    $AcceptLicenseSwitch = '-AcceptLicense'
-} else {
-    $AcceptLicenseSwitch = ''
+    $installModuleParams.AcceptLicense = $true
 }
+
+# Determine if winget is available
+$wingetAvailable = Get-Command winget -ErrorAction SilentlyContinue
 
 
 # Install PowerShell if not present
 if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
     Write-Host "Installing PowerShell"
-    try {
-        $result = winget install --scope machine --id Microsoft.PowerShell -e --global --force --accept-source-agreements --accept-package-agreements
-        if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: " + $result }
-    } catch {
-        Write-Host "Error installing PowerShell: $_" -ForegroundColor Red
-        Write-Host "Continuing with script, but some features may not work correctly."
+    if ($wingetAvailable) {
+        try {
+            $result = winget install --id Microsoft.PowerShell -e --global --force --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: " + $result }
+        } catch {
+            Write-Host "Error installing PowerShell: $_" -ForegroundColor Red
+            Write-Host "Continuing with script, but some features may not work correctly."
+        }
+    } else {
+        Write-Warning "winget is not available. Please install PowerShell manually."
     }
 } else {
     Write-Host "PowerShell 7 is already installed, skipping installation."
@@ -69,12 +75,16 @@ if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
 # Install Git if not present
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "Installing Git"
-    try {
-        $result = winget install --id Git.Git -e --force --accept-source-agreements --accept-package-agreements
-        if ($LASTEXITCODE -ne 0) { throw "Failed to install Git: " + $result }
-    } catch {
-        Write-Host "Error installing Git: $_" -ForegroundColor Red
-        Write-Host "Continuing with script, but some features may not work correctly."
+    if ($wingetAvailable) {
+        try {
+            $result = winget install --id Git.Git -e --force --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -ne 0) { throw "Failed to install Git: " + $result }
+        } catch {
+            Write-Host "Error installing Git: $_" -ForegroundColor Red
+            Write-Host "Continuing with script, but some features may not work correctly."
+        }
+    } else {
+        Write-Warning "winget is not available. Please install Git manually."
     }
 } else {
     Write-Host "Git is already installed, skipping installation."
@@ -104,12 +114,7 @@ if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
 }
 
 Write-Host "Installing the Microsoft.WinGet.Configuration module..."
-# Use AcceptLicense switch if available
-if ($AcceptLicenseSwitch) {
-    Install-Module -Name Microsoft.WinGet.Configuration -Force -Scope CurrentUser @($AcceptLicenseSwitch)
-} else {
-    Install-Module -Name Microsoft.WinGet.Configuration -Force -Scope CurrentUser
-}
+Install-Module -Name Microsoft.WinGet.Configuration -Force -Scope CurrentUser @installModuleParams
 
 # Update the system PATH variable properly
 try {
@@ -141,6 +146,7 @@ if ($DotfilesVariablesFile) {
 } else {
     Write-Host "The dotfiles-bootstrap-variables.json file was not found in the dotfiles-configurations folder"
     Write-Host "Please make sure that the file exists in " $DotfilesConfigFolder" and try again"
+    Stop-Logging
     Exit(1)
 }
 
@@ -153,7 +159,7 @@ $missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
 
 if ($missingVars) {
     Write-Host "Missing required configuration variables: $($missingVars -join ', ')" -ForegroundColor Red
-    Stop-Transcript
+    Stop-Logging
     Exit 1
 }
 
@@ -180,7 +186,7 @@ if (-not (Test-DeveloperMode)) {
         # Re-check Developer Mode after attempting to enable
         if (-not (Test-DeveloperMode)) {
             Write-Host "Failed to enable Developer Mode. Please enable it manually or run this script as Administrator." -ForegroundColor Red
-            Stop-Transcript
+            Stop-Logging
             Exit 1
         }
     }
@@ -202,6 +208,15 @@ if (-not (Test-Path $customProfileDirectory)) {
         }
     } catch {
         Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
+        Write-Host "Attempting to create a normal directory as a fallback..."
+        try {
+            New-Item -ItemType Directory -Path $customProfileDirectory -Force -ErrorAction Stop | Out-Null
+            Write-Warning "Fallback: Created a normal directory instead of a symlink. Some features may not work as intended."
+        } catch {
+            Write-Host "Failed to create the custom profile directory. Exiting script. Error: $($_.Exception.Message)"
+            Stop-Logging
+            Exit 1
+        }
     }
 } else {
     Write-Host "Custom profile directory already exists: $customProfileDirectory"
@@ -220,13 +235,12 @@ Write-Host "Cloning the dotfiles repository"
 $dotfilesRepositoryURL = "https://github.com/$($DotfilesVariables.GITHUB_ACCOUNT)/$($DotfilesVariables.GITHUB_DOTFILES_REPO).git"
 $dotfilesDirectory = Join-Path $workspaceDirectory $DotfilesVariables.GITHUB_DOTFILES_REPO
 if (-not (Test-Path $dotfilesDirectory)) {
-    #clone the dotfiles repository
-    git clone $dotfilesRepositoryURL $dotfilesDirectory
-
-    # Verify cloning succeeded
-    if (-not (Test-Path $dotfilesDirectory)) {
-        Write-Host "Failed to clone the dotfiles repository. Exiting script."
-        Stop-Transcript
+    # clone the dotfiles repository
+    Write-Host "Cloning repository from $dotfilesRepositoryURL"
+    $cloneOutput = git clone $dotfilesRepositoryURL $dotfilesDirectory 2>&1
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $dotfilesDirectory)) {
+        Write-Host "Failed to clone the dotfiles repository:`n$cloneOutput" -ForegroundColor Red
+        Stop-Logging
         Exit 1
     }
 }
@@ -247,10 +261,11 @@ $scriptResults = @{}
 foreach ($script in $setupScripts) {
     Write-Host "Running $($script.Name)" -ForegroundColor Cyan
     try {
+        $scriptArg = "-File `"$($script.FullName)`""
         if($script.Name -like "*admin*") {
-            $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $($script.FullName)" -Verb RunAs -PassThru -Wait
+            $process = Start-Process -FilePath "pwsh.exe" -ArgumentList $scriptArg -Verb RunAs -PassThru -Wait
         } else {
-            $process = Start-Process -FilePath "pwsh.exe" -ArgumentList "-File $($script.FullName)" -PassThru -Wait
+            $process = Start-Process -FilePath "pwsh.exe" -ArgumentList $scriptArg -PassThru -Wait
         }
         $scriptResults.Add($script.Name, $process.ExitCode)
         if ($process.ExitCode -eq 0) {
