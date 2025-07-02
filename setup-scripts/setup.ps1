@@ -59,7 +59,7 @@ if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
     Write-Host "Installing PowerShell"
     if ($wingetAvailable) {
         try {
-            $result = winget install --id Microsoft.PowerShell -e --global --force --accept-source-agreements --accept-package-agreements
+            $result = winget install --id Microsoft.PowerShell -e --scope machine --force --accept-source-agreements --accept-package-agreements
             if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: " + $result }
         } catch {
             Write-Host "Error installing PowerShell: $_" -ForegroundColor Red
