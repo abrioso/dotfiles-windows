@@ -11,13 +11,7 @@ Requires PowerShell 7 and the WinGet DSC module.
 #>
 
 
-# Function to elevate this powershell script to be run as an administrator
-function Test-Elevated {
-    $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-    $prp = New-Object System.Security.Principal.WindowsPrincipal($wid)
-    $adm = [System.Security.Principal.WindowsBuiltInRole]::Administrator
-    return $prp.IsInRole($adm)
-}
+Import-Module "$PSScriptRoot\setup-functions.ps1" -Force -ErrorAction Stop
 
 # Variables for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -26,25 +20,7 @@ $logDir = Join-Path $logDir "logs"
 $scriptName = Split-Path -Leaf $PSCommandPath
 $logFile = "$logDir/$scriptName-$dateTime.txt"
 
-# Create the log directory if it doesn't exist
-if (!(Test-Path -Path $logDir)) {
-    try {
-        New-Item -Path $logDir -ItemType Directory | Out-Null
-    }
-    catch {
-        Write-Warning "Cannot create log directory: $($_.Exception.Message)"
-        $logFile = "$env:TEMP\$scriptName-$dateTime.txt"
-        Write-Warning "Logging to temporary location: $logFile"
-    }
-}
-
-# Start logging
-try {
-    Start-Transcript -Path $logFile -ErrorAction Stop
-}
-catch {
-    Write-Warning "Cannot start transcript: $($_.Exception.Message)"
-}
+Start-Logging -LogFilePath $logFile
 
 # Check to see if we are running PowerShell 7 or later
 if ($PSVersionTable.PSVersion.Major -lt 7) {

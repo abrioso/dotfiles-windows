@@ -71,6 +71,14 @@ function Stop-Logging {
     }
 }
 
+# Function to elevate this powershell script to be run as an administrator
+function Test-Elevated {
+    $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $prp = New-Object System.Security.Principal.WindowsPrincipal($wid)
+    $adm = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+    return $prp.IsInRole($adm)
+}
+
 # endregion
 
 # region Add more shared functions below
