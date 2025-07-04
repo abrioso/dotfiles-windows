@@ -188,34 +188,7 @@ try {
 
 # Apply the dotfiles bootstrap variables
 Write-Host "Applying dotfiles bootstrap variables..."
-try {
-    $DotfilesRoot = Split-Path -Parent $PSScriptRoot
-    $DotfilesConfigFolder = Join-Path $DotfilesRoot "dotfiles-configurations"
-    $DotfilesVariablesFile = Get-ChildItem -Path $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json" -ErrorAction Stop
-
-    if ($DotfilesVariablesFile) {
-        $DotfilesVariables = Get-Content -Path $DotfilesVariablesFile.FullName | ConvertFrom-Json
-    } else {
-        throw "The dotfiles-bootstrap-variables.json file was not found in $DotfilesConfigFolder"
-    }
-} catch {
-    Write-Host $_.Exception.Message -ForegroundColor Red
-    Write-Host "Please make sure that the file exists and try again."
-    Stop-Logging
-    Exit 1
-}
-
-Write-Host "Dotfiles Bootstrap Variables to be applied:"
-foreach ($kv in $DotfilesVariables.PSObject.Properties) {
-    if ($kv.Value -is [System.Collections.IEnumerable] -and $kv.Value -isnot [string]) {
-        Write-Host ("{0,-25}:" -f $kv.Name)
-        foreach ($item in $kv.Value) {
-            Write-Host ("  - {0}" -f $item)
-        }
-    } else {
-        Write-Host ("{0,-25}: {1}" -f $kv.Name, $kv.Value)
-    }
-}
+$DotfilesVariables = Get-DotfilesBootstrapVariables
 
 # Validate required configuration values
 $requiredVars = @("CUSTOM_PROFILE_FOLDER", "WORKSPACE_FOLDER", "GITHUB_ACCOUNT", "GITHUB_DOTFILES_REPO")
@@ -328,7 +301,7 @@ $setupScripts = Get-ChildItem -Path $DotfilesSetupScriptsFolder -Filter "setup.p
 $setupScripts = $setupScripts | Sort-Object Name
 
 # For testing purposes, you can uncomment the line below to don't run any setup scripts
-# $setupScripts = @() # Uncomment this line to skip running setup scripts
+ $setupScripts = @() # Uncomment this line to skip running setup scripts
 
 if (-not $setupScripts) {
     Write-Host "No setup scripts found in $DotfilesSetupScriptsFolder" -ForegroundColor Yellow

@@ -96,3 +96,35 @@ function Test-DeveloperMode {
     }
 }
 
+# Function to get the dotfiles bootstrap variables
+function Get-DotfilesBootstrapVariables {
+    try {
+        $DotfilesRoot = Split-Path -Parent $PSScriptRoot
+        $DotfilesConfigFolder = Join-Path $DotfilesRoot "dotfiles-configurations"
+        $DotfilesVariablesFile = Get-ChildItem -Path $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json" -ErrorAction Stop
+
+        if ($DotfilesVariablesFile) {
+            $DotfilesVariables = Get-Content -Path $DotfilesVariablesFile.FullName | ConvertFrom-Json
+        } else {
+            throw "The dotfiles-bootstrap-variables.json file was not found in $DotfilesConfigFolder"
+        }
+    } catch {
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host "Please make sure that the file exists and try again."
+        Stop-Logging
+        Exit 1
+    }
+
+    Write-Host "Dotfiles Bootstrap Variables to be applied:"
+    foreach ($kv in $DotfilesVariables.PSObject.Properties) {
+        if ($kv.Value -is [System.Collections.IEnumerable] -and $kv.Value -isnot [string]) {
+            Write-Host ("{0,-25}:" -f $kv.Name)
+            foreach ($item in $kv.Value) {
+                Write-Host ("  - {0}" -f $item)
+            }
+        } else {
+            Write-Host ("{0,-25}: {1}" -f $kv.Name, $kv.Value)
+        }
+    }
+    return $DotfilesVariables
+}
