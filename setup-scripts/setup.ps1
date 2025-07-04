@@ -80,12 +80,6 @@ if ($psGetVersion -ge [Version]"2.0.0") {
     $installModuleParams.AcceptLicense = $true
 }
 
-# Check if the Microsoft.PowerShell.Core module is available
-if (-not (Get-Module -ListAvailable -Name Microsoft.PowerShell.Core)) { 
-    Write-Host "Microsoft.PowerShell.Core module is not available. Please ensure PowerShell 7 is installed correctly."
-    Stop-Logging
-    Exit 1
-}
 
 # Install Git if not present
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
@@ -192,16 +186,38 @@ $profileDirectory = Split-Path -Parent $PROFILE
 
 # Create a symlink to the custom profile directory if it does not exist
 if (-not (Test-Path $customProfileDirectory)) {
-    try {
-        # Try to create a symbolic link
-        New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force -ErrorAction Stop | Out-Null
-        if (Test-Path $customProfileDirectory) {
-            Write-Host "Symbolic link to the custom profile directory created successfully"
-        } else {
-            throw "Unknown error: symlink not created"
+    # Check if running as administrator
+    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    if (-not $isAdmin) {
+        Write-Host "Symlink creation requires elevated privileges. Relaunching this block as administrator..."
+        $symlinkScript = @"
+try {
+    New-Item -ItemType SymbolicLink -Path '$customProfileDirectory' -Value '$profileDirectory' -Force -ErrorAction Stop | Out-Null
+    if (Test-Path '$customProfileDirectory') {
+        Write-Host 'Symbolic link to the custom profile directory created successfully'
+    } else {
+        throw 'Unknown error: symlink not created'
+    }
+} catch {
+    Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
+}
+"@
+        $tempScriptPath = [System.IO.Path]::GetTempFileName() + '.ps1'
+        Set-Content -Path $tempScriptPath -Value $symlinkScript -Encoding UTF8
+        Start-Process -FilePath 'pwsh.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScriptPath`"" -Verb RunAs -Wait
+        Remove-Item $tempScriptPath -Force
+    } else {
+        try {
+            # Try to create a symbolic link
+            New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force -ErrorAction Stop | Out-Null
+            if (Test-Path $customProfileDirectory) {
+                Write-Host "Symbolic link to the custom profile directory created successfully"
+            } else {
+                throw "Unknown error: symlink not created"
+            }
+        } catch {
+            Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
         }
-    } catch {
-        Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
     }
 } else {
     Write-Host "Custom profile directory already exists: $customProfileDirectory"
