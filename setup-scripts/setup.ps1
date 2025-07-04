@@ -258,7 +258,7 @@ try {
         throw 'Unknown error: symlink not created'
     }
 } catch {
-    Write-Warning \"Failed to create a symbolic link: $($_.Exception.Message)\"
+    Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
 }
 "@
         $tempScriptPath = [System.IO.Path]::GetTempFileName() + '.ps1'
