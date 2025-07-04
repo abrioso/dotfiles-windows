@@ -175,4 +175,19 @@ function Get-DotfilesBootstrapVariables {
     return $DotfilesVariables
 }
 
-
+# Function to check if script is running in a VM environment
+function Is-RunningInVM {
+    $vmTypes = @("VirtualBox", "VMware", "Hyper-V", "Parallels", "QEMU")
+    $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
+    Write-Host "Checking if the machine is running in a VM environment..."
+    foreach ($vmType in $vmTypes) {
+        if ($computerSystem | Where-Object { $_.Manufacturer -like "*$vmType*" }) {
+            return $true
+        }
+    }
+    if ($computerSystem | Where-Object { $_.Model -like "*Virtual Machine*" }) {
+        return $true
+    }
+    Write-Host "This machine is not running in a recognized VM environment."
+    return $false
+}
