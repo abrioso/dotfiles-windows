@@ -1,4 +1,15 @@
-## Script to run DSC Configurations as a user
+<#
+.SYNOPSIS
+Script to run DSC configurations as a normal User.
+
+.DESCRIPTION
+Executes DSC configurations from YAML files in the specified folder.
+
+.NOTES
+Requires PowerShell 7 and the WinGet DSC module.
+#>
+
+Import-Module "$PSScriptRoot\setup-functions.ps1" -Force -ErrorAction Stop
 
 # Get some useful data for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -8,20 +19,18 @@ $scriptName = Split-Path -Leaf $PSCommandPath
 $logFile = "$logDir/$scriptName-$dateTime.txt"
 
 # start logging
-Start-Transcript -Path $logFile
+Start-Logging -LogFilePath $logFile
+
+# Check to see if we are running PowerShell 7 or later
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    Write-Error "This script requires PowerShell 7 or later."
+    exit 1
+}
 
 # Can be run as a normal user
 
-# Elevate this powershell script to run as an administrator
-function Test-Elevated {
-    $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-    $prp = New-Object System.Security.Principal.WindowsPrincipal($wid)
-    $adm = [System.Security.Principal.WindowsBuiltInRole]::Administrator
-    return $prp.IsInRole($adm)
-}
 # Current user
-$username = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-
+$username = Get-CurrentUser
 
 # Check to see if we are currently running "as Administrator"
 if (!(Test-Elevated)) {
@@ -30,14 +39,67 @@ if (!(Test-Elevated)) {
     Write-Host "Running $PSCommandPath as Administrator"
  }
 
+# Update the environment PATH variable to include the system PATH
+# This is necessary for the script to find the WinGet Cmdlet and other system tools
 $env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 
-# Set the value of $PSScriptRoot to the directory path of the script
+# Set the DotFilesRoot to the directory path of the script
+# This is used to locate the DSC configurations and other resources
 $DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
+
+
+# Apply the dotfiles bootstrap variables
+Write-Host "Applying dotfiles bootstrap variables..."
+$DotfilesVariables = Get-DotfilesBootstrapVariables
+if (-not $DotfilesVariables) {
+    Write-Host "No dotfiles bootstrap variables found." -ForegroundColor Yellow
+    Stop-Transcript
+    Exit 1
+}
+
+
+# Apply the dotfiles bootstrap variables
+Write-Host "Applying dotfiles bootstrap variables..."
+$DotfilesVariables = Get-DotfilesBootstrapVariables
+if (-not $DotfilesVariables) {
+    Write-Host "No dotfiles bootstrap variables found." -ForegroundColor Yellow
+    Stop-Transcript
+    Exit 1
+}
+
+# Validate required configuration values
+$requiredVars = @("INSTALL_PACKAGES", "INSTALL_FEATURES", "INSTALL_SETTINGS", "VM_EXCEPTIONS")
+$missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
+
+if ($missingVars) {
+    Write-Host "Missing required configuration variables: $($missingVars -join ', ')" -ForegroundColor Red
+    Stop-Transcript
+    Exit 1
+}
+
+# Check if the machine is running in a VM environment
+$isVM = Is-RunningInVM
+if ($isVM) {
+    Write-Host "Running in a VM environment" -ForegroundColor Yellow
+} else {
+    Write-Host "Not running in a VM environment"
+}
 
 # Run the DSC configuration using the Winget Cmdlet. Winget.exe cannot run as system or install Windows Optional Features
 # The DSC configuration will install the required features and tools
 $DscConfigFolder = Join-Path $DotFilesRoot "dsc-configurations"
+if (-not (Test-Path -Path $DscConfigFolder)) {
+    Write-Host "DSC configuration folder not found: $DscConfigFolder" -ForegroundColor Yellow
+    # Throw an error
+    throw "DSC configuration folder not found: $DscConfigFolder"
+}
+
+# Create a empty list of DSC files to be applied
+$DSCFiles = @()
+
+# Get all the DSC files that match the patterns in the dotfiles variables
+
+
 $DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*user.dsc.yaml"
 
 foreach ($DSCFile in $DSCFiles) {

@@ -10,7 +10,6 @@ from YAML files in the specified folder.
 Requires PowerShell 7 and the WinGet DSC module.
 #>
 
-
 Import-Module "$PSScriptRoot\setup-functions.ps1" -Force -ErrorAction Stop
 
 # Variables for logging
@@ -42,40 +41,23 @@ if (!(Test-Elevated)) {
     Write-Host "Running $PSCommandPath as Administrator"
 }
 
-# Update the system PATH variable properly
-try {
-    # Refresh PATH from both Machine and User environment
-    # Add the machine path to the environment path
-    $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
-    $machinePathEntries = $machinePath -split ";"
-    $currentPathEntries = $env:Path -split ";"
-    foreach ($entry in $machinePathEntries) {
-        if ($entry -and -not ($currentPathEntries -contains $entry)) {
-            $env:Path += ";$entry"
-        }
-    }
-    Write-Host "PATH environment variable refreshed successfully"
-} catch {
-    Write-Host "Failed to refresh PATH environment variable: $_" -ForegroundColor Yellow
-}
+# Update the environment PATH variable to include the system PATH
+# This is necessary for the script to find the WinGet Cmdlet and other system tools
+$env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
 
-# Set the value of $DotFilesRoot to the directory path of the script
+# Set the DotFilesRoot to the directory path of the script
+# This is used to locate the DSC configurations and other resources
 $DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 
-# Get the directory path of the config files
-$DotfilesConfigFolder = Join-Path $DotfilesRoot "dotfiles-configurations"
-$DotfilesVariablesFile = Get-ChildItem -Path $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json"
 
-if ($DotfilesVariablesFile) {
-    $DotfilesVariables = Get-Content -Path $DotfilesVariablesFile.FullName | ConvertFrom-Json
-} else {
-    Write-Host "The dotfiles-bootstrap-variables.json file was not found in the dotfiles-configurations folder"
-    Write-Host "Please make sure that the file exists in " $DotfilesConfigFolder" and try again"
-    Exit(1)
+# Apply the dotfiles bootstrap variables
+Write-Host "Applying dotfiles bootstrap variables..."
+$DotfilesVariables = Get-DotfilesBootstrapVariables
+if (-not $DotfilesVariables) {
+    Write-Host "No dotfiles bootstrap variables found." -ForegroundColor Yellow
+    Stop-Transcript
+    Exit 1
 }
-
-Write-Host "Dotfiles Bootstrap Variables:"
-Write-Host $DotfilesVariables | Format-List
 
 # Validate required configuration values
 $requiredVars = @("INSTALL_PACKAGES", "INSTALL_FEATURES", "INSTALL_SETTINGS", "VM_EXCEPTIONS")
@@ -87,6 +69,14 @@ if ($missingVars) {
     Exit 1
 }
 
+# Check if the machine is running in a VM environment
+$isVM = Is-RunningInVM
+if ($isVM) {
+    Write-Host "Running in a VM environment" -ForegroundColor Yellow
+} else {
+    Write-Host "Not running in a VM environment"
+}
+
 # Run the DSC configuration using the Winget Cmdlet. Winget.exe cannot run as system or install Windows Optional Features
 # The DSC configuration will install the required features and tools
 $DscConfigFolder = Join-Path $DotFilesRoot "dsc-configurations"
@@ -96,18 +86,6 @@ if (-not (Test-Path -Path $DscConfigFolder)) {
     throw "DSC configuration folder not found: $DscConfigFolder"
 }
 
-$computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
-$isVM = $false
-
-# Check if the machine is running inside a Hyper-V host
-if ($computerSystem.Model -like "*Virtual Machine*") {
-    Write-Host "This machine is running inside a Hyper-V host."
-    $isVM = $true
-} else {
-    Write-Host "This machine is not running inside a Hyper-V host."
-    $isVM = $false
-}
-
 # Create a empty list of DSC files to be applied
 $DSCFiles = @()
 
@@ -115,7 +93,7 @@ $DSCFiles = @()
 foreach ($feature in $DotfilesVariables.INSTALL_FEATURES) {
     # check if the feature is in the list of VM exceptions
     if ($DotfilesVariables.VM_EXCEPTIONS -contains $feature -and $isVM) {
-        Write-Host "Skipping DSC Configuration for feature $feature as it is an VM_EXCEPTION on a Hyper-V host"
+        Write-Host "Skipping DSC Configuration for feature $feature as it is an VM_EXCEPTION on a VM host"
         continue
     }
     $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$feature*admin.dsc.yaml"
@@ -124,7 +102,7 @@ foreach ($feature in $DotfilesVariables.INSTALL_FEATURES) {
 foreach ($package in $DotfilesVariables.INSTALL_PACKAGES) {
     # check if the package is in the list of VM exceptions
     if ($DotfilesVariables.VM_EXCEPTIONS -contains $package -and $isVM) {
-        Write-Host "Skipping DSC Configuration for package $package as it is an VM_EXCEPTION on a Hyper-V host"
+        Write-Host "Skipping DSC Configuration for package $package as it is an VM_EXCEPTION on a VM host"
         continue
     }    
     $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$package*admin.dsc.yaml"
@@ -133,7 +111,7 @@ foreach ($package in $DotfilesVariables.INSTALL_PACKAGES) {
 foreach ($setting in $DotfilesVariables.INSTALL_SETTINGS) {
     # check if the setting is in the list of VM exceptions
     if ($DotfilesVariables.VM_EXCEPTIONS -contains $setting -and $isVM) {
-        Write-Host "Skipping DSC Configuration for setting $setting as it is an VM_EXCEPTION on a Hyper-V host"
+        Write-Host "Skipping DSC Configuration for setting $setting as it is an VM_EXCEPTION on a VM host"
         continue
     } 
     $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$setting*admin.dsc.yaml"
@@ -157,40 +135,6 @@ Write-Host "DSC Files to be applied:"
 foreach ($DSCFile in $DSCFiles) {
     Write-Host $DSCFile.FullName
 }
-
-# Check if the DSC files are valid
-#
-# foreach ($DSCFile in $DSCFiles) {
-#     try {
-#         $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Test-WinGetConfiguration
-#         if ($DSCresult.ResultCode -ne 0) {
-#             Write-Host "Failed to validate DSC Configuration: $($DSCFile.FullName)"
-#             Write-Host "Result Code: $($DSCresult.ResultCode)"
-#             foreach ($unitResult in $DSCresult.UnitResults) {
-#                 if ($unitResult.ResultCode -ne 0) {
-#                     Write-Host "Failed to validate DSC Unit: $($unitResult.UnitName)"
-#                     Write-Host "Result Code: $($unitResult.ResultCode)"
-#                     Write-Host "Result Type: $($unitResult.Type)"
-#                     Write-Host "Result Message: $($unitResult.Message)"
-#                     Write-Host "Result Description: $($unitResult.Description)"
-#                     Write-Host "Result Details: $($unitResult.Details)"
-#                     Start-Sleep -Seconds 10
-#                     throw "DSC Configuration Failed"
-#                 }
-#             }
-#         }
-#     }
-#     catch {
-#         Write-Host "Exception occurred validating DSC file: $($_.Exception.Message)" -ForegroundColor Red
-#         Write-Host "Failed to validate DSC Configuration: $($DSCFile.FullName)"
-#         Write-Host "Error: $($_.Exception.Message)"
-#         Start-Sleep -Seconds 10
-#         throw "DSC Configuration Failed"
-#     }
-# }
-#
-#
-#Write-Host "DSC Configuration Validated"
 
 # Create a dictionary of DSC files and their results
 $DSCResults = @{}
