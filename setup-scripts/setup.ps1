@@ -107,13 +107,18 @@ try {
         Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
     }
 } catch {
-    Write-Host "PSGallery repository not found. Registering it now..."
+    if ($_.Exception.Message -like '*already exists*') {
+        Write-Host "PSGallery repository already exists. Skipping registration."
+    } else {
+        Write-Host "PSGallery repository not found. Registering it now..."
+        try {
+            Register-PSRepository -Default -ErrorAction Stop
+        } catch {
+            Write-Host "Failed to register PSGallery repository: $_" -ForegroundColor Red
+        }
+    }
 }
-try {
-    Register-PSRepository -Default -ErrorAction Stop
-} catch {
-    Write-Host "Failed to register PSGallery repository: $_" -ForegroundColor Red
-}
+
 # Register the default repository if not already registered
 if (-not (Get-PSRepository -Name "PSGallery" -ErrorAction SilentlyContinue)) {
     Write-Host "Registering default PowerShell repository..."
@@ -126,7 +131,7 @@ Write-Host "Installing the Winget Cmdlet..."
 # Check if the module is already installed
 if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
     Write-Host "Uninstalling the existing Microsoft.WinGet.Configuration module..."
-    Uninstall-Module -Name Microsoft.WinGet.Configuration -AllVersions -Force -Scope CurrentUser
+    Uninstall-Module -Name Microsoft.WinGet.Configuration -AllVersions -Force
 }
 
 Write-Host "Installing the Microsoft.WinGet.Configuration module..."
