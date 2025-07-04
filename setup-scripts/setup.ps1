@@ -33,21 +33,11 @@ if ($currentPolicy -in @("Restricted", "AllSigned")) {
 
 Write-Host "Installing the pre-requisites for the dotfiles setup"
 
-# Ensure NuGet and PowerShellGet are up to date and set AcceptLicense switch if supported
-try {
-    Write-Host "Ensuring NuGet and PowerShellGet are up to date..."
-    Install-PackageProvider -Name NuGet -Force -Scope CurrentUser -ErrorAction SilentlyContinue
-    Install-Module -Name PowerShellGet -Force -Scope CurrentUser -ErrorAction SilentlyContinue
-    Import-Module PowerShellGet -Force -ErrorAction SilentlyContinue
-} catch {
-    Write-Warning "Could not update NuGet or PowerShellGet: $_"
-}
-
-# Determine if -AcceptLicense is supported
-$psGetVersion = (Get-Module PowerShellGet -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1).Version
-$installModuleParams = @{}
-if ($psGetVersion -ge [Version]"2.0.0") {
-    $installModuleParams.AcceptLicense = $true
+# Check if NuGet provider is installed
+if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+    Write-Host "NuGet provider is not installed. Installing now..."
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser
+    Import-PackageProvider -Name NuGet -Force
 }
 
 # Determine if winget is available
@@ -72,6 +62,31 @@ if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
     Write-Host "PowerShell 7 is already installed, skipping installation."
 }
 
+
+# Ensure NuGet and PowerShellGet are up to date and set AcceptLicense switch if supported
+try {
+    Write-Host "Ensuring NuGet and PowerShellGet are up to date..."
+    Install-PackageProvider -Name NuGet -Force -Scope CurrentUser -ErrorAction SilentlyContinue
+    Install-Module -Name PowerShellGet -Force -Scope CurrentUser -ErrorAction SilentlyContinue
+    Import-Module PowerShellGet -Force -ErrorAction SilentlyContinue
+} catch {
+    Write-Warning "Could not update NuGet or PowerShellGet: $_"
+}
+
+# Determine if -AcceptLicense is supported
+$psGetVersion = (Get-Module PowerShellGet -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1).Version
+$installModuleParams = @{}
+if ($psGetVersion -ge [Version]"2.0.0") {
+    $installModuleParams.AcceptLicense = $true
+}
+
+# Check if the Microsoft.PowerShell.Core module is available
+if (-not (Get-Module -ListAvailable -Name Microsoft.PowerShell.Core)) { 
+    Write-Host "Microsoft.PowerShell.Core module is not available. Please ensure PowerShell 7 is installed correctly."
+    Stop-Logging
+    Exit 1
+}
+
 # Install Git if not present
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "Installing Git"
@@ -90,13 +105,21 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "Git is already installed, skipping installation."
 }
 
-# Check if NuGet provider is installed
-if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-    Write-Host "NuGet provider is not installed. Installing now..."
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser
-    Import-PackageProvider -Name NuGet -Force
+# Ensure the PSGallery repository is registered
+try {
+    $psGallery = Get-PSRepository -Name "PSGallery" -ErrorAction Stop
+    if ($psGallery -and $psGallery.InstallationPolicy -ne "Trusted") {
+        Write-Host "Setting PSGallery repository to Trusted..."
+        Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
+    }
+} catch {
+    Write-Host "PSGallery repository not found. Registering it now..."
 }
-
+try {
+    Register-PSRepository -Default -ErrorAction Stop
+} catch {
+    Write-Host "Failed to register PSGallery repository: $_" -ForegroundColor Red
+}
 # Register the default repository if not already registered
 if (-not (Get-PSRepository -Name "PSGallery" -ErrorAction SilentlyContinue)) {
     Write-Host "Registering default PowerShell repository..."
@@ -104,8 +127,7 @@ if (-not (Get-PSRepository -Name "PSGallery" -ErrorAction SilentlyContinue)) {
 }
 
 # Install the Winget Cmdlet required for enabling Windows features and system-level installation
-Write-Host "Installing the Winget Cmdlet"
-Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+Write-Host "Installing the Winget Cmdlet..."
 
 # Check if the module is already installed
 if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
@@ -150,7 +172,7 @@ if ($DotfilesVariablesFile) {
     Exit(1)
 }
 
-Write-Host "Dotfiles Bootstrap Variables to be aplied:"
+Write-Host "Dotfiles Bootstrap Variables to be applied:"
 Write-Host $DotfilesVariables | Format-List
 
 # Validate required configuration values
@@ -163,40 +185,12 @@ if ($missingVars) {
     Exit 1
 }
 
-function Enable-DeveloperMode {
-    Write-Host "Enabling Developer Mode (requires elevation)..."
-    $command = 'reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"'
-    Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Hidden -Command $command" -Verb RunAs -Wait
-    Write-Host "Developer Mode should now be enabled. Please re-run this script if you still see errors."
-}
-
-# Check for Developer Mode or admin rights before creating a symbolic link
-function Test-DeveloperMode {
-    try {
-        $reg = Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock" -Name "AllowDevelopmentWithoutDevLicense" -ErrorAction Stop
-        return $reg.AllowDevelopmentWithoutDevLicense -eq 1
-    } catch {
-        return $false
-    }
-}
-
-if (-not (Test-DeveloperMode)) {
-    if (-not ([bool](New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))) {
-        Enable-DeveloperMode
-        # Re-check Developer Mode after attempting to enable
-        if (-not (Test-DeveloperMode)) {
-            Write-Host "Failed to enable Developer Mode. Please enable it manually or run this script as Administrator." -ForegroundColor Red
-            Stop-Logging
-            Exit 1
-        }
-    }
-}
-
 # Create a symbolic link to the custom profile directory
 Write-Host "Creating a symbolic link to the custom profile directory"
 $customProfileDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.CUSTOM_PROFILE_FOLDER
 $profileDirectory = Split-Path -Parent $PROFILE
 
+# Create a symlink to the custom profile directory if it does not exist
 if (-not (Test-Path $customProfileDirectory)) {
     try {
         # Try to create a symbolic link
@@ -208,15 +202,6 @@ if (-not (Test-Path $customProfileDirectory)) {
         }
     } catch {
         Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
-        Write-Host "Attempting to create a normal directory as a fallback..."
-        try {
-            New-Item -ItemType Directory -Path $customProfileDirectory -Force -ErrorAction Stop | Out-Null
-            Write-Warning "Fallback: Created a normal directory instead of a symlink. Some features may not work as intended."
-        } catch {
-            Write-Host "Failed to create the custom profile directory. Exiting script. Error: $($_.Exception.Message)"
-            Stop-Logging
-            Exit 1
-        }
     }
 } else {
     Write-Host "Custom profile directory already exists: $customProfileDirectory"

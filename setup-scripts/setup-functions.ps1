@@ -79,6 +79,25 @@ function Test-Elevated {
     return $prp.IsInRole($adm)
 }
 
+# Function to Enable Developer Mode
+# This function will attempt to enable Developer Mode by modifying the registry.
+function Enable-DeveloperMode {
+    Write-Host "Enabling Developer Mode (requires elevation)..."
+    $command = 'reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"'
+    Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Hidden -Command $command" -Verb RunAs -Wait
+    Write-Host "Developer Mode should now be enabled. Please re-run this script if you still see errors."
+}
+
+# Check if Developer Mode is enabled
+function Test-DeveloperMode {
+    try {
+        $reg = Get-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock" -Name "AllowDevelopmentWithoutDevLicense" -ErrorAction Stop
+        return $reg.AllowDevelopmentWithoutDevLicense -eq 1
+    } catch {
+        return $false
+    }
+}
+
 # endregion
 
 # region Add more shared functions below
