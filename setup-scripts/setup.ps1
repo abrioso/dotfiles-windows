@@ -278,8 +278,6 @@ try {
             Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
         }
     }
-} else {
-    Write-Host "Custom profile directory already exists: $customProfileDirectory"
 }
 
 # Create workspace directory if it does not exist
@@ -288,6 +286,8 @@ $workspaceDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.WORKSPACE_FO
 if (-not (Test-Path $workspaceDirectory)) {
     #create the workspace directory
     New-Item -ItemType Directory -Path $workspaceDirectory -Force | Out-Null
+} else {
+    Write-Host "Workspace directory already exists: $workspaceDirectory"
 }
 
 # Clone the dotfiles repository if it does not exist
@@ -303,6 +303,8 @@ if (-not (Test-Path $dotfilesDirectory)) {
         Stop-Logging
         Exit 1
     }
+} else {
+    Write-Host "Dotfiles directory already exists: $dotfilesDirectory"
 }
 
 # Change the working directory to the dotfiles repository
