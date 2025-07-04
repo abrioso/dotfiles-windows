@@ -17,7 +17,7 @@ properties:
   ########################################
   resources:
     ########################################
-    ### Initialization
+    ### Features Installation: Hyper-V and WSL
     ########################################
     ########################################
     ### Install HypervisorPlatform Optional Feature
@@ -72,55 +72,7 @@ properties:
       settings:
         Name: Microsoft-Hyper-V-Tools-All 
         Ensure: Present
-    ########################################
-    ### Install Windows Subsystem for Linux
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: wsl
-      dependsOn:
-        - Microsoft-Windows-Subsystem-Linux
-      directives:
-        description: WSL
-        allowPrerelease: true
-      settings:
-        id: "Microsoft.WSL"
-        source: winget  
-    ### Install Ubuntu 24.04 LTS (WSL)
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      dependsOn:
-        - wsl
-      directives:
-        description: Ubuntu 24.04 LTS
-        allowPrerelease: true
-      settings:
-        id: Canonical.Ubuntu.2404
-        source: winget 
-    ########################################
-    ### Install Powershell
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: Powershell
-      directives:
-        description: Install Powershell
-        allowPrerelease: true
-      settings:
-        id: Microsoft.PowerShell
-        source: winget
-    ########################################
-    ### Install Windows Terminal
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: WindowsTerminal
-      directives:
-        description: Install Windows Terminal
-        allowPrerelease: true
-      settings:
-        id: Microsoft.WindowsTerminal
-        source: winget
-    ########################################
-    ### Configuration
-    ########################################
+
     ########################################
     ### Add current user to Hyper-V Administrators group
     ### -------------------------------------
@@ -232,4 +184,47 @@ properties:
             # If we can't determine membership, assume we need to run the script
             return $false
           }
-########################################
+
+    ########################################
+    ### Winget Package Installation: WSL
+    ########################################
+    ########################################
+    ### Install Windows Subsystem for Linux (via WinGet)
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: wsl
+      dependsOn:
+        - Microsoft-Windows-Subsystem-Linux
+        - VirtualMachinePlatform
+        - HypervisorPlatform
+        - RebootForWSL
+      directives:
+        description: WSL
+        allowPrerelease: true
+      settings:
+        id: "Microsoft.WSL"
+        source: winget  
+    ### Install Ubuntu for WSL
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      dependsOn:
+        - wsl
+      directives:
+        description: Ubuntu
+        allowPrerelease: true
+      settings:
+        id: Canonical.Ubuntu
+        source: winget 
+
+    ########################################
+    ### Reboot if required for WSL features
+    ### -------------------------------------
+    - resource: PSDscResources/DSCReboot
+      id: RebootForWSL
+      dependsOn:
+        - Microsoft-Windows-Subsystem-Linux
+        - VirtualMachinePlatform
+        - HypervisorPlatform
+      settings:
+        Name: RebootForWSL
+        Skip: false
