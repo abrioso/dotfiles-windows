@@ -186,21 +186,23 @@ try {
     Write-Host "Failed to refresh PATH environment variable: $_" -ForegroundColor Yellow
 }
 
-## Apply the dotfiles bootstrap variables
-# Get the directory path of the script
-$DotfilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
+# Apply the dotfiles bootstrap variables
+Write-Host "Applying dotfiles bootstrap variables..."
+try {
+    $DotfilesRoot = Split-Path -Parent $PSScriptRoot
+    $DotfilesConfigFolder = Join-Path $DotfilesRoot "dotfiles-configurations"
+    $DotfilesVariablesFile = Get-ChildItem -Path $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json" -ErrorAction Stop
 
-# Get the directory path of the config files
-$DotfilesConfigFolder = Join-Path $DotfilesRoot "dotfiles-configurations"
-$DotfilesVariablesFile = Get-ChildItem -Path $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json"
-
-if ($DotfilesVariablesFile) {
-    $DotfilesVariables = Get-Content -Path $DotfilesVariablesFile.FullName | ConvertFrom-Json
-} else {
-    Write-Host "The dotfiles-bootstrap-variables.json file was not found in the dotfiles-configurations folder"
-    Write-Host "Please make sure that the file exists in " $DotfilesConfigFolder" and try again"
+    if ($DotfilesVariablesFile) {
+        $DotfilesVariables = Get-Content -Path $DotfilesVariablesFile.FullName | ConvertFrom-Json
+    } else {
+        throw "The dotfiles-bootstrap-variables.json file was not found in $DotfilesConfigFolder"
+    }
+} catch {
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    Write-Host "Please make sure that the file exists and try again."
     Stop-Logging
-    Exit(1)
+    Exit 1
 }
 
 Write-Host "Dotfiles Bootstrap Variables to be applied:"
