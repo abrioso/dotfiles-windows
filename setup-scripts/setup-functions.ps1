@@ -69,6 +69,17 @@ function Stop-Logging {
     }
 }
 
+# Fucntion to returno the current user
+function Get-CurrentUser {
+    try {
+        $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        return $currentUser
+    } catch {
+        Write-ErrorMessage "Failed to get current user: $($_.Exception.Message)"
+        return $null
+    }
+}
+
 # Function to elevate this powershell script to be run as an administrator
 function Test-Elevated {
     $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -76,6 +87,41 @@ function Test-Elevated {
     $adm = [System.Security.Principal.WindowsBuiltInRole]::Administrator
     return $prp.IsInRole($adm)
 }
+
+# Function to check if the script is running as Administrator
+function Is-RunningAsAdmin {
+    $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $prp = New-Object System.Security.Principal.WindowsPrincipal($wid)
+    $adm = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+    return $prp.IsInRole($adm)
+}
+
+# Function to check if the script is running as a normal user
+function Is-RunningAsUser {
+    return -not (Is-RunningAsAdmin)
+}
+
+# Function to check if the script is running as SYSTEM
+function Is-RunningAsSystem {
+    $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    return $wid.Name -eq "NT AUTHORITY\SYSTEM"
+}
+
+# Function to check if the script is running as a service
+function Is-RunningAsService {
+    $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    return $wid.Name -eq "NT SERVICE\TrustedInstaller"
+}
+
+# Function to check if the script is running as a user with administrative privileges
+function Is-RunningAsAdminUser {
+    $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $prp = New-Object System.Security.Principal.WindowsPrincipal($wid)
+    $adm = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+    return $prp.IsInRole($adm) -and (Is-RunningAsUser)
+}
+
+
 
 # Function to Enable Developer Mode
 # This function will attempt to enable Developer Mode by modifying the registry.
@@ -128,3 +174,5 @@ function Get-DotfilesBootstrapVariables {
     }
     return $DotfilesVariables
 }
+
+
