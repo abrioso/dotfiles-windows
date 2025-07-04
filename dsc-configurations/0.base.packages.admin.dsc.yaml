@@ -29,16 +29,7 @@ properties:
       settings:
         id: Microsoft.PowerShell
         source: winget
-    ### Install Git
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: git
-      directives:
-        description: Install Git
-        allowPrerelease: true
-      settings:
-        id: Git.Git
-        source: winget
+    ########################################
     ### Install Windows Terminal
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
@@ -49,57 +40,7 @@ properties:
       settings:
         id: Microsoft.WindowsTerminal
         source: winget
-    ### Install Python
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: python
-      directives:
-        description: Install Python
-        allowPrerelease: true
-      settings:
-        id: Python.Python.3.13
-        source: winget
-    ### Install Visual Studio Code
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: vscode
-      directives:
-        description: Install Microsoft Visual Studio Code
-        allowPrerelease: true
-      settings:
-        id: Microsoft.VisualStudioCode
-        source: winget
-        ensure: Present
-    ### Install Edge
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: edge
-      directives:
-        description: Install Edge
-        allowPrerelease: true
-      settings:
-        id: Microsoft.Edge
-        source: winget
-    ### Install Microsoft PowerToys
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: powertoys
-      directives:
-        description: Install Microsoft PowerToys
-        allowPrerelease: true
-      settings:
-        id: Microsoft.Powertoys
-        source: winget
-    ### Install Microsoft Sysinternals
-    ### -------------------------------------
-    #- resource: Microsoft.WinGet.DSC/WinGetPackage
-    #  id: sysinternals
-    #  directives:
-    #    description: Install Microsoft Sysinternals
-    #    allowPrerelease: true
-    #  settings:
-    #    id: Microsoft.Sysinternals
-    #    source: winget
+    ########################################   
     ### Install gsudo
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
