@@ -184,8 +184,28 @@ Write-Host "Creating a symbolic link to the custom profile directory"
 $customProfileDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.CUSTOM_PROFILE_FOLDER
 $profileDirectory = Split-Path -Parent $PROFILE
 
-# Create a symlink to the custom profile directory if it does not exist
-if (-not (Test-Path $customProfileDirectory)) {
+# Create a symlink to the custom profile directory if it does not exist or is not a symlink
+$createSymlink = $false
+if (Test-Path $customProfileDirectory) {
+    $item = Get-Item $customProfileDirectory -Force
+    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        Write-Host "Custom profile directory already exists as a symlink: $customProfileDirectory"
+    } else {
+        Write-Host "Custom profile directory exists as a normal directory."
+        $userInput = Read-Host "Do you want to delete this directory and replace it with a symlink? (Y/N)"
+        if ($userInput -match '^(Y|y)') {
+            Write-Host "Removing directory..."
+            Remove-Item $customProfileDirectory -Recurse -Force
+            $createSymlink = $true
+        } else {
+            Write-Warning "Symlink creation skipped. Directory was not removed."
+        }
+    }
+} else {
+    $createSymlink = $true
+}
+
+if ($createSymlink) {
     # Check if running as administrator
     $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     if (-not $isAdmin) {
@@ -199,7 +219,7 @@ try {
         throw 'Unknown error: symlink not created'
     }
 } catch {
-    Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
+    Write-Warning \"Failed to create a symbolic link: $($_.Exception.Message)\"
 }
 "@
         $tempScriptPath = [System.IO.Path]::GetTempFileName() + '.ps1'
