@@ -168,6 +168,8 @@ if (-not (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration)) {
 }
 
 # Update the system PATH variable properly
+# This is necessary to ensure that the PATH variable is up-to-date with the latest changes
+Write-Host "Refreshing PATH environment variable..."
 try {
     # Refresh PATH from both Machine and User environment
     # Add the machine path to the environment path
