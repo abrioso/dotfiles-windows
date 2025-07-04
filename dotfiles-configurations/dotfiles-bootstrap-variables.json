@@ -6,12 +6,12 @@
     "CUSTOM_PROFILE_FOLDER": "Profile-Custom",
     "CULTURE": "pt-PT",
     "TIMEZONE": "GMT Standard Time",
+    "INSTALL_TYPE": "windows",
     "VM_EXCEPTIONS": [
         "hyperv",
         "wsl",
         "docker"
     ],
-    "INSTALL_TYPE": "windows",
     "INSTALL_FEATURES": [
         "hyperv",
         "wsl"
