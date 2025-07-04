@@ -189,6 +189,11 @@ try {
 # Apply the dotfiles bootstrap variables
 Write-Host "Applying dotfiles bootstrap variables..."
 $DotfilesVariables = Get-DotfilesBootstrapVariables
+if (-not $DotfilesVariables) {
+    Write-Host "No dotfiles bootstrap variables found." -ForegroundColor Yellow
+    Stop-Transcript
+    Exit 1
+}
 
 # Validate required configuration values
 $requiredVars = @("CUSTOM_PROFILE_FOLDER", "WORKSPACE_FOLDER", "GITHUB_ACCOUNT", "GITHUB_DOTFILES_REPO")
