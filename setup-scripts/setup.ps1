@@ -315,6 +315,10 @@ Write-Host "Running the setup scripts"
 # For each script in the setup-scripts folder started with setup.ps7, run the script
 $setupScripts = Get-ChildItem -Path $DotfilesSetupScriptsFolder -Filter "setup.ps7-*.ps1"
 $setupScripts = $setupScripts | Sort-Object Name
+
+# For testing purposes, you can uncomment the line below to don't run any setup scripts
+ $setupScripts = @() # Uncomment this line to skip running setup scripts
+
 if (-not $setupScripts) {
     Write-Host "No setup scripts found in $DotfilesSetupScriptsFolder" -ForegroundColor Yellow
     Stop-Logging
