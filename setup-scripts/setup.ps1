@@ -206,7 +206,16 @@ try {
 }
 
 Write-Host "Dotfiles Bootstrap Variables to be applied:"
-Write-Host $DotfilesVariables | Format-List
+foreach ($kv in $DotfilesVariables.PSObject.Properties) {
+    if ($kv.Value -is [System.Collections.IEnumerable] -and $kv.Value -isnot [string]) {
+        Write-Host ("{0,-25}:" -f $kv.Name)
+        foreach ($item in $kv.Value) {
+            Write-Host ("  - {0}" -f $item)
+        }
+    } else {
+        Write-Host ("{0,-25}: {1}" -f $kv.Name, $kv.Value)
+    }
+}
 
 # Validate required configuration values
 $requiredVars = @("CUSTOM_PROFILE_FOLDER", "WORKSPACE_FOLDER", "GITHUB_ACCOUNT", "GITHUB_DOTFILES_REPO")
