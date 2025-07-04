@@ -314,7 +314,12 @@ Write-Host "Running the setup scripts"
 
 # For each script in the setup-scripts folder started with setup.ps7, run the script
 $setupScripts = Get-ChildItem -Path $DotfilesSetupScriptsFolder -Filter "setup.ps7-*.ps1"
-
+$setupScripts = $setupScripts | Sort-Object Name
+if (-not $setupScripts) {
+    Write-Host "No setup scripts found in $DotfilesSetupScriptsFolder" -ForegroundColor Yellow
+    Stop-Logging
+    Exit 0
+}
 # Create a dictionary to store the script names and their exit codes
 $scriptResults = @{}
 
