@@ -31,49 +31,75 @@ if ($currentPolicy -in @("Restricted", "AllSigned")) {
     Write-Warning "Consider running: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser or Set-ExecutionPolicy Unrestricted -Scope CurrentUser"
 }
 
-Write-Host "Installing the pre-requisites for the dotfiles setup"
+Write-Host "Installing the pre-requisites for the dotfiles setup:"
 
 # Check if NuGet provider is installed
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     Write-Host "NuGet provider is not installed. Installing now..."
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser
     Import-PackageProvider -Name NuGet -Force
+} else {
+    Write-Host "  NuGet provider is already installed, skipping installation."
 }
 
 # Determine if winget is available
 $wingetAvailable = Get-Command winget -ErrorAction SilentlyContinue
-
+if($wingetAvailable) {
+    Write-Host "  Winget is available, proceeding with installations."
+} else {
+    Write-Warning "  Winget is not available. Some installations may not work as expected."
+}
 
 # Install PowerShell if not present
 if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing PowerShell"
+    Write-Host "  PowerShell is not installed. Installing PowerShell..."
     if ($wingetAvailable) {
         try {
             $result = winget install --id Microsoft.PowerShell -e --scope machine --force --accept-source-agreements --accept-package-agreements
             if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: " + $result }
         } catch {
-            Write-Host "Error installing PowerShell: $_" -ForegroundColor Red
-            Write-Host "Continuing with script, but some features may not work correctly."
+            Write-Host "    Error installing PowerShell: $_" -ForegroundColor Red
+            Write-Host "    Continuing with script, but some features may not work correctly."
         }
     } else {
-        Write-Warning "winget is not available. Please install PowerShell manually."
+        Write-Warning "  Winget is not available. Please install PowerShell manually."
     }
 } else {
-    Write-Host "PowerShell 7 is already installed, skipping installation."
+    Write-Host "  PowerShell 7 is already installed, skipping installation."
 }
 
 
-# Ensure NuGet and PowerShellGet are up to date and set AcceptLicense switch if supported
-try {
-    Write-Host "Ensuring NuGet and PowerShellGet are up to date..."
-    Install-PackageProvider -Name NuGet -Force -Scope CurrentUser -ErrorAction SilentlyContinue
-    Install-Module -Name PowerShellGet -Force -Scope CurrentUser -ErrorAction SilentlyContinue
-    Import-Module PowerShellGet -Force -ErrorAction SilentlyContinue
-} catch {
-    Write-Warning "Could not update NuGet or PowerShellGet: $_"
+# Ensure NuGet and PowerShellGet are up to date
+# Check and update NuGet provider
+$nugetProvider = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
+if (-not $nugetProvider -or $nugetProvider.Version -lt [Version]'2.8.5.201') {
+    Write-Host "  Updating NuGet provider..."
+    try {
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction Stop
+        Import-PackageProvider -Name NuGet -Force
+    } catch {
+        Write-Warning "  Failed to update NuGet provider: $_"
+    }
+} else {
+    Write-Host "  NuGet provider is up to date."
 }
 
-# Determine if -AcceptLicense is supported
+# Check and update PowerShellGet
+$psGetModule = Get-Module -ListAvailable PowerShellGet | Sort-Object Version -Descending | Select-Object -First 1
+if ($psGetModule.Version -lt [Version]'2.2.5') {
+    Write-Host "  Updating PowerShellGet module..."
+    try {
+        Install-Module -Name PowerShellGet -Force -Scope CurrentUser -ErrorAction Stop
+        Write-Host "  PowerShellGet updated. Please restart PowerShell to use the new version."
+    } catch {
+        Write-Warning "  Failed to update PowerShellGet: $_"
+    }
+} else {
+    Write-Host "  PowerShellGet is up to date."
+}
+
+
+# Determine if -AcceptLicense switch is supported
 $psGetVersion = (Get-Module PowerShellGet -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1).Version
 $installModuleParams = @{}
 if ($psGetVersion -ge [Version]"2.0.0") {
@@ -83,7 +109,7 @@ if ($psGetVersion -ge [Version]"2.0.0") {
 
 # Install Git if not present
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing Git"
+    Write-Host "  Git not found. Installing Git..."
     if ($wingetAvailable) {
         try {
             $result = winget install --id Git.Git -e --force --accept-source-agreements --accept-package-agreements
@@ -93,49 +119,53 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
             Write-Host "Continuing with script, but some features may not work correctly."
         }
     } else {
-        Write-Warning "winget is not available. Please install Git manually."
+        Write-Warning "  Winget is not available. Please install Git manually."
     }
 } else {
-    Write-Host "Git is already installed, skipping installation."
+    Write-Host "  Git is already installed, skipping installation."
 }
 
 # Ensure the PSGallery repository is registered
 try {
     $psGallery = Get-PSRepository -Name "PSGallery" -ErrorAction Stop
     if ($psGallery -and $psGallery.InstallationPolicy -ne "Trusted") {
-        Write-Host "Setting PSGallery repository to Trusted..."
+        Write-Host "  PSGallery repository is not trusted. Setting it to Trusted..."
         Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
     }
 } catch {
     if ($_.Exception.Message -like '*already exists*') {
-        Write-Host "PSGallery repository already exists. Skipping registration."
+        Write-Host "  PSGallery repository already exists. Skipping registration."
     } else {
-        Write-Host "PSGallery repository not found. Registering it now..."
+        Write-Host "  PSGallery repository not found. Registering it now..."
         try {
             Register-PSRepository -Default -ErrorAction Stop
         } catch {
-            Write-Host "Failed to register PSGallery repository: $_" -ForegroundColor Red
+            Write-Host "  Failed to register PSGallery repository: $_" -ForegroundColor Red
         }
     }
 }
 
 # Register the default repository if not already registered
 if (-not (Get-PSRepository -Name "PSGallery" -ErrorAction SilentlyContinue)) {
-    Write-Host "Registering default PowerShell repository..."
+    Write-Host "  Registering default PowerShell repository..."
     Register-PSRepository -Default
 }
 
 # Install the Winget Cmdlet required for enabling Windows features and system-level installation
-Write-Host "Installing the Winget Cmdlet..."
+Write-Host "  Ensuring the Winget Cmdlet is installed..."
 
-# Check if the module is already installed
-if (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration) {
-    Write-Host "Uninstalling the existing Microsoft.WinGet.Configuration module..."
-    Uninstall-Module -Name Microsoft.WinGet.Configuration -AllVersions -Force
+# Only install the module if it isn't already installed
+if (-not (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration)) {
+    Write-Host "  Installing the Microsoft.WinGet.Configuration module..."
+    try {
+        Install-Module -Name Microsoft.WinGet.Configuration -Force -Scope CurrentUser @installModuleParams
+        Write-Host "  Microsoft.WinGet.Configuration module installed."
+    } catch {
+        Write-Warning "  Failed to install Microsoft.WinGet.Configuration: $_"
+    }
+} else {
+    Write-Host "  Microsoft.WinGet.Configuration module is already installed, skipping installation."
 }
-
-Write-Host "Installing the Microsoft.WinGet.Configuration module..."
-Install-Module -Name Microsoft.WinGet.Configuration -Force -Scope CurrentUser @installModuleParams
 
 # Update the system PATH variable properly
 try {
