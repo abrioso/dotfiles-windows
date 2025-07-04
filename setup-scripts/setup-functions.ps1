@@ -10,8 +10,6 @@
 
 # Example: Import-Module "$PSScriptRoot\setup-functions.ps1"
 
-# region Utility Functions
-
 function Write-Info {
     param (
         [Parameter(Mandatory)]
@@ -98,8 +96,3 @@ function Test-DeveloperMode {
     }
 }
 
-# endregion
-
-# region Add more shared functions below
-
-# endregion
