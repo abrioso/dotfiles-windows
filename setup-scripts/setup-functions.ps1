@@ -292,8 +292,6 @@ function Test-RunningAsAdminUser {
     return $prp.IsInRole($adm) -and (Test-RunningAsUser)
 }
 
-
-
 # Function to Enable Developer Mode
 # This function will attempt to enable Developer Mode by modifying the registry.
 function Enable-DeveloperMode {
