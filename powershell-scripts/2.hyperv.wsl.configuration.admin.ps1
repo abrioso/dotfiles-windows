@@ -1,0 +1,15 @@
+# Equivalent PowerShell script for 2.hyperv.wsl.configuration.admin.dsc.yaml
+# Minimum OS version check
+# (No MinVersion specified, just check for OS presence)
+
+# Enable HypervisorPlatform
+Enable-WindowsOptionalFeature -Online -FeatureName "HypervisorPlatform" -All -NoRestart
+
+# Enable VirtualMachinePlatform
+Enable-WindowsOptionalFeature -Online -FeatureName "VirtualMachinePlatform" -All -NoRestart
+
+# Enable Microsoft-Windows-Subsystem-Linux
+Enable-WindowsOptionalFeature -Online -FeatureName "Microsoft-Windows-Subsystem-Linux" -All -NoRestart
+
+# Enable Hyper-V
+Enable-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V-All" -All -NoRestart
