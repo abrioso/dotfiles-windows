@@ -40,6 +40,28 @@ properties:
       settings:
         id: Microsoft.WindowsTerminal
         source: winget
+    ########################################
+    ### Install Git
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: git
+      directives:
+        description: Install Git
+        allowPrerelease: true
+      settings:
+        id: Git.Git
+        source: winget
+    ########################################
+    ### Install Visual Studio Code
+    ### -------------------------------------
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: vscode
+      directives:
+        description: Install Visual Studio Code
+        allowPrerelease: true
+      settings:
+        id: Microsoft.VisualStudioCode
+        source: winget
     ### Install Edge
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
