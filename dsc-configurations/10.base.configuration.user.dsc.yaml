@@ -58,14 +58,10 @@ properties:
     #    HttpsUrl: https://github.com/abrioso/dotfiles-windows
     #    RootDirectory: $env:USERPROFILE\workspace
     #    Ensure: Present
-    ### Enable: Developer Mode
-    ### -------------------------------------
-    - resource: Microsoft.Windows.Developer/DeveloperMode
-      directives:
-        description: Enable Developer Mode
-        allowPrerelease: true
-      settings:
-        Ensure: Present
+     
+     ########################################
+     ### Essential Configuration
+     ########################################
      ### Show file extensions and hidden files
      ### -------------------------------------
     - resource: Microsoft.Windows.Developer/WindowsExplorer
@@ -84,6 +80,7 @@ properties:
       settings:
         Ensure: Present
         RestartExplorer: true
+    
     ########################################
     ### Install CLIs, SDKs & Tools
     ########################################
@@ -266,3 +263,9 @@ properties:
           code --install-extension ms-azuretools.azure-dev
         GetScript: return $false
         TestScript: return $false
+
+
+
+
+        
+    
