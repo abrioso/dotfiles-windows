@@ -114,7 +114,7 @@ foreach ($feature in $DotfilesVariables.INSTALL_FEATURES) {
         Write-Host "Skipping DSC Configuration for feature $feature as it is an VM_EXCEPTION on a VM host"
         continue
     }
-    $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$feature*user.dsc.yaml"
+    $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$feature*admin.dsc.yaml"
 }
 # for each value in $DotfilesVariables.INSTALL_PACKAGE add the the file to a list of DSC files to be applied based on a filter
 foreach ($package in $DotfilesVariables.INSTALL_PACKAGES) {
@@ -123,7 +123,7 @@ foreach ($package in $DotfilesVariables.INSTALL_PACKAGES) {
         Write-Host "Skipping DSC Configuration for package $package as it is an VM_EXCEPTION on a VM host"
         continue
     }    
-    $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$package*user.dsc.yaml"
+    $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$package*admin.dsc.yaml"
 }
 # for each value in $DotfilesVariables.INSTALL_SETTINGS add the the file to a list of DSC files to be applied based on a filter
 foreach ($setting in $DotfilesVariables.INSTALL_SETTINGS) {
@@ -132,7 +132,7 @@ foreach ($setting in $DotfilesVariables.INSTALL_SETTINGS) {
         Write-Host "Skipping DSC Configuration for setting $setting as it is an VM_EXCEPTION on a VM host"
         continue
     } 
-    $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$setting*user.dsc.yaml"
+    $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$setting*admin.dsc.yaml"
 }
 
 # Filter out any null entries and ensure uniqueness
