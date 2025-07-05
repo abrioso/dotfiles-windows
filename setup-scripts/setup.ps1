@@ -37,6 +37,8 @@ if (-not $prerequisitesInstalled) {
     Write-ErrorMessage "Failed to install prerequisites. Exiting script."
     Stop-Logging
     Exit 1
+} else {
+    Write-Info "Prerequisites installed successfully."
 }
 
 # Update the system PATH variable properly
@@ -177,7 +179,7 @@ $setupScripts = Get-ChildItem -Path $DotfilesSetupScriptsFolder -Filter "setup.p
 $setupScripts = $setupScripts | Sort-Object Name
 
 # For testing purposes, you can uncomment the line below to don't run any setup scripts
-# $setupScripts = @() # Uncomment this line to skip running setup scripts
+ $setupScripts = @() # Uncomment this line to skip running setup scripts
 
 if (-not $setupScripts) {
     Write-WarningMessage "No setup scripts found in $DotfilesSetupScriptsFolder"
