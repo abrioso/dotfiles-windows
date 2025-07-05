@@ -33,6 +33,7 @@ if ($currentPolicy -in @("Restricted", "AllSigned")) {
 
 Write-Host "Installing the pre-requisites for the dotfiles setup:"
 $prerequisitesInstalled = Install-DotfilesPrerequisites
+
 if (-not $prerequisitesInstalled) {
     Write-ErrorMessage "Failed to install prerequisites. Exiting script."
     Stop-Logging
