@@ -42,19 +42,11 @@ if (-not $prerequisitesInstalled) {
     Write-Info "Prerequisites installed successfully."
 }
 
-# Update the system PATH variable properly
+# Update the environment PATH variable to include the system PATH
+# This is necessary for the script to find the WinGet Cmdlet and other system tools
 Write-Info "Refreshing PATH environment variable..."
 try {
-    # Refresh PATH from both Machine and User environment
-    # Add the machine path to the environment path
-    $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
-    $machinePathEntries = $machinePath -split ";"
-    $currentPathEntries = $env:Path -split ";"
-    foreach ($entry in $machinePathEntries) {
-        if ($entry -and -not ($currentPathEntries -contains $entry)) {
-            $env:Path += ";$entry"
-        }
-    }
+    $env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
     Write-Info "PATH environment variable refreshed successfully"
 } catch {
     Write-WarningMessage "Failed to refresh PATH environment variable: $_"

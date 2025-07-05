@@ -41,7 +41,14 @@ if (!(Test-Elevated)) {
 
 # Update the environment PATH variable to include the system PATH
 # This is necessary for the script to find the WinGet Cmdlet and other system tools
-$env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+Write-Info "Refreshing PATH environment variable..."
+try {
+    $env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    Write-Info "PATH environment variable refreshed successfully"
+} catch {
+    Write-WarningMessage "Failed to refresh PATH environment variable: $_"
+}
+
 
 # Set the DotFilesRoot to the directory path of the script
 # This is used to locate the DSC configurations and other resources
