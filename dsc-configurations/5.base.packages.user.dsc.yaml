@@ -62,6 +62,7 @@ properties:
       settings:
         id: Microsoft.VisualStudioCode
         source: winget
+    ########################################
     ### Install Edge
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
