@@ -109,7 +109,7 @@ function Install-DotfilesPrerequisites {
             if ($wingetAvailable) {
                 try {
                     $result = Invoke-Expression "winget install --id Microsoft.PowerShell -e $wingetScope --force --accept-source-agreements --accept-package-agreements"
-                    if ($LASTEXITCODE -ne 0) { throw \"Failed to install PowerShell: \" + $result }
+                    if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: $result" }
                 } catch {
                     Write-ErrorMessage "Error installing PowerShell: $_"
                     Write-WarningMessage "Continuing with script, but some features may not work correctly."
@@ -142,15 +142,6 @@ function Install-DotfilesPrerequisites {
         }
     } catch {
         Write-ErrorMessage "Failed to update NuGet provider: $($_.Exception.Message)"
-    }
-
-    try {
-        # Install Microsoft.WinGet.Configuration module
-        Install-Module -Name Microsoft.WinGet.Configuration -Scope $allUsersScope -Force -ErrorAction Stop
-        Write-Info "Microsoft.WinGet.Configuration module installed successfully."
-    } catch {
-        Write-ErrorMessage "Failed to install Microsoft.WinGet.Configuration module: $($_.Exception.Message)"
-        return $false
     }
 
     # Check and update PowerShellGet
@@ -189,7 +180,7 @@ function Install-DotfilesPrerequisites {
         if ($wingetAvailable) {
             try {
                 $result = Invoke-Expression "winget install --id Git.Git -e $wingetScope --force --accept-source-agreements --accept-package-agreements"
-                if ($LASTEXITCODE -ne 0) { throw \"Failed to install Git: \" + $result }
+                if ($LASTEXITCODE -ne 0) { throw "Failed to install Git: $result" }
             } catch {
                 Write-ErrorMessage "Error installing Git: $_"
                 Write-WarningMessage "Continuing with script, but some features may not work correctly."
