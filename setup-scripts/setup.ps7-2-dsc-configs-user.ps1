@@ -9,7 +9,7 @@ Executes DSC configurations from YAML files in the specified folder.
 Requires PowerShell 7 and the WinGet DSC module.
 #>
 
-Import-Module "$PSScriptRoot\setup-functions.ps1" -Force -ErrorAction Stop
+. "$PSScriptRoot\setup-functions.ps1"
 
 # Get some useful data for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"

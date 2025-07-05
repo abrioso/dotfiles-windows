@@ -11,7 +11,7 @@ To make this work, you need to set your execution policy to unrestricted (or at 
 
 #>
 
-Import-Module "$PSScriptRoot\setup-functions.ps1"
+. "$PSScriptRoot\setup-functions.ps1"
 
 # Variables for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
