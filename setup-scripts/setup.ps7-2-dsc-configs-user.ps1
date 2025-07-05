@@ -39,6 +39,17 @@ if (!(Test-Elevated)) {
     Write-Host "Running $PSCommandPath as Administrator"
  }
 
+Write-Host "Installing the pre-requisites for the dotfiles setup:"
+$prerequisitesInstalled = Install-DotfilesPrerequisites
+
+if (-not $prerequisitesInstalled) {
+    Write-ErrorMessage "Failed to install prerequisites. Exiting script."
+    Stop-Logging
+    Exit 1
+} else {
+    Write-Info "Prerequisites installed successfully."
+}
+
 # Update the environment PATH variable to include the system PATH
 # This is necessary for the script to find the WinGet Cmdlet and other system tools
 Write-Info "Refreshing PATH environment variable..."
@@ -64,16 +75,6 @@ if (-not $DotfilesVariables) {
     Exit 1
 }
 
-
-# Apply the dotfiles bootstrap variables
-Write-Host "Applying dotfiles bootstrap variables..."
-$DotfilesVariables = Get-DotfilesBootstrapVariables
-if (-not $DotfilesVariables) {
-    Write-Host "No dotfiles bootstrap variables found." -ForegroundColor Yellow
-    Stop-Transcript
-    Exit 1
-}
-
 # Validate required configuration values
 $requiredVars = @("INSTALL_PACKAGES", "INSTALL_FEATURES", "INSTALL_SETTINGS", "VM_EXCEPTIONS")
 $missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
@@ -85,7 +86,7 @@ if ($missingVars) {
 }
 
 # Check if the machine is running in a VM environment
-$isVM = Is-RunningInVM
+$isVM = Test-RunningInVM
 if ($isVM) {
     Write-Host "Running in a VM environment" -ForegroundColor Yellow
 } else {

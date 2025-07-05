@@ -41,6 +41,17 @@ if (!(Test-Elevated)) {
     Write-Host "Running $PSCommandPath as Administrator"
 }
 
+Write-Host "Installing the pre-requisites for the dotfiles setup:"
+$prerequisitesInstalled = Install-DotfilesPrerequisites
+
+if (-not $prerequisitesInstalled) {
+    Write-ErrorMessage "Failed to install prerequisites. Exiting script."
+    Stop-Logging
+    Exit 1
+} else {
+    Write-Info "Prerequisites installed successfully."
+}
+
 # Update the environment PATH variable to include the system PATH
 # This is necessary for the script to find the WinGet Cmdlet and other system tools
 Write-Info "Refreshing PATH environment variable..."
@@ -76,8 +87,8 @@ if ($missingVars) {
     Exit 1
 }
 
-# Check if the machine is running in a VM environment
-$isVM = Is-RunningInVM
+# Check if the current machine is a virtual machine (returns $true if running inside a VM, otherwise $false)
+$isVM = Test-RunningInVM
 if ($isVM) {
     Write-Host "Running in a VM environment" -ForegroundColor Yellow
 } else {
