@@ -53,26 +53,7 @@ properties:
       settings:
         id: Git.Git
         source: winget
-    ### Install Git Credential Manager
-    ### -------------------------------------
-    #- resource: Microsoft.WinGet.DSC/WinGetPackage
-    #  id: gitcredmanager
-    #  directives:
-    #    description: Install Git Credential Manager
-    #    allowPrerelease: true
-    #  settings:
-    #    id: Microsoft.GitCredentialManager
-    #    source: winget
-    ### Install Git LFS
-    ### -------------------------------------
-    #- resource: Microsoft.WinGet.DSC/WinGetPackage
-    #  id: gitlfs
-    #  directives:
-    #    description: Install Git LFS
-    #    allowPrerelease: true
-    #  settings:
-    #    id: Git.GitLFS
-    #    source: winget
+    #######################################
     ### Install GitHub CLI
     ### -------------------------------------
     - resource: Microsoft.WinGet.DSC/WinGetPackage
