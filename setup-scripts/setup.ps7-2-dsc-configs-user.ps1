@@ -105,30 +105,135 @@ if (-not (Test-Path -Path $DscConfigFolder)) {
 # Create a empty list of DSC files to be applied
 $DSCFiles = @()
 
-# Get all the DSC files that match the patterns in the dotfiles variables
+# for each value in $DotfilesVariables.INSTALL_FEATURE add the the file to a list of DSC files to be applied based on a filter
+foreach ($feature in $DotfilesVariables.INSTALL_FEATURES) {
+    # check if the feature is in the list of VM exceptions
+    if ($DotfilesVariables.VM_EXCEPTIONS -contains $feature -and $isVM) {
+        Write-Host "Skipping DSC Configuration for feature $feature as it is an VM_EXCEPTION on a VM host"
+        continue
+    }
+    $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$feature*admin.dsc.yaml"
+}
+# for each value in $DotfilesVariables.INSTALL_PACKAGE add the the file to a list of DSC files to be applied based on a filter
+foreach ($package in $DotfilesVariables.INSTALL_PACKAGES) {
+    # check if the package is in the list of VM exceptions
+    if ($DotfilesVariables.VM_EXCEPTIONS -contains $package -and $isVM) {
+        Write-Host "Skipping DSC Configuration for package $package as it is an VM_EXCEPTION on a VM host"
+        continue
+    }    
+    $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$package*admin.dsc.yaml"
+}
+# for each value in $DotfilesVariables.INSTALL_SETTINGS add the the file to a list of DSC files to be applied based on a filter
+foreach ($setting in $DotfilesVariables.INSTALL_SETTINGS) {
+    # check if the setting is in the list of VM exceptions
+    if ($DotfilesVariables.VM_EXCEPTIONS -contains $setting -and $isVM) {
+        Write-Host "Skipping DSC Configuration for setting $setting as it is an VM_EXCEPTION on a VM host"
+        continue
+    } 
+    $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$setting*admin.dsc.yaml"
+}
 
+# Filter out any null entries and ensure uniqueness
+$DSCFiles = $DSCFiles | Where-Object { $_ } | Select-Object -Unique
 
-$DSCFiles = Get-ChildItem -Path $DscConfigFolder -Filter "*user.dsc.yaml"
+# Check if there are any DSC files to be applied
+if ($DSCFiles.Count -eq 0) {
+    Write-Host "No DSC files found to be applied" -ForegroundColor Yellow
+    # Throw an error
+    throw "No DSC files found to be applied"
+}
 
+# Sort the DSC files by name
+$DSCFiles = $DSCFiles | Sort-Object -Property Name
+
+# Display the list of DSC files to be applied
+Write-Host "DSC Files to be applied:"
 foreach ($DSCFile in $DSCFiles) {
-    Write-Host "Running DSC Configuration (as $username): $($DSCFile.FullName)"
-   $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
+    Write-Host $DSCFile.FullName
+}
 
-    if ($DSCresult.ResultCode -ne 0) {
-        Write-Host "Failed to run DSC Configuration (as $username): $($DSCFile.FullName)"
-        Write-Host "Result Code: $($DSCresult.ResultCode)"
-        foreach ($unitResult in $DSCresult.UnitResults) {
-            if($unitResult.ResultCode -ne 0) {
-                Write-Host "Failed to run DSC Unit: $($unitResult.UnitName)"
-                Write-Host "Result Code: $($unitResult.ResultCode)"
-                Write-Host "Result Type: $($unitResult.Type)"
-                Write-Host "Result Message: $($unitResult.Message)"
-                Write-Host "Result Description: $($unitResult.Description)"
-#                Write-Host "Result Details: $($unitResult.Details)"
-                Start-Sleep -Seconds 15
-                throw "DSC Configuration Failed"
+# Create a dictionary of DSC files and their results
+$DSCResults = @{}
+
+
+# Apply the DSC configurations
+foreach ($DSCFile in $DSCFiles) {
+    Write-Host "Running DSC Configuration (as Admin): $($DSCFile.FullName)"
+    try {
+        # Add error handling for the specific pipe error
+        $DSCresult = Get-WinGetConfiguration -File $DSCFile.FullName | Invoke-WinGetConfiguration -AcceptConfigurationAgreements
+        
+        # Add the result to the dictionary, handling null results gracefully
+        if ($DSCresult) {
+            $DSCResults.Add($DSCFile.FullName, $DSCresult)
+            
+            if ($DSCresult.ResultCode -ne 0) {
+                Write-Host "Failed to run DSC Configuration (as Admin): $($DSCFile.FullName)" -ForegroundColor Yellow
+                Write-Host "Result Code: $($DSCresult.ResultCode)"
+                
+                $containsPipeError = $false
+                foreach ($unitResult in $DSCresult.UnitResults) {
+                    if ($unitResult.ResultCode -ne 0) {
+                        Write-Host "Failed to run DSC Unit: $($unitResult.UnitName)"
+                        Write-Host "Result Code: $($unitResult.ResultCode)"
+                        Write-Host "Result Type: $($unitResult.Type)"
+                        Write-Host "Result Message: $($unitResult.Message)"
+                        Write-Host "Result Description: $($unitResult.Description)"
+                                                
+                        if ($unitResult.Description -match "The specified account name is already a member of the group" -or 
+                            $unitResult.Description -match "System error 1378" -or 
+                            $unitResult.Message -match "already a member") {
+                            Write-Host "User already in group - continuing" -ForegroundColor Yellow
+                            $containsPipeError = $true  # Treat as non-critical error
+                        }
+                        # Check for pipe error and handle it differently
+                        if ($unitResult.Description -match "TransactNamedPipe" -or $unitResult.Message -match "TransactNamedPipe") {
+                            $containsPipeError = $true
+                            Write-Host "Pipe communication error detected - this usually happens with GUI applications or browsers" -ForegroundColor Yellow
+                        }
+                    }
+                }
+                
+                # Only throw an error if it's not a pipe error or based on your preference
+                if (-not $containsPipeError) {
+                    Write-Host "Configuration failed with serious error - stopping" -ForegroundColor Red
+                    Start-Sleep -Seconds 10
+                    throw "DSC Configuration Failed"
+                } else {
+                    Write-Host "Continuing despite pipe error - this may be expected behavior" -ForegroundColor Yellow
+                }
             }
+        } else {
+            Write-Host "Warning: DSC result was null for $($DSCFile.FullName)" -ForegroundColor Yellow
         }
+    } catch {
+        Write-Host "Exception occurred processing DSC file: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "Failed to run DSC Configuration (as Admin): $($DSCFile.FullName)"
+        Write-Host "Error: $($_.Exception.Message)"
+        
+        # Check if it's a pipe error and handle it differently
+        if ($_.Exception.Message -match "TransactNamedPipe") {
+            Write-Host "Pipe communication error detected - continuing" -ForegroundColor Yellow
+        } else {
+            Start-Sleep -Seconds 10
+            throw "DSC Configuration Failed"
+        }
+    }
+}
+Write-Host "DSC Configuration (as Admin) Completed"
+
+# Write the script execution summary
+Write-Host "DSC Configuration Results:"
+foreach ($DSCResult in $DSCResults.GetEnumerator()) {
+    Write-Host "DSC Configuration: $($DSCResult.Key)"
+    Write-Host "Result Code: $($DSCResult.Value.ResultCode)"
+    foreach ($unitResult in $DSCResult.Value.UnitResults) {
+        Write-Host "DSC Unit: $($unitResult.UnitName)"
+        Write-Host "Result Code: $($unitResult.ResultCode)"
+        Write-Host "Result Type: $($unitResult.Type)"
+        Write-Host "Result Message: $($unitResult.Message)"
+        Write-Host "Result Description: $($unitResult.Description)"
+        Write-Host "Result Details: $($unitResult.Details)"
     }
 }
 

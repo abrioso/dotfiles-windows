@@ -135,8 +135,8 @@ foreach ($setting in $DotfilesVariables.INSTALL_SETTINGS) {
     $DSCFiles += Get-ChildItem -Path $DscConfigFolder -Filter "*$setting*admin.dsc.yaml"
 }
 
-# Create a list of unique DSC files to be applied
-$DSCFiles = $DSCFiles | Select-Object -Unique
+# Filter out any null entries and ensure uniqueness
+$DSCFiles = $DSCFiles | Where-Object { $_ } | Select-Object -Unique
 
 # Check if there are any DSC files to be applied
 if ($DSCFiles.Count -eq 0) {
