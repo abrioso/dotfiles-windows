@@ -51,25 +51,13 @@ properties:
       settings:
         id: JanDeDobbeleer.OhMyPosh
         source: winget
-    ### Install gsudo
-    ### -------------------------------------
-    - resource: Microsoft.WinGet.DSC/WinGetPackage
-      id: gsudo
-      directives:
-        description: Install gsudo
-        allowPrerelease: true
-      dependsOn:
-        - Powershell
-      settings:
-        id: gerardog.gsudo
-        source: winget
-    
 
     ########################################
     ### Initialization
     ########################################
     ########################################
-    ### Create Powershell Profile directory
+    ### Create Custom Powershell Profile directory
+    ### (if it does not exist as it should be a symlink to the Powershell profile directory)
     ### -------------------------------------
     - resource: PSDscResources/Script
       id: powershellprofiledir
