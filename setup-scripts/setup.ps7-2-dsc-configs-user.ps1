@@ -71,7 +71,7 @@ Write-Host "Applying dotfiles bootstrap variables..."
 $DotfilesVariables = Get-DotfilesBootstrapVariables
 if (-not $DotfilesVariables) {
     Write-Host "No dotfiles bootstrap variables found." -ForegroundColor Yellow
-    Stop-Transcript
+    Stop-Logging
     Exit 1
 }
 
@@ -81,7 +81,7 @@ $missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
 
 if ($missingVars) {
     Write-Host "Missing required configuration variables: $($missingVars -join ', ')" -ForegroundColor Red
-    Stop-Transcript
+    Stop-Logging
     Exit 1
 }
 
@@ -241,6 +241,6 @@ Write-Host "DSC Configuration (as $username) Completed"
 Start-Sleep -Seconds 15
 
 # stop logging
-Stop-Transcript
+Stop-Logging
 
 # End of script
