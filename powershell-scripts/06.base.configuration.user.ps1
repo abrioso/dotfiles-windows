@@ -13,3 +13,10 @@ winget install --id git --accept-source-agreements --accept-package-agreements
 
 # Clone dotfiles repository (uncomment to enable)
 # git clone https://github.com/abrioso/dotfiles-windows $workspaceDir\dotfiles-windows
+
+
+$workspacePath = "$env:USERPROFILE\workspace"
+          if (-not (Test-Path $workspacePath)) {
+          New-Item -ItemType Directory -Path $workspacePath | Out-Null
+          }
+          
