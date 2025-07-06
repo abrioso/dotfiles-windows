@@ -6,13 +6,13 @@
 winget install --id Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
 
 # Install Windows Terminal
-winget install --id wterminal --accept-source-agreements --accept-package-agreements
+winget install --id Microsoft.WindowsTerminal --accept-source-agreements --accept-package-agreements
 
 # Install Git
-winget install --id git --accept-source-agreements --accept-package-agreements
+winget install --id Git.Git --accept-source-agreements --accept-package-agreements
 
 # Install Visual Studio Code
-winget install --id vscode --accept-source-agreements --accept-package-agreements
+winget install --id Microsoft.VisualStudioCode --accept-source-agreements --accept-package-agreements
 
 # Install Edge
 winget install --id Microsoft.Edge --accept-source-agreements --accept-package-agreements
