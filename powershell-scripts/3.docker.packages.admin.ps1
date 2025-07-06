@@ -13,3 +13,12 @@ Enable-WindowsOptionalFeature -Online -FeatureName "Microsoft-Windows-Subsystem-
 
 # Enable Hyper-V
 Enable-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V-All" -All -NoRestart
+
+# Install WSL
+wsl --install --no-distribution
+
+# Install Ubuntu
+wsl --install -d Ubuntu
+
+# Install Docker Desktop
+winget install --id Docker.DockerDesktop --accept-source-agreements --accept-package-agreements
