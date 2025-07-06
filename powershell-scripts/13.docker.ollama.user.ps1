@@ -14,6 +14,15 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
     ports:
       - "11434:11434"
     volumes:
@@ -39,9 +48,24 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
+  # Open WebUI for Ollama
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_API_BASE_URL=http://ollama:11434
+    volumes:
+      - openwebui_data:/app/backend/data
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
 volumes:
   ollama_data:
   portainer_data:
+  openwebui_data:
 "@
 
 # Write docker-compose.yml to current directory
