@@ -1,17 +1,7 @@
 {
     "Packages": [
-        "Microsoft.PowerShell",
-        "Git.Git",
-        "Microsoft.WindowsTerminal",
-        "gerardog.gsudo",
-        "Python.Python.3.13",
-        "Microsoft.VisualStudioCode",
-        "Microsoft.DevHome",
         "9MV8F79FGXTR",
-        "9NZCC27PR6N6",
-        "Microsoft.Powertoys",
-        "Microsoft.Sysinternals",
-        "JanDeDobbeleer.OhMyPosh"
+        "9NZCC27PR6N6"
         ],
     "base": [
         "Microsoft.WindowsTerminal",
@@ -19,6 +9,17 @@
         "Git.Git",
         "Microsoft.PowerShell",
         "gerardog.gsudo"
+    ],
+    "poweruser": [
+        "Microsoft.VisualStudioCode",
+        "Git.Git",
+        "Microsoft.WindowsTerminal",
+        "Microsoft.PowerShell",
+        "gerardog.gsudo",
+        "Microsoft.WindowsPackageManager",
+        "Microsoft.Powertoys",
+        "Microsoft.Sysinternals",
+        "JanDeDobbeleer.OhMyPosh"
     ],
     "browsers": [
         "Microsoft.Edge",
