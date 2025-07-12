@@ -8,7 +8,8 @@
         "Microsoft.VisualStudioCode",
         "Git.Git",
         "Microsoft.PowerShell",
-        "gerardog.gsudo"
+        "gerardog.gsudo",
+        "Microsoft.Edge"
     ],
     "poweruser": [
         "Microsoft.VisualStudioCode",
@@ -45,5 +46,12 @@
     "multimedia": [
         "VideoLAN.VLC",
         "OBSProject.OBSStudio"
+    ],
+    "wsl": [
+        "Microsoft.WindowsSubsystemForLinux",
+        "Canonical.Ubuntu"
+    ],
+    "docker": [
+        "Docker.DockerDesktop"
     ]
 }
