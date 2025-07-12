@@ -11,7 +11,7 @@ if ($currentVersion -lt $minVersion) {
 winget install --id Microsoft.PowerShell --source winget --accept-source-agreements --accept-package-agreements
 
 # Install Windows Terminal
-winget install --id wterminal --accept-source-agreements --accept-package-agreements
+winget install --id Microsoft.WindowsTerminal --accept-source-agreements --accept-package-agreements
 
 # Install gsudo
-winget install --id gsudo --accept-source-agreements --accept-package-agreements
+winget install --id gerardog.gsudo --accept-source-agreements --accept-package-agreements
