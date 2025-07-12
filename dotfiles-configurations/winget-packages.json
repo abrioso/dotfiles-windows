@@ -9,26 +9,27 @@
         "Microsoft.DevHome",
         "9MV8F79FGXTR",
         "9NZCC27PR6N6",
-        "GitHub.cli",
-        "Microsoft.AzureCLI",
-        "Microsoft.azd",
         "Microsoft.Powertoys",
         "Microsoft.Sysinternals",
-        "JanDeDobbeleer.OhMyPosh",
-        "Microsoft.Edge",
-        "Google.Chrome",
-        "Mozilla.Firefox",
-        "Microsoft.Office",
-        "Microsoft.OneDrive",
-        "Microsoft.Teams",
-        "Microsoft.PowerBI"  
-    ],
+        "JanDeDobbeleer.OhMyPosh"
+        ],
     "base": [
         "Microsoft.WindowsTerminal",
         "Microsoft.VisualStudioCode",
         "Git.Git",
         "Microsoft.PowerShell",
         "gerardog.gsudo"
+    ],
+    "browsers": [
+        "Microsoft.Edge",
+        "Google.Chrome",
+        "Mozilla.Firefox"
+    ],
+    "productivity": [
+        "Microsoft.Office",
+        "Microsoft.OneDrive",
+        "Microsoft.Teams",
+        "Microsoft.PowerBI"
     ],
     "development": [
         "Microsoft.VisualStudioCode",
