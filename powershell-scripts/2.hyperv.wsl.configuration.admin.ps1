@@ -125,3 +125,9 @@ if ($useradmin) {
 } else {
     Write-Host "User is already a member of Hyper-V Administrators group."
 }
+
+# Install WSL
+wsl --install --no-distribution
+
+# Install Ubuntu
+wsl --install -d Ubuntu
