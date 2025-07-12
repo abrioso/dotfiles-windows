@@ -21,7 +21,26 @@
         "Microsoft.Office",
         "Microsoft.OneDrive",
         "Microsoft.Teams",
-        "Microsoft.PowerBI",
+        "Microsoft.PowerBI"  
+    ],
+    "base": [
+        "Microsoft.WindowsTerminal",
+        "Microsoft.VisualStudioCode",
+        "Git.Git",
+        "Microsoft.PowerShell",
+        "gerardog.gsudo"
+    ],
+    "development": [
+        "Microsoft.VisualStudioCode",
+        "Git.Git",
+        "Microsoft.AzureCLI",
+        "Microsoft.azd",
+        "Microsoft.PowerShell",
+        "Python.Python.3.13",
+        "GitHub.cli",
+        "Microsoft.DevHome"
+    ],
+    "multimedia": [
         "VideoLAN.VLC",
         "OBSProject.OBSStudio"
     ]
