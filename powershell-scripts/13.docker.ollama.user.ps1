@@ -9,7 +9,6 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 
 # Define the docker-compose.yml content
 $composeContent = @"
-version: '3.8'
 services:
   ollama:
     image: ollama/ollama:latest
