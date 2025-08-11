@@ -98,6 +98,8 @@ if (Test-Path $customProfileDirectory) {
 }
 
 if ($createSymlink) {
+    #TODO: Replace this with a function that creates a symlink with error handling
+    Write-Info "Creating symbolic link to the custom profile directory: $customProfileDirectory"
     # Check if running as administrator
     $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     if (-not $isAdmin) {
