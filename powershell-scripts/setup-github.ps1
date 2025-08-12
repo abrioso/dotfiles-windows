@@ -1,10 +1,10 @@
 ## PowerShell Script to Set Up Git and GitHub CLI
 # This script checks for the presence of Git and GitHub CLI, installs them if necessary, and configures them for use.
 
-# Check if GitHub CLI (gh) is installed
-if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Write-Host "GitHub CLI (gh) is not installed. Installing via winget..."
-    winget install --id GitHub.cli -e --source winget
+# check if winget is installed
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Error "winget is not installed. Please install winget first."
+    exit 1
 }
 
 # Check if Git is installed
@@ -12,6 +12,16 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "Git is not installed. Installing via winget..."
     winget install --id Git.Git -e --source winget
 }
+
+# Check if GitHub CLI (gh) is installed
+if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
+    Write-Host "GitHub CLI (gh) is not installed. Installing via winget..."
+    winget install --id GitHub.cli -e --source winget
+}
+
+
+# After installing gh or git, refresh environment variables
+$env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User")
 
 # Authenticate GitHub CLI
 Write-Host "Authenticating GitHub CLI..."
