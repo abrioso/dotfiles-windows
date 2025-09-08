@@ -1,14 +1,15 @@
 # dotfiles-windows (WIP)
 
-Dotfiles for Windows inspired from several other dotfiles.
+Dotfiles for Windows, inspired by several other dotfiles repositories. This setup uses a modular, idempotent PowerShell script-based approach to configure a new machine.
 
 ## Installation
 
-> **Note:** To make this work, you need to set your execution policy to unrestricted (or at least bypass) by running `Set-ExecutionPolicy Unrestricted -Scope CurrentUser` from a PowerShell.
+> **Note:** To make this work, you need to set your PowerShell execution policy to allow scripts to run. You can do this for your user account by running the following command in PowerShell:
+> `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force`
 
-### Using Git and the bootstrap script
+### Using Git and the Bootstrap Script
 
-To clone the repository, you can choose any location you prefer. I personally keep it in `~\workspace\dotfiles-windows`. Once cloned, the bootstrapper script will run the setup scripts.
+Clone the repository to your local machine (e.g., into `~\workspace\dotfiles-windows`). Once cloned, you can run the main setup script.
 
 From PowerShell:
 
@@ -16,129 +17,87 @@ From PowerShell:
 git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; .\setup-scripts\setup.ps1
 ```
 
-### Git-free install
+### Git-free Install
 
-To install these dotfiles from PowerShell without Git:
+To install these dotfiles from PowerShell without installing Git first:
 
 ```pwsh
 iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
 ```
 
-## Use & Configuration
+## How It Works
 
-### Setup Scripts
+This repository uses a main setup script (`setup.ps1`) to orchestrate a series of modular PowerShell scripts located in the `setup-modules` directory. The configuration is data-driven, with package lists, environment variables, and Git settings defined in JSON files in the `dotfiles-configurations` directory.
 
-The folder "setup-scripts" contains the Powershell scripts for the installation and bootstrap setup:
+The entire process is designed to be **idempotent**, meaning you can run the setup script multiple times on the same machine. It will only install or change things that are not already in the desired state.
 
-- `install.ps1` : Script for Git-free installation. Downloads the dotfiles to a temporary folder and initiates the setup.
-- `setup.ps1` : Main bootstrap script. This script installs the pre-requisites and starts the other setup scripts with Powershell 7. It also creates a symbolic link to the custom profile directory and clones the dotfiles repository.
-- `setup.ps7-1-dsc-configs-admin.ps1` : Script to apply DSC configurations that require administrative privileges.
-- `setup.ps7-2-dsc-configs-user.ps1` : Script to apply DSC configurations that do not require administrative privileges.
+### Core Components
 
-### Desired State Configuration (DSC) files
+#### `setup-scripts`
 
-The folder "dsc-configurations" contains the DSC configuration files:
+This folder contains the main scripts that kick off the installation and setup process.
 
-- `.\dsc-configuration\0.base.packages.admin.dsc` : Base and must-have packages to be installed.
-- `.\dsc-configuration\1.base.configuration.admin.dsc` : Base and must-have configurations.
-- `.\dsc-configuration\2.hyperv.wsl.configuration.admin.dsc` : Hyper-V and WSL configuration (only applied if it's not a Virtual Machine).
-- `.\dsc-configuration\3.pwsh.terminal.dsc.configuration.admin.dsc` : Powershell and Windows Terminal related packages to be installed.
-- `.\dsc-configuration\4.developer.packages.admin.dsc` : Developer related packages to be installed.
-- `.\dsc-configuration\5.developer.configuration.admin.dsc` : Developer configurations.
-- `.\dsc-configuration\6.msoffice.packages.admin.dsc` : Microsoft Office and related packages to be installed.
-- `.\dsc-configuration\7.internetbrowser.packages.admin.dsc` : Internet Browser packages to be installed (Edge, Chrome & Firefox).
-- `.\dsc-configuration\8.multimedia.packages.admin.dsc` : Multimedia packages to be installed (Edge, Chrome & Firefox).
-- `.\dsc-configuration\10.base.configuration.user.dsc` : Base and Developer configurations (User).
-- `.\dsc-configuration\11.pwsh.terminal.dsc.configuration.user.dsc` : Powershell and Windows Terminal configurations (User).
+-   `install.ps1`: For Git-free installation. It downloads the repository to a temporary folder and then calls `setup.ps1`.
+-   `setup.ps1`: The main bootstrap and orchestrator script. This script performs initial setup tasks (like creating symlinks and cloning the repo if necessary) and then runs the modules from the `setup-modules` directory in the correct order.
+-   `setup-functions.ps1`: Contains helper functions used by the other scripts.
 
-### Dotfiles Configurations
+#### `setup-modules`
 
-The folder "dotfiles-configurations" contains the dotfiles configuration files for bootstrap and reference:
+This folder contains the modular scripts that perform the actual configuration tasks. The `setup.ps1` script calls these in sequence.
 
-- `.\dot-configuration\dotfiles-bootstrap-variables.json` : Dotfiles bootstrap variables to be used in the `.\setup-scripts\setup.ps1` script
-- `.\dot-configuration\env-variables.json` : Environment variables to be set or overridden
-- `.\dot-configuration\git-variables.json` : Git variables to be used by the setup scripts
+-   `Configure-WindowsFeatures.ps1`: Enables necessary Windows features like WSL and Hyper-V. Requires administrator privileges.
+-   `Install-WingetPackages.ps1`: Reads `winget-packages.json` and installs all specified applications using the `winget` command-line tool.
+-   `Set-EnvironmentVariables.ps1`: Reads `env-variables.json` and configures environment variables.
+-   `Apply-GitConfig.ps1`: Reads `git-variables.json` and applies the settings to your global Git config.
+
+#### `dotfiles-configurations`
+
+This folder contains the JSON files that define the data for the setup. To customize your setup, you'll primarily edit these files.
+
+-   `winget-packages.json`: Define the `winget` packages you want to install. Packages are grouped into categories.
+-   `env-variables.json`: Define any custom environment variables you want to set.
+-   `git-variables.json`: Define your global Git configuration settings, such as your name, email, and aliases.
+-   `dotfiles-bootstrap-variables.json`: Contains variables for the initial `setup.ps1` bootstrapping process.
 
 ### PowerShell Profile
 
-The following commands are executed every time you launch a new
-PowerShell window.
-
-- `.\components.ps1` : Load various PowerShell components and modules.
-- `.\functions.ps1` : Configure custom PowerShell functions.
-- `.\aliases.ps1` : Configure alias-based commands.
-- `.\exports.ps1` : Configure environment variables.
-- `.\extra.ps1` : Secrets and secret commands that are not tracked by the Git repository.
-
-Also included are default configurations for Git, Mercurial, Ruby, NPM, and vim.
+The setup creates a symbolic link to manage your PowerShell profile, allowing you to keep your profile configuration in this repository. The profile is composed of several files located in the `powershell-profiles` directory.
 
 ### Private files and Secrets
 
-You may have scripts or commands that you want to execute when loading PowerShell that you do not want committed into your own `dotfiles` repository, such as a place to put tokens or credentials or even your Git commit email address. For such secret commands, use `.\extra.ps1`.
+For any private settings, such as API tokens or Git credentials that you don't want to commit to the repository, you can create a `extra.ps1` file within the `powershell-profiles` directory. If this file exists, it will be automatically sourced when your PowerShell profile loads. This file is included in `.gitignore` so it won't be tracked by Git.
 
-If `.\extra.ps1` exists, it will be sourced along with the other files.
+Example `extra.ps1`:
 
-My `.\extra.ps1` looks something like this:
-
-```posh
-
-# Git credentials
-# Not in the repository, to prevent people from accidentally committing under my name
-Set-Environment "GIT_AUTHOR_NAME" "Andre Kakoo Brioso"
-Set-Environment "GIT_COMMITTER_NAME" $env:GIT_AUTHOR_NAME
-git config --global user.name $env:GIT_AUTHOR_NAME
-Set-Environment "GIT_AUTHOR_EMAIL" "akbrioso@iseg.ulisboa.pt"
-Set-Environment "GIT_COMMITTER_EMAIL" $env:GIT_AUTHOR_EMAIL
-git config --global user.email $env:GIT_AUTHOR_EMAIL
+```powershell
+# Set Git credentials securely
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
 ```
-
-Extras is designed to augment the existing settings and configuration. You could also use `./extra.ps1` to override settings, functions and aliases from my dotfiles repository, but it is probably better to [fork this repository](#forking-your-own-version).
 
 ## Customization
 
-## Forking your own version
+### Forking
 
-If you decide to fork this repository for your own custom configuration, make sure to modify the `install.ps1` file to reference your own repository instead of mine.
+If you fork this repository, make sure to modify the `install.ps1` script to reference your own GitHub account and repository name.
 
-Within `/scripts/install.ps1`, modify the Repository variables.
+Within `setup-scripts/install.ps1`, modify these variables:
 
 ```pwsh
-$account = "abrioso"
-$repo    = "dotfiles-windows"
+$account = "YourGitHubAccount"
+$repo    = "YourDotfilesRepoName"
 $branch  = "main"
 ```
 
-And make sure to update the git-free installation command with the URL of your own repository.
+### Configuring your Setup
 
-```pwsh
-iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/$account/$repo/$branch/setup/install.ps1'))
-```
+To customize the software, environment, and settings, edit the JSON files in the `dotfiles-configurations` directory. For example, to add a new application to be installed, simply add its `winget` ID to the appropriate category in `winget-packages.json`.
 
 ## Feedback
 
-Suggestions/improvements are
-[welcome and encouraged](https://github.com/abrioso/dotfiles-windows/issues)!
-
-## Author
+Suggestions and improvements are [welcome and encouraged](https://github.com/abrioso/dotfiles-windows/issues)!
 
 ## Thanks to…
 
 - @[Anthony Cangialosi](https://github.com/acangialosi)
 - @[Jay Harris](https://github.com/jayharris)
-
-For the inspiration and for sharing their dotfiles:
-
-1. <https://github.com/acangialosi/dotfiles>
-2. <https://github.com/jayharris/dotfiles-windows>
-
-Other Sources:
-
-1. <https://github.com/microsoft/devhome/tree/main/docs/sampleConfigurations/DscResources>
-2. <https://nicksnettravels.builttoroam.com/winget-configuration/>
-3. <https://learn.microsoft.com/en-us/windows/package-manager/configuration/>
-4. <https://learn.microsoft.com/en-us/windows/package-manager/configuration/create>
-5. <https://github.com/microsoft/winget-create/tree/main/Tools>
-6. <https://github.com/microsoft/winget-cli>
-7. <https://github.com/PowerShell/PSDscResources>
-8. <https://learn.microsoft.com/en-us/windows/wsl/setup/environment>
-9. <https://learn.microsoft.com/en-us/windows/dev-home/>
