@@ -251,20 +251,18 @@ function Get-CurrentUser {
     }
 }
 
-# Function to elevate this powershell script to be run as an administrator
-function Test-Elevated {
+# Function to test if this powershell script is run as an administrator
+function Test-IsElevated {
     $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-    $prp = New-Object System.Security.Principal.WindowsPrincipal($wid)
+    $prp = [System.Security.Principal.WindowsPrincipal]::new($wid)
     $adm = [System.Security.Principal.WindowsBuiltInRole]::Administrator
     return $prp.IsInRole($adm)
 }
 
+
 # Function to check if the script is running as Administrator
 function Test-RunningAsAdmin {
-    $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-    $prp = New-Object System.Security.Principal.WindowsPrincipal($wid)
-    $adm = [System.Security.Principal.WindowsBuiltInRole]::Administrator
-    return $prp.IsInRole($adm)
+    return Test-IsElevated
 }
 
 # Function to check if the script is running as a normal user
@@ -286,10 +284,7 @@ function Test-RunningAsService {
 
 # Function to check if the script is running as a user with administrative privileges
 function Test-RunningAsAdminUser {
-    $wid = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-    $prp = New-Object System.Security.Principal.WindowsPrincipal($wid)
-    $adm = [System.Security.Principal.WindowsBuiltInRole]::Administrator
-    return $prp.IsInRole($adm) -and (Test-RunningAsUser)
+    return Test-IsElevated
 }
 
 # Function to Enable Developer Mode
