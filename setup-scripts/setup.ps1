@@ -174,7 +174,6 @@ Write-Info "PowerShell 7 Installed: $(if (Get-Command pwsh -ErrorAction Silently
 Write-Info "Git Installed: $(if (Get-Command git -ErrorAction SilentlyContinue) {'Yes'} else {'No'})"
 Write-Info "Workspace Directory: $workspaceDirectory ($(if (Test-Path $workspaceDirectory) {'Exists'} else {'Missing'}))"
 Write-Info "Dotfiles Repository: $dotfilesDirectory ($(if (Test-Path $dotfilesDirectory) {'Cloned'} else {'Missing'}))"
-Write-Info "Custom Profile Directory: $customProfileDirectory ($(if (Test-Path $customProfileDirectory) {'Linked'} else {'Missing'}))"
 Write-Info "Setup Modules Results:"
 foreach ($module in $scriptResults.Keys) {
     $status = if ($scriptResults[$module] -eq 0) { "Success" } else { "Failed" }
