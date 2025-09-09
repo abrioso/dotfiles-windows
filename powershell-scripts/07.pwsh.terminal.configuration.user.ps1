@@ -25,8 +25,8 @@ winget install --id JanDeDobbeleer.OhMyPosh --accept-source-agreements --accept-
                   Remove-Item $profilePath -Force
               }
               New-Item -ItemType SymbolicLink -Path $profilePath -Target $customProfilePath | Out-Null
-          }
-          } else 
-          {
+              Write-Output "Created directory $customProfileDirectory and linked PowerShell profile"
+
+          } else  {
               Write-Output "The directory $customProfileDirectory already exists"
           }
