@@ -166,41 +166,64 @@ if (-not (Test-Path $dotfilesDirectory)) {
 Set-Location $dotfilesDirectory
 $DotfilesSetupScriptsFolder = Join-Path $dotfilesDirectory "setup-scripts"
 
-# Run the setup scripts
-Write-Info "Running the setup scripts"
+# Run the new modular setup scripts
+Write-Info "Running the modular setup scripts from 'setup-modules'..."
 
-# For each script in the setup-scripts folder started with setup.ps7, run the script
-$setupScripts = Get-ChildItem -Path $DotfilesSetupScriptsFolder -Filter "setup.ps7-*.ps1"
-$setupScripts = $setupScripts | Sort-Object Name
+$moduleScriptsPath = Join-Path $dotfilesDirectory "setup-modules"
+$modulesToRun = @(
+    "Configure-WindowsFeatures.ps1",
+    "Install-WingetPackages.ps1",
+    "Set-EnvironmentVariables.ps1",
+    "Apply-GitConfig.ps1"
+)
 
-# For testing purposes, you can uncomment the line below to don't run any setup scripts
-# $setupScripts = @() # Uncomment this line to skip running setup scripts
+# Modules that require administrator privileges
+$adminModules = @(
+    "Configure-WindowsFeatures.ps1"
+)
 
-if (-not $setupScripts) {
-    Write-WarningMessage "No setup scripts found in $DotfilesSetupScriptsFolder"
+if (-not (Test-Path $moduleScriptsPath)) {
+    Write-ErrorMessage "The 'setup-modules' directory was not found at '$moduleScriptsPath'."
     Stop-Logging
-    Exit 0
+    Exit 1
 }
-# Create a dictionary to store the script names and their exit codes
+
 $scriptResults = @{}
 
-foreach ($script in $setupScripts) {
-    Write-Info "Running $($script.Name)"
+foreach ($moduleName in $modulesToRun) {
+    $modulePath = Join-Path $moduleScriptsPath $moduleName
+    if (-not (Test-Path $modulePath)) {
+        Write-WarningMessage "Module script not found: $moduleName. Skipping."
+        continue
+    }
+
+    Write-Info "Running module: $moduleName"
     try {
-        $scriptArg = "-File `"$($script.FullName)`""
-        if($script.Name -like "*admin*") {
+        $scriptArg = "-File `"$modulePath`""
+        $requiresAdmin = $adminModules -contains $moduleName
+
+        # Check if running as administrator
+        $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+        if ($requiresAdmin -and -not $isAdmin) {
+            Write-WarningMessage "Module '$moduleName' requires elevated privileges. Relaunching this module as administrator..."
             $process = Start-Process -FilePath "pwsh.exe" -ArgumentList $scriptArg -Verb RunAs -PassThru -Wait
         } else {
             $process = Start-Process -FilePath "pwsh.exe" -ArgumentList $scriptArg -PassThru -Wait
         }
-        $scriptResults.Add($script.Name, $process.ExitCode)
+
+        $scriptResults.Add($moduleName, $process.ExitCode)
         if ($process.ExitCode -eq 0) {
-            Write-Info "Script $($script.Name) completed successfully"
+            Write-Info "Module '$moduleName' completed successfully."
         } else {
-            Write-WarningMessage "Script $($script.Name) exited with code: $($process.ExitCode)"
+            Write-ErrorMessage "Module '$moduleName' exited with code: $($process.ExitCode). Halting setup."
+            Stop-Logging
+            Exit 1 # Stop the entire setup if a module fails
         }
     } catch {
-        Write-ErrorMessage "Failed to execute $($script.Name): $_"
+        Write-ErrorMessage "Failed to execute module '$moduleName': $_"
+        Stop-Logging
+        Exit 1
     }
 }
 
@@ -211,9 +234,10 @@ Write-Info "Git Installed: $(if (Get-Command git -ErrorAction SilentlyContinue) 
 Write-Info "Workspace Directory: $workspaceDirectory ($(if (Test-Path $workspaceDirectory) {'Exists'} else {'Missing'}))"
 Write-Info "Dotfiles Repository: $dotfilesDirectory ($(if (Test-Path $dotfilesDirectory) {'Cloned'} else {'Missing'}))"
 Write-Info "Custom Profile Directory: $customProfileDirectory ($(if (Test-Path $customProfileDirectory) {'Linked'} else {'Missing'}))"
-Write-Info "Setup Scripts Results:"
-foreach ($script in $scriptResults.Keys) {
-    Write-Info " $script : $($scriptResults[$script])"
+Write-Info "Setup Modules Results:"
+foreach ($module in $scriptResults.Keys) {
+    $status = if ($scriptResults[$module] -eq 0) { "Success" } else { "Failed" }
+    Write-Info " - $module : $status (Exit Code: $($scriptResults[$module]))"
 }
 Write-Info "Log File: $logFile"
 Write-Info "========================================================"
