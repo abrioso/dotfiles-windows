@@ -59,7 +59,7 @@ $createSymlink = $false
 if (Test-Path $customProfileDirectory) {
     $item = Get-Item $customProfileDirectory -Force
     if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
-        Write-Info "Custom profile directory already exists as a symlink: $customProfileDirectory"
+        Write-Info "Custom profile directory already exists as a symlink: $customProfileDirectory" + ": Skipping symlink creation."
     } else {
         Write-Info "Custom profile directory exists as a normal directory."
         $userInput = Read-Host "Do you want to delete this directory and replace it with a symlink? (Y/N)"
