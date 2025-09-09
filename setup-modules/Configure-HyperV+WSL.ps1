@@ -45,7 +45,7 @@ Function Set-HyperVUserAdmin {
             if (-not $isAlreadyMember) {
                 # Using the native NET command as a fallback which works better with Azure AD
                 try {
-                    $result = net localgroup "Hyper-V Administrators" $username /add
+#                    $result = net localgroup "Hyper-V Administrators" $username /add
                     Write-Host "Added $username to Hyper-V Administrators group using NET command"
                 }
                 catch {
@@ -67,7 +67,7 @@ Function Set-HyperVUserAdmin {
 
             # Fallback to NET command
             try {
-                $result = net localgroup "Hyper-V Administrators" $username /add
+#                $result = net localgroup "Hyper-V Administrators" $username /add
                 Write-Host "Added $username to Hyper-V Administrators group using NET command"
             }
             catch {

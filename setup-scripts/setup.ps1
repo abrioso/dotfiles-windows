@@ -164,7 +164,6 @@ if (-not (Test-Path $dotfilesDirectory)) {
 
 # Change the working directory to the dotfiles repository
 Set-Location $dotfilesDirectory
-$DotfilesSetupScriptsFolder = Join-Path $dotfilesDirectory "setup-scripts"
 
 # Run the new modular setup scripts
 Write-Info "Running the modular setup scripts from 'setup-modules'..."
