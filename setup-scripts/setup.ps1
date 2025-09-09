@@ -71,69 +71,6 @@ if ($missingVars) {
     Exit 1
 }
 
-# Create a symbolic link to the custom profile directory
-Write-Info "Creating a symbolic link to the custom profile directory"
-$customProfileDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.CUSTOM_PROFILE_FOLDER
-$profileDirectory = Split-Path -Parent $PROFILE
-
-# Create a symlink to the custom profile directory if it does not exist or is not a symlink
-$createSymlink = $false
-if (Test-Path $customProfileDirectory) {
-    $item = Get-Item $customProfileDirectory -Force
-    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
-        Write-Info "Custom profile directory already exists as a symlink: $customProfileDirectory"
-    } else {
-        Write-Info "Custom profile directory exists as a normal directory."
-        $userInput = Read-Host "Do you want to delete this directory and replace it with a symlink? (Y/N)"
-        if ($userInput -match '^(Y|y)') {
-            Write-Info "Removing directory..."
-            Remove-Item $customProfileDirectory -Recurse -Force
-            $createSymlink = $true
-        } else {
-            Write-WarningMessage "Symlink creation skipped. Directory was not removed."
-        }
-    }
-} else {
-    $createSymlink = $true
-}
-
-if ($createSymlink) {
-    #TODO: Replace this with a function that creates a symlink with error handling
-    Write-Info "Creating symbolic link to the custom profile directory: $customProfileDirectory"
-    # Check if running as administrator
-    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    if (-not $isAdmin) {
-        Write-WarningMessage "Symlink creation requires elevated privileges. Relaunching this block as administrator..."
-        $symlinkScript = @"
-try {
-    New-Item -ItemType SymbolicLink -Path '$customProfileDirectory' -Value '$profileDirectory' -Force -ErrorAction Stop | Out-Null
-    if (Test-Path '$customProfileDirectory') {
-        Write-Host 'Symbolic link to the custom profile directory created successfully'
-    } else {
-        throw 'Unknown error: symlink not created'
-    }
-} catch {
-    Write-Warning "Failed to create a symbolic link: $($_.Exception.Message)"
-}
-"@
-        $tempScriptPath = [System.IO.Path]::GetTempFileName() + '.ps1'
-        Set-Content -Path $tempScriptPath -Value $symlinkScript -Encoding UTF8
-        Start-Process -FilePath 'pwsh.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScriptPath`"" -Verb RunAs -Wait
-        Remove-Item $tempScriptPath -Force
-    } else {
-        try {
-            # Try to create a symbolic link
-            New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force -ErrorAction Stop | Out-Null
-            if (Test-Path $customProfileDirectory) {
-                Write-Info "Symbolic link to the custom profile directory created successfully"
-            } else {
-                throw "Unknown error: symlink not created"
-            }
-        } catch {
-            Write-WarningMessage "Failed to create a symbolic link: $($_.Exception.Message)"
-        }
-    }
-}
 
 # Create workspace directory if it does not exist
 Write-Info "Creating workspace directory"
@@ -173,13 +110,15 @@ $modulesToRun = @(
     "Configure-WindowsFeatures.ps1",
     "Install-WingetPackages.ps1",
     "Set-EnvironmentVariables.ps1",
-    "Apply-GitConfig.ps1"
+    "Apply-GitConfig.ps1",
+    "Create-PowerShellProfileSymlink.ps1"
 )
 
 # Modules that require administrator privileges
 $adminModules = @(
     "Configure-WindowsFeatures.ps1",
-    "Configure-HyperV+WSL.ps1"
+    "Configure-HyperV+WSL.ps1",
+    "Create-PowerShellProfileSymlink.ps1"
 )
 
 if (-not (Test-Path $moduleScriptsPath)) {
