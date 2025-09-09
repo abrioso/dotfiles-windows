@@ -179,7 +179,8 @@ $modulesToRun = @(
 
 # Modules that require administrator privileges
 $adminModules = @(
-    "Configure-WindowsFeatures.ps1"
+    "Configure-WindowsFeatures.ps1",
+    "Configure-HyperV+WSL.ps1"
 )
 
 if (-not (Test-Path $moduleScriptsPath)) {
