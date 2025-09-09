@@ -10,9 +10,7 @@ It handles cases where the destination already exists (either as a symlink or a 
 This script is intended to be run from the root of the dotfiles repository.
 #>
 
-# Assuming the script is run from the dotfiles repository root.
-$PSScriptRoot = Get-Location
-. "$PSScriptRoot\setup-scripts\setup-functions.ps1"
+. "$PSScriptRoot\..\setup-scripts\setup-functions.ps1"
 
 # Variables for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -22,6 +20,11 @@ $logFile = "$logDir\$scriptName-$dateTime.txt"
 
 # Start logging
 Start-Logging -LogFilePath $logFile
+
+if (-not (Test-IsElevated)) {
+    Write-Error "This script requires Administrator privileges to enable Windows features. Please re-run from an elevated PowerShell session."
+    exit 1
+}
 
 # Apply the dotfiles bootstrap variables
 Write-Info "Applying dotfiles bootstrap variables..."
