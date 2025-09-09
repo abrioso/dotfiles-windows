@@ -10,12 +10,14 @@ It handles cases where the destination already exists (either as a symlink or a 
 This script is intended to be run from the root of the dotfiles repository.
 #>
 
-. "$PSScriptRoot\..\setup-scripts\setup-functions.ps1"
+# dotfileRootDir is the root directory of the dotfiles repository
+$dotfileRootDir = Split-Path -Parent $PSScriptRoot
+
+. "$dotfileRootDir\setup-scripts\setup-functions.ps1"
 
 # Variables for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
-$logDir = Split-Path -Parent $PSScriptRoot
-$logDir = Join-Path $logDir "logs"
+$logDir = Join-Path $dotfileRootDir "logs"
 $scriptName = Split-Path -Leaf $PSCommandPath
 $logFile = "$logDir/$scriptName-$dateTime.txt"
 
@@ -29,7 +31,7 @@ if (-not (Test-IsElevated)) {
 
 # Apply the dotfiles bootstrap variables
 Write-Info "Applying dotfiles bootstrap variables..."
-$bootstrapVariablesPath = Join-Path $PSScriptRoot "dotfiles-configurations\dotfiles-bootstrap-variables.json"
+$bootstrapVariablesPath = Join-Path $dotfileRootDir "dotfiles-configurations\dotfiles-bootstrap-variables.json"
 $DotfilesVariables = Get-Content -Path $bootstrapVariablesPath | ConvertFrom-Json
 if (-not $DotfilesVariables) {
     Write-WarningMessage "No dotfiles bootstrap variables found at '$bootstrapVariablesPath'."
