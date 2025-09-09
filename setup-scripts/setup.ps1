@@ -11,12 +11,14 @@ To make this work, you need to set your execution policy to unrestricted (or at 
 
 #>
 
-. "$PSScriptRoot\setup-functions.ps1"
+# dotfileRootDir is the root directory of the dotfiles repository
+$dotfileRootDir = Split-Path -Parent $PSScriptRoot
+
+. "$dotfileRootDir\setup-scripts\setup-functions.ps1"
 
 # Variables for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
-$logDir = Split-Path -Parent $PSScriptRoot
-$logDir = Join-Path $logDir "logs"
+$logDir = Join-Path $dotfileRootDir "logs"
 $scriptName = Split-Path -Leaf $PSCommandPath
 $logFile = "$logDir/$scriptName-$dateTime.txt"
 
