@@ -14,9 +14,10 @@ This script is intended to be run from the root of the dotfiles repository.
 
 # Variables for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
-$logDir = Join-Path $PSScriptRoot "logs"
-$scriptName = "Create-PowerShellProfileSymlink"
-$logFile = "$logDir\$scriptName-$dateTime.txt"
+$logDir = Split-Path -Parent $PSScriptRoot
+$logDir = Join-Path $logDir "logs"
+$scriptName = Split-Path -Leaf $PSCommandPath
+$logFile = "$logDir/$scriptName-$dateTime.txt"
 
 # Start logging
 Start-Logging -LogFilePath $logFile
