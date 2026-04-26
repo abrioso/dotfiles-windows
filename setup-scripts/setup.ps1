@@ -113,14 +113,16 @@ $modulesToRun = @(
     "Install-WingetPackages.ps1",
     "Set-EnvironmentVariables.ps1",
     "Apply-GitConfig.ps1",
-    "Create-PowerShellProfileSymlink.ps1"
+    "Create-PowerShellProfileSymlink.ps1",
+    "Install-OmpConfig.ps1"
 )
 
 # Modules that require administrator privileges
 $adminModules = @(
     "Configure-WindowsFeatures.ps1",
     "Configure-HyperV+WSL.ps1",
-    "Create-PowerShellProfileSymlink.ps1"
+    "Create-PowerShellProfileSymlink.ps1",
+    "Install-OmpConfig.ps1"
 )
 
 if (-not (Test-Path $moduleScriptsPath)) {
