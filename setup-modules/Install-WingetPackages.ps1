@@ -3,12 +3,15 @@
     Installs packages using Winget based on a JSON configuration file.
 
 .DESCRIPTION
-    This script reads a list of packages from 'dotfiles-configurations/winget-packages.json',
+    This script reads a list of packages from 'dotfiles-configurations/winget-packages.json'.
+    It reads the bootstrap variables to determine which package groups to install,
     checks if each package is already installed, and installs it if it is not.
     This script is designed to be idempotent.
 #>
 param (
-    [string]$ConfigPath = "$PSScriptRoot/../dotfiles-configurations/winget-packages.json"
+    [string]$ConfigPath = "$PSScriptRoot/../dotfiles-configurations/winget-packages.json",
+    [string]$BootstrapPath = "$PSScriptRoot/../dotfiles-configurations/dotfiles-bootstrap-variables.json",
+    [string[]]$Groups = @()
 )
 
 function Test-IsElevated {
@@ -19,27 +22,60 @@ function Test-IsElevated {
 
 try {
     Write-Host "Reading package configuration from $ConfigPath..."
-    $config = Get-Content -Path $ConfigPath | ConvertFrom-Json
+    if (-not (Test-Path $ConfigPath)) {
+        Write-Warning "Package configuration file not found: $ConfigPath. Skipping package installation."
+        exit 0
+    }
 
-    $allPackageIds = $config.PSObject.Properties | Where-Object { $_.Name -ne 'Packages' } | ForEach-Object { $_.Value }
-    $uniquePackageIds = $allPackageIds | Select-Object -Unique
+    $config = Get-Content -Path $ConfigPath -Raw | ConvertFrom-Json
 
-    Write-Host "Found $($uniquePackageIds.Count) unique packages to process."
+    # Determine which groups to install from bootstrap config if not passed explicitly
+    if ($Groups.Count -eq 0 -and (Test-Path $BootstrapPath)) {
+        $bootstrap = Get-Content -Path $BootstrapPath -Raw | ConvertFrom-Json
+        if ($bootstrap.INSTALL_PACKAGES) {
+            $Groups = $bootstrap.INSTALL_PACKAGES
+            Write-Host "Using INSTALL_PACKAGES groups from bootstrap config: $($Groups -join ', ')"
+        }
+    }
 
-    foreach ($packageId in $uniquePackageIds) {
+    # Collect package IDs from specified groups (or all groups if none specified).
+    # The 'Packages' property contains Microsoft Store IDs which require a different install path - skip them here.
+    $packageIds = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($property in $config.PSObject.Properties) {
+        if ($property.Name -eq 'Packages') { continue }
+
+        $includeGroup = ($Groups.Count -eq 0) -or ($Groups -contains $property.Name)
+        if (-not $includeGroup) {
+            Write-Host "Skipping group '$($property.Name)' (not in INSTALL_PACKAGES)."
+            continue
+        }
+
+        foreach ($pkgId in $property.Value) {
+            if (-not [string]::IsNullOrWhiteSpace($pkgId) -and -not $packageIds.Contains($pkgId)) {
+                $packageIds.Add($pkgId)
+            }
+        }
+    }
+
+    Write-Host "Found $($packageIds.Count) unique packages to process."
+
+    foreach ($packageId in $packageIds) {
         Write-Host "Processing package: $packageId"
 
-        # Check if the package is already installed
-        $installedPackage = winget list --id $packageId --source winget --accept-source-agreements
+        # Check if the package is already installed.
+        # winget list always outputs a header, so we must match the package ID in the output text.
+        $listOutput = winget list --id $packageId --exact --accept-source-agreements 2>&1 | Out-String
+        $isInstalled = $listOutput -match [regex]::Escape($packageId)
 
-        if ($installedPackage) {
+        if ($isInstalled) {
             Write-Host "Package '$packageId' is already installed. Skipping."
         } else {
             Write-Host "Package '$packageId' not found. Installing..."
-            winget install --id $packageId --source winget --accept-source-agreements --accept-package-agreements
+            winget install --id $packageId --exact --accept-source-agreements --accept-package-agreements
 
             if ($LASTEXITCODE -ne 0) {
-                Write-Error "Failed to install package '$packageId'. Winget exited with code $LASTEXITCODE."
+                Write-Warning "Failed to install package '$packageId'. Winget exited with code $LASTEXITCODE. Continuing..."
             } else {
                 Write-Host "Successfully installed package '$packageId'."
             }

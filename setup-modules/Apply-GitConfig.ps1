@@ -32,13 +32,9 @@ try {
         $key = $property.Name
         $desiredValue = $property.Value
 
-        try {
-            $currentValue = git config --global $key
-        }
-        catch {
-            # git config returns a non-zero exit code if the key doesn't exist
-            $currentValue = $null
-        }
+        # git config exits with 1 when the key does not exist; $currentValue will be $null in that case.
+        $currentValue = git config --global $key 2>$null
+        if ($LASTEXITCODE -ne 0) { $currentValue = $null }
 
         if ($currentValue -eq $desiredValue) {
             Write-Host "Git config '$key' is already set to '$desiredValue'. Skipping."

@@ -1,13 +1,16 @@
 <#
 .SYNOPSIS
-Creates a symbolic link for the PowerShell profile.
+Creates symbolic links for PowerShell profile files.
 
 .DESCRIPTION
-This script creates a symbolic link from the user's profile directory to the custom profile directory specified in the dotfiles configuration.
-It handles cases where the destination already exists (either as a symlink or a directory) and ensures it runs with administrator privileges.
+This script creates a symbolic link for each .ps1 file found in the dotfiles 'powershell-profiles' directory
+into the user's active PowerShell profile directory ($PROFILE parent). This lets profile scripts be tracked
+in git while PowerShell loads them from the expected location. If a profile file already exists as a regular
+file it is left untouched to avoid data loss. This script is idempotent.
 
 .NOTES
 This script is intended to be run from the root of the dotfiles repository.
+Requires Administrator privileges to create symbolic links on Windows.
 #>
 
 # dotfileRootDir is the root directory of the dotfiles repository
@@ -29,66 +32,57 @@ if (-not (Test-IsElevated)) {
     exit 1
 }
 
-# Apply the dotfiles bootstrap variables
-Write-Info "Applying dotfiles bootstrap variables..."
-$bootstrapVariablesPath = Join-Path $dotfileRootDir "dotfiles-configurations\dotfiles-bootstrap-variables.json"
-$DotfilesVariables = Get-Content -Path $bootstrapVariablesPath | ConvertFrom-Json
-if (-not $DotfilesVariables) {
-    Write-WarningMessage "No dotfiles bootstrap variables found at '$bootstrapVariablesPath'."
-    Stop-Logging
-    Exit 1
-}
-
-# Validate required configuration values
-$requiredVars = @("CUSTOM_PROFILE_FOLDER")
-$missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
-
-if ($missingVars) {
-    Write-ErrorMessage "Missing required configuration variables: $($missingVars -join ', ')"
-    Stop-Logging
-    Exit 1
-}
-
-# Create a symbolic link to the custom profile directory
-Write-Info "Creating a symbolic link to the custom profile directory"
-$customProfileDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.CUSTOM_PROFILE_FOLDER
+# Symlink each profile file from the dotfiles powershell-profiles directory
+# into the actual PowerShell profile directory ($profileDirectory).
+# This keeps source files tracked in git while PowerShell loads them from the expected location.
+Write-Info "Creating symbolic links for PowerShell profile files"
+$powershellProfilesSource = Join-Path $dotfileRootDir "powershell-profiles"
 $profileDirectory = Split-Path -Parent $PROFILE
 
-# Create a symlink to the custom profile directory if it does not exist or is not a symlink
-$createSymlink = $false
-if (Test-Path $customProfileDirectory) {
-    $item = Get-Item $customProfileDirectory -Force
-    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
-        Write-Info "Custom profile directory already exists as a symlink: $customProfileDirectory" + ": Skipping symlink creation."
-    } else {
-        Write-Info "Custom profile directory exists as a normal directory."
-        $userInput = Read-Host "Do you want to delete this directory and replace it with a symlink? (Y/N)"
-        if ($userInput -match '^(Y|y)') {
-            Write-Info "Removing directory..."
-            Remove-Item $customProfileDirectory -Recurse -Force
-            $createSymlink = $true
-        } else {
-            Write-WarningMessage "Symlink creation skipped. Directory was not removed."
-        }
-    }
-} else {
-    $createSymlink = $true
+if (-not (Test-Path $powershellProfilesSource)) {
+    Write-ErrorMessage "Powershell profiles source directory not found: $powershellProfilesSource"
+    Stop-Logging
+    Exit 1
 }
 
-if ($createSymlink) {
-    Write-Info "Creating symbolic link to the custom profile directory: $customProfileDirectory"
-    try {
-        # Try to create a symbolic link
-        New-Item -ItemType SymbolicLink -Path $customProfileDirectory -Value $profileDirectory -Force -ErrorAction Stop | Out-Null
-        if (Test-Path $customProfileDirectory) {
-            Write-Info "Symbolic link to the custom profile directory created successfully"
-        } else {
-            throw "Unknown error: symlink not created"
+# Ensure the target profile directory exists (it may not on a fresh install)
+if (-not (Test-Path $profileDirectory)) {
+    Write-Info "Creating PowerShell profile directory: $profileDirectory"
+    New-Item -ItemType Directory -Path $profileDirectory -Force | Out-Null
+}
+
+$profileFiles = Get-ChildItem -Path $powershellProfilesSource -Filter "*.ps1"
+if ($profileFiles.Count -eq 0) {
+    Write-WarningMessage "No .ps1 profile files found in: $powershellProfilesSource"
+} else {
+    foreach ($profileFile in $profileFiles) {
+        $symlinkPath = Join-Path $profileDirectory $profileFile.Name
+
+        if (Test-Path $symlinkPath) {
+            $existingItem = Get-Item $symlinkPath -Force
+            if ($existingItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                if ($existingItem.Target -eq $profileFile.FullName) {
+                    Write-Info "Symlink for '$($profileFile.Name)' is already correct. Skipping."
+                    continue
+                } else {
+                    Write-Info "Updating stale symlink for '$($profileFile.Name)'..."
+                    Remove-Item $symlinkPath -Force
+                }
+            } else {
+                Write-WarningMessage "Profile file '$($profileFile.Name)' exists as a regular file at '$symlinkPath'. Skipping to avoid data loss."
+                continue
+            }
         }
-    } catch {
-        Write-ErrorMessage "Failed to create a symbolic link: $($_.Exception.Message)"
-        Stop-Logging
-        Exit 1
+
+        Write-Info "Creating symlink: $symlinkPath -> $($profileFile.FullName)"
+        try {
+            New-Item -ItemType SymbolicLink -Path $symlinkPath -Value $profileFile.FullName -ErrorAction Stop | Out-Null
+            Write-Info "Symlink created for '$($profileFile.Name)'."
+        } catch {
+            Write-ErrorMessage "Failed to create symlink for '$($profileFile.Name)': $($_.Exception.Message)"
+            Stop-Logging
+            Exit 1
+        }
     }
 }
 

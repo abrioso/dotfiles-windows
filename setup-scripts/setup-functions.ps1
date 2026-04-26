@@ -73,11 +73,8 @@ function Stop-Logging {
 function Install-DotfilesPrerequisites {
     Write-Info "Installing dotfiles prerequisites..."
     $installModuleParams = @{}
-#    $allUsersScope = if (Test-RunningAsAdmin) { 'AllUsers' } else { 'CurrentUser' }
-#    $wingetScope = if (Test-RunningAsAdmin) { '--scope machine' } else { '' }
-
-    $allUsersScope = 'AllUsers'
-    $wingetScope = '--scope machine'
+    $allUsersScope = if (Test-IsElevated) { 'AllUsers' } else { 'CurrentUser' }
+    $wingetScope    = if (Test-IsElevated) { '--scope machine' } else { '' }
     try {
         # Check if NuGet provider is installed
         if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {

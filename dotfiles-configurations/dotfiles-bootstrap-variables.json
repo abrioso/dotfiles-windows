@@ -19,10 +19,9 @@
     "INSTALL_PACKAGES": [ 
         "base",   
         "docker",
-        "pwsh",
-        "developer",
-        "productivitytools",
-        "internetbrowser",
+        "development",
+        "productivity",
+        "browsers",
         "multimedia"
     ],
     "INSTALL_SETTINGS": [
