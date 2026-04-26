@@ -6,3 +6,6 @@
 #Exclude all the logs
 logs/*.txt
 
+# Excluse test results
+tests/*.results.json
+
