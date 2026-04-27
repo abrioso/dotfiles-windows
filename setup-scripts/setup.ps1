@@ -114,6 +114,7 @@ $modulesToRun = @(
     "Set-EnvironmentVariables.ps1",
     "Apply-GitConfig.ps1",
     "Create-PowerShellProfileSymlink.ps1",
+    "Install-NerdFont.ps1",
     "Install-OmpConfig.ps1"
 )
 
@@ -121,8 +122,7 @@ $modulesToRun = @(
 $adminModules = @(
     "Configure-WindowsFeatures.ps1",
     "Configure-HyperV+WSL.ps1",
-    "Create-PowerShellProfileSymlink.ps1",
-    "Install-OmpConfig.ps1"
+    "Create-PowerShellProfileSymlink.ps1"
 )
 
 if (-not (Test-Path $moduleScriptsPath)) {

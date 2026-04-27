@@ -11,7 +11,8 @@ This script is idempotent.
 
 .NOTES
 This script is intended to be run from the root of the dotfiles repository.
-Requires Administrator privileges to create symbolic links on Windows.
+Creating symbolic links on Windows requires either Developer Mode to be enabled
+or Administrator privileges. If neither condition is met, the script will fail.
 #>
 
 # dotfileRootDir is the root directory of the dotfiles repository
@@ -28,10 +29,19 @@ $logFile = "$logDir/$scriptName-$dateTime.txt"
 # Start logging
 Start-Logging -LogFilePath $logFile
 
-if (-not (Test-IsElevated)) {
-    Write-Error "This script requires Administrator privileges to create symbolic links. Please re-run from an elevated PowerShell session."
+# Check if Developer Mode is enabled (allows non-admin symlink creation)
+$devModeKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
+$devModeEnabled = (Get-ItemProperty -Path $devModeKey -Name "AllowDevelopmentWithoutDevLicense" -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense -eq 1
+
+if (-not $devModeEnabled -and -not (Test-IsElevated)) {
+    Write-ErrorMessage "Creating symbolic links requires either Developer Mode to be enabled or Administrator privileges."
+    Write-ErrorMessage "Enable Developer Mode in Settings > Privacy & Security > For Developers, or re-run as Administrator."
     Stop-Logging
     exit 1
+}
+
+if (-not $devModeEnabled) {
+    Write-WarningMessage "Developer Mode is not enabled. Proceeding as Administrator."
 }
 
 $themeSourceDir = Join-Path $dotfileRootDir "poshthemes"
