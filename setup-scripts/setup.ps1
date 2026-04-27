@@ -115,6 +115,7 @@ $modulesToRun = @(
     "Apply-GitConfig.ps1",
     "Create-PowerShellProfileSymlink.ps1",
     "Install-NerdFont.ps1",
+    "Install-WindowsTerminalSettings.ps1",
     "Install-OmpConfig.ps1"
 )
 
