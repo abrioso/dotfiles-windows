@@ -5,6 +5,7 @@
     "copyFormatting": "none",
     "copyOnSelect": false,
     "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
+    "firstWindowPreference": "persistedWindowLayout",
     "keybindings": 
     [
         {
@@ -68,22 +69,43 @@
                 "source": "Windows.Terminal.PowershellCore"
             },
             {
-                "guid": "{51855cb2-8cce-5362-8f54-464b92b32386}",
-                "hidden": false,
-                "name": "Ubuntu",
-                "source": "CanonicalGroupLimited.Ubuntu_79rhkp1fndgsc"
-            },
-            {
-                "guid": "{2c4de342-38b7-51cf-b940-2309a097f518}",
-                "hidden": true,
-                "name": "Ubuntu",
-                "source": "Windows.Terminal.Wsl"
-            },
-            {
                 "guid": "{2ece5bfe-50ed-5f3a-ab87-5cd4baafed2b}",
                 "hidden": false,
                 "name": "Git Bash",
                 "source": "Git"
+            },
+            {
+                "colorScheme": "Ubuntu",
+                "commandline": "C:\\windows\\system32\\wsl.exe --distribution-id {65374ddf-b754-4fa1-8f0f-e6d663dd8ff7}",
+                "cursorShape": "filledBox",
+                "font": 
+                {
+                    "face": "Ubuntu Mono",
+                    "size": 13
+                },
+                "guid": "{b3565d28-6355-44b6-b099-44db21fbe53d}",
+                "hidden": false,
+                "icon": "C:\\Users\\Andr\u00e9KakooBrioso\\AppData\\Local\\wsl\\{65374ddf-b754-4fa1-8f0f-e6d663dd8ff7}\\shortcut.ico",
+                "name": "Ubuntu-24.04",
+                "pathTranslationStyle": "wsl",
+                "startingDirectory": "~",
+                "suppressApplicationTitle": true
+            },
+            {
+                "colorScheme": "Ubuntu",
+                "commandline": "C:\\windows\\system32\\wsl.exe --distribution-id {b3025113-4243-4266-8f8b-79be70b95b22} --cd ~",
+                "cursorShape": "filledBox",
+                "font": 
+                {
+                    "face": "Ubuntu Mono",
+                    "size": 13
+                },
+                "guid": "{9e334b0a-6eac-4645-88f2-7cd16360e1a0}",
+                "hidden": false,
+                "icon": "C:\\Users\\Andr\u00e9KakooBrioso\\AppData\\Local\\wsl\\{b3025113-4243-4266-8f8b-79be70b95b22}\\shortcut.ico",
+                "name": "Ubuntu",
+                "pathTranslationStyle": "wsl",
+                "suppressApplicationTitle": true
             }
         ]
     },
