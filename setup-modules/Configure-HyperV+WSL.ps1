@@ -137,3 +137,55 @@ try {
 catch {
     Write-Error "An error occurred while installing WSL or Ubuntu: $_"
 }
+
+# Deploy managed .wslconfig from the dotfiles repo to the user's profile
+try {
+    $DotfilesRoot = Split-Path -Parent $PSScriptRoot
+    $WslConfigSource = Join-Path $DotfilesRoot ".wslconfig"
+    $WslConfigTarget = Join-Path $env:USERPROFILE ".wslconfig"
+
+    if (Test-Path -Path $WslConfigSource) {
+        $shouldCopy = $true
+
+        if (Test-Path -Path $WslConfigTarget) {
+            try {
+                $srcHash = (Get-FileHash -Path $WslConfigSource -Algorithm SHA256).Hash
+                $tgtHash = (Get-FileHash -Path $WslConfigTarget -Algorithm SHA256).Hash
+                if ($srcHash -eq $tgtHash) {
+                    $shouldCopy = $false
+                } else {
+                    $backupPath = "$WslConfigTarget.bak.$((Get-Date).ToString('yyyyMMddHHmmss'))"
+                    Copy-Item -Path $WslConfigTarget -Destination $backupPath -Force
+                    Write-Host "Backed up existing .wslconfig to $backupPath"
+                }
+            }
+            catch {
+                Write-Warning "Could not compute file hashes for comparison: $_"
+            }
+        }
+
+        if ($shouldCopy) {
+            Copy-Item -Path $WslConfigSource -Destination $WslConfigTarget -Force
+            Write-Host "Deployed .wslconfig to $WslConfigTarget"
+
+            if (Get-Command wsl -ErrorAction SilentlyContinue) {
+                try {
+                    wsl --shutdown
+                    Write-Host "WSL shutdown to apply .wslconfig changes"
+                }
+                catch {
+                    Write-Warning "Failed to shutdown WSL to apply .wslconfig: $_"
+                }
+            }
+        }
+        else {
+            Write-Host ".wslconfig already up-to-date. Skipping deployment."
+        }
+    }
+    else {
+        Write-Host ".wslconfig not found in dotfiles; skipping deployment."
+    }
+}
+catch {
+    Write-Warning "An error occurred while deploying .wslconfig: $_"
+}
