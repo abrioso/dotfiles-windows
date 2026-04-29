@@ -1,0 +1,16 @@
+; .wslconfig - template managed by dotfiles-windows
+; Place this file in the repository root to have the setup scripts deploy it
+; Adjust values as needed for your machine.
+
+[wsl2]
+; Set memory limit (e.g. 8GB, 4GB)
+memory=4GB
+; Number of processors to expose to WSL2 (e.g. 4)
+processors=2
+; Disable swap file for WSL2 (set to 0 to disable)
+swap=0
+; Enable localhost forwarding
+localhostForwarding=true
+
+; Uncomment and set a custom kernel path if you build a custom kernel
+; kernel=C:\\path\\to\\custom\\kernel
