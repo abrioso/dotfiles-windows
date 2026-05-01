@@ -40,8 +40,8 @@ This project uses **gitflow**:
 ## Code Standards
 
 ### Shell Scripts
-- Use `#!/bin/bash` with `set -euo pipefail`
-- Must pass `shellcheck` cleanly
+- Use .ps1 files following best practices
+- Must pass PSScriptAnalyzer cleanly
 - Must be idempotent (safe to re-run)
 - Use functions for logical grouping
 - Add `--help` flag for user-facing scripts
