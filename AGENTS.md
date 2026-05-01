@@ -39,8 +39,8 @@ gh pr create --base develop --title "feat: add docker config" --body "Adds daemo
 
 ## Code Standards
 
-- Shell scripts: `#!/bin/bash` with `set -euo pipefail`
-- Pass `shellcheck` with no warnings
+- PowerShell scripts: .ps1 files following best practices
+- Pass PSScriptAnalyzer with no errors
 - All scripts must be idempotent (safe to re-run)
 - Document new files in README.md
 - Keep package lists sorted alphabetically
