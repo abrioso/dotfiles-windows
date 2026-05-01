@@ -7,6 +7,7 @@ This repository follows **gitflow** branching and requires **Pull Requests** for
 - `main` — production-ready, tagged releases only
 - `develop` — integration branch for next release
 - `feature/<name>` — new features (branch from `develop`)
+- `fix/<name>` — non-urgent fixes (branch from `develop`)
 - `hotfix/<name>` — urgent fixes (branch from `main`, merge to both `main` and `develop`)
 - `release/<version>` — release prep (branch from `develop`, merge to `main`)
 
@@ -22,14 +23,14 @@ This repository follows **gitflow** branching and requires **Pull Requests** for
 
 ## Workflow Example
 
-```bash
+```powershell
 # Start a new feature
 git checkout develop
 git pull origin develop
 git checkout -b feature/add-docker-config
 
 # Work, commit
-git add -A
+git add <relevant-files>
 git commit -m "feat: add docker daemon config"
 
 # Push and create PR
@@ -39,7 +40,7 @@ gh pr create --base develop --title "feat: add docker config" --body "Adds daemo
 
 ## Code Standards
 
-- PowerShell scripts: .ps1 files following best practices
+- PowerShell scripts (.ps1) following best practices
 - Pass PSScriptAnalyzer with no errors
 - All scripts must be idempotent (safe to re-run)
 - Document new files in README.md
@@ -48,5 +49,4 @@ gh pr create --base develop --title "feat: add docker config" --body "Adds daemo
 ## Repository Owner
 
 - **Name**: André Brioso
-- **GitHub**: @abrioso
-- **Email**: akbrioso@iseg.ulisboa.pt
+- **GitHub**: [@abrioso](https://github.com/abrioso)

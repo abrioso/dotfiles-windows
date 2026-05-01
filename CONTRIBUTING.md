@@ -6,11 +6,12 @@ This project uses **gitflow**:
 
 | Branch | Purpose | Merges into |
 |--------|---------|-------------|
-| `main` | Stable releases | — |
-| `develop` | Next release integration | `main` (via release PR) |
-| `feature/*` | New functionality | `develop` |
-| `hotfix/*` | Critical fixes | `main` + `develop` |
-| `release/*` | Release prep | `main` |
+| main | Stable releases | — |
+| develop | Next release integration | main (via release PR) |
+| feature/* | New functionality | develop |
+| fix/* | Non-urgent fixes | develop |
+| hotfix/* | Critical fixes | main + develop |
+| release/* | Release prep | main |
 
 ## How to Contribute
 
@@ -39,22 +40,22 @@ This project uses **gitflow**:
 
 ## Code Standards
 
-### Shell Scripts
-- Use .ps1 files following best practices
+### PowerShell Scripts
+- Follow PowerShell best practices and naming conventions (Verb-Noun)
 - Must pass PSScriptAnalyzer cleanly
 - Must be idempotent (safe to re-run)
 - Use functions for logical grouping
-- Add `--help` flag for user-facing scripts
+- Add comment-based help for user-facing scripts
 
 ### Documentation
 - Update `README.md` when adding features
-- Document new packages in `docs/PACKAGES.md`
+- Document new packages in `docs/PACKAGES.md` and add them to `dotfiles-configurations/winget-packages.json`
 - Keep lists sorted alphabetically
 
-### Dotfiles (config/)
-- Each application gets its own stow package directory
-- Follow XDG Base Directory spec where possible
-- Add comments explaining non-obvious settings
+### Configuration
+- Application configs live in `dotfiles-configurations/` as JSON
+- PowerShell profiles go in `powershell-profiles/`
+- Setup modules are in `setup-modules/` (one task per module)
 
 ## Release Process
 
