@@ -17,7 +17,7 @@ This repository follows **gitflow** branching and requires **Pull Requests** for
 3. **Commits**: Use conventional commits (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`)
 4. **One logical change per PR** — don't bundle unrelated changes.
 5. **PR description**: Explain what and why. Link related issues if any.
-6. **Tests/validation**: Run shellcheck on all `.sh` files before committing.
+6. **Tests/validation**: Run PSScriptAnalyzer on all .ps1 files before committing.
 7. **Worktrees**: Use `git worktree` for parallel work instead of stashing or switching branches.
 
 ## Workflow Example
