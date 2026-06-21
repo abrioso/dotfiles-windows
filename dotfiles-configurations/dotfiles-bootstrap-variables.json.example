@@ -2,6 +2,13 @@
     "GITHUB_ACCOUNT": "abrioso",
     "GITHUB_DOTFILES_REPO": "dotfiles-windows",
     "GITHUB_DOTFILES_BRANCH": "main",
+    "REPOSITORY_ENDPOINT_TYPE": "github-https",
+    "CUSTOM_REPOSITORY_URL": "",
+    "REPOSITORY_ENDPOINTS": {
+        "github-https": "https://github.com/{GITHUB_ACCOUNT}/{GITHUB_DOTFILES_REPO}.git",
+        "github-ssh": "git@github.com:{GITHUB_ACCOUNT}/{GITHUB_DOTFILES_REPO}.git",
+        "custom": "{CUSTOM_REPOSITORY_URL}"
+    },
     "WORKSPACE_FOLDER": "workspace",
     "CUSTOM_PROFILE_FOLDER": "Profile-Custom",
     "CULTURE": "pt-PT",
@@ -16,8 +23,8 @@
         "hyperv",
         "wsl"
     ],
-    "INSTALL_PACKAGES": [ 
-        "base",   
+    "INSTALL_PACKAGES": [
+        "base",
         "docker",
         "development",
         "productivity",
@@ -29,5 +36,4 @@
         "developer",
         "pwsh"
     ]
-
 }

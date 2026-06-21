@@ -49,7 +49,7 @@ This project uses **gitflow**:
 
 ### Documentation
 - Update `README.md` when adding features
-- Document new packages in `docs/PACKAGES.md` and add them to `dotfiles-configurations/winget-packages.json`
+- Document new packages in `docs/PACKAGES.md` and add them to `dotfiles-configurations/winget-packages.json.example`
 - Keep lists sorted alphabetically
 
 ### Configuration

@@ -13,11 +13,21 @@
 # 
 ##
 
+[CmdletBinding()]
+param (
+    [string]$Account = "abrioso",
+    [string]$Repo = "dotfiles-windows",
+    [string]$Branch = "main",
+    [ValidateSet("github-archive", "custom-archive")]
+    [string]$EndpointType = "github-archive",
+    [string]$ArchiveUrl = ""
+)
+
 $ErrorActionPreference = "Stop"
 
-$account = "abrioso"
-$repo    = "dotfiles-windows"
-$branch  = "main"
+$account = $Account
+$repo    = $Repo
+$branch  = $Branch
 
 $dotfilesTempDir = Join-Path $env:TEMP "dotfiles"
 if (![System.IO.Directory]::Exists($dotfilesTempDir)) {[System.IO.Directory]::CreateDirectory($dotfilesTempDir)}
@@ -56,7 +66,14 @@ function Expand-Zip {
     }
 }
 
-Invoke-Download "https://github.com/$account/$repo/archive/$branch.zip" $sourceFile
+if ($EndpointType -eq "custom-archive") {
+    if ([string]::IsNullOrWhiteSpace($ArchiveUrl)) { throw "ArchiveUrl is required when EndpointType is custom-archive." }
+    $downloadUrl = $ArchiveUrl
+} else {
+    $downloadUrl = "https://github.com/$account/$repo/archive/$branch.zip"
+}
+
+Invoke-Download $downloadUrl $sourceFile
 if ([System.IO.Directory]::Exists($dotfilesInstallDir)) {[System.IO.Directory]::Delete($dotfilesInstallDir, $true)}
 Expand-Zip $sourceFile $dotfilesTempDir
 

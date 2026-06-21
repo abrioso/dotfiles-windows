@@ -3,9 +3,15 @@
 # Exclude .vscode folder
 .vscode/
 
-#Exclude all the logs
+# Exclude all the logs
 logs/*.txt
 
-# Excluse test results
+# Exclude test results
 tests/*.results.json
 
+# Local machine-specific dotfiles configuration
+dotfiles-configurations/*.json
+!dotfiles-configurations/*.json.example
+
+# Private PowerShell profile extension
+powershell-profiles/extra.ps1

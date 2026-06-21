@@ -86,7 +86,7 @@ if (-not (Test-Path $workspaceDirectory)) {
 
 # Clone the dotfiles repository if it does not exist
 Write-Info "Cloning the dotfiles repository"
-$dotfilesRepositoryURL = "https://github.com/$($DotfilesVariables.GITHUB_ACCOUNT)/$($DotfilesVariables.GITHUB_DOTFILES_REPO).git"
+$dotfilesRepositoryURL = Resolve-DotfilesRepositoryUrl -DotfilesVariables $DotfilesVariables
 $dotfilesDirectory = Join-Path $workspaceDirectory $DotfilesVariables.GITHUB_DOTFILES_REPO
 if (-not (Test-Path $dotfilesDirectory)) {
     # clone the dotfiles repository
@@ -101,8 +101,18 @@ if (-not (Test-Path $dotfilesDirectory)) {
     Write-Info "Dotfiles directory already exists: $dotfilesDirectory"
 }
 
+# Ensure gitignored local configuration generated in the bootstrap copy follows the real clone.
+Sync-DotfilesLocalConfiguration -SourceRoot $dotfileRootDir -TargetRoot $dotfilesDirectory
+
 # Change the working directory to the dotfiles repository
 Set-Location $dotfilesDirectory
+
+if ($DotfilesVariables.GITHUB_DOTFILES_BRANCH) {
+    Write-Info "Ensuring dotfiles repository is on branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'..."
+    git fetch origin $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
+    git checkout $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
+    git pull --ff-only origin $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
+}
 
 # Run the new modular setup scripts
 Write-Info "Running the modular setup scripts from 'setup-modules'..."

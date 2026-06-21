@@ -32,6 +32,11 @@ try {
         $key = $property.Name
         $desiredValue = $property.Value
 
+        if ([string]::IsNullOrWhiteSpace([string]$desiredValue)) {
+            Write-Host "Git config '$key' has an empty value in the configuration file. Skipping."
+            continue
+        }
+
         # git config exits with 1 when the key does not exist; $currentValue will be $null in that case.
         $currentValue = git config --global $key 2>$null
         if ($LASTEXITCODE -ne 0) { $currentValue = $null }
