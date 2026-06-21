@@ -22,8 +22,10 @@ git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; 
 To install these dotfiles from PowerShell without installing Git first:
 
 ```pwsh
-iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
+iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
 ```
+
+For forks or custom archive sources, see [Configuration](docs/CONFIGURATION.md#git-free-install-parameters).
 
 ## How It Works
 
@@ -37,9 +39,9 @@ The entire process is designed to be **idempotent**, meaning you can run the set
 
 This folder contains the main scripts that kick off the installation and setup process.
 
--   `install.ps1`: For Git-free installation. It downloads the repository to a temporary folder and then calls `setup.ps1`.
--   `setup.ps1`: The main bootstrap and orchestrator script. This script performs initial setup tasks (like creating symlinks and cloning the repo if necessary) and then runs the modules from the `setup-modules` directory in the correct order.
--   `setup-functions.ps1`: Contains helper functions used by the other scripts.
+-   `install.ps1`: For Git-free installation. It downloads an archive to a temporary folder, resolves the extracted root, and then calls `setup.ps1`.
+-   `setup.ps1`: The main bootstrap and orchestrator script. It initializes local configuration when missing, clones/updates the configured repository branch, syncs gitignored local config into the real clone, and then runs the modules from `setup-modules` in order.
+-   `setup-functions.ps1`: Contains helper functions used by the other scripts, including repository endpoint resolution and local config initialization.
 
 #### `setup-modules`
 
@@ -52,7 +54,7 @@ This folder contains the modular scripts that perform the actual configuration t
 
 #### `dotfiles-configurations`
 
-This folder contains tracked `*.json.example` templates and local gitignored `*.json` files. Run `setup-scripts\configure.ps1` to create and edit local configuration interactively.
+This folder contains tracked `*.json.example` templates and local gitignored `*.json` files. Run `setup-scripts\configure.ps1` to create and edit local configuration interactively. See [Configuration](docs/CONFIGURATION.md) for the full file model and endpoint options.
 
 -   `winget-packages.json.example`: Defines available `winget` package groups. The TUI copies it to local `winget-packages.json`.
 -   `env-variables.json.example`: Template for custom environment variables.
@@ -95,7 +97,7 @@ To customize the software, environment, endpoint type, and settings, run:
 .\setup-scripts\configure.ps1
 ```
 
-The TUI creates local gitignored JSON files from `*.json.example` templates when needed. To add a new application to the shared defaults, edit `dotfiles-configurations\winget-packages.json.example`; to customize only your machine, edit the local `winget-packages.json`.
+The TUI creates local gitignored JSON files from `*.json.example` templates when needed. `setup.ps1` also launches it automatically when required config files are missing. To add a new application to the shared defaults, edit `dotfiles-configurations\winget-packages.json.example`; to customize only your machine, edit the local `winget-packages.json`.
 
 ## Feedback
 

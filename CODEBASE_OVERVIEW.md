@@ -13,7 +13,7 @@ This repository contains scripts and configuration files for automating the setu
 
 ## Usage
 
-Run `setup.ps1` to bootstrap the installation or `install.ps1` for a Git-free setup. The setup process applies administrative and user DSC configurations and installs common tools via WinGet.
+Run `setup.ps1` to bootstrap the installation or `install.ps1` for a Git-free setup. Configuration is template-driven: tracked `dotfiles-configurations/*.json.example` files are copied to local gitignored `*.json` files by `setup-scripts/configure.ps1` when needed. The setup process applies administrative and user configuration modules and installs selected tools via WinGet.
 
 Create an `extra.ps1` file to store private commands or secrets that you do not want to commit. This file is loaded by the PowerShell profiles if present.
 
