@@ -22,21 +22,30 @@ function Test-IsElevated {
 
 try {
     Write-Host "Reading package configuration from $ConfigPath..."
-    if (-not (Test-Path $ConfigPath)) {
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
         Write-Warning "Package configuration file not found: $ConfigPath. Skipping package installation."
         exit 0
     }
 
-    $config = Get-Content -Path $ConfigPath -Raw | ConvertFrom-Json
+    $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 
-    # Determine which groups to install from bootstrap config if not passed explicitly
-    if ($Groups.Count -eq 0 -and (Test-Path $BootstrapPath)) {
-        $bootstrap = Get-Content -Path $BootstrapPath -Raw | ConvertFrom-Json
-        if ($bootstrap.INSTALL_PACKAGES) {
-            $Groups = $bootstrap.INSTALL_PACKAGES
+    # Determine which groups to install from bootstrap config if not passed explicitly.
+    # An explicit empty INSTALL_PACKAGES array means "install no package groups", not "install all groups".
+    $groupsSpecified = $PSBoundParameters.ContainsKey('Groups')
+    $bootstrapHasInstallPackages = $false
+    if (-not $groupsSpecified -and (Test-Path -LiteralPath $BootstrapPath)) {
+        $bootstrap = Get-Content -LiteralPath $BootstrapPath -Raw | ConvertFrom-Json
+        $bootstrapHasInstallPackages = $bootstrap.PSObject.Properties.Name -contains 'INSTALL_PACKAGES'
+        if ($bootstrapHasInstallPackages) {
+            $Groups = @($bootstrap.INSTALL_PACKAGES)
+            if ($Groups.Count -eq 0) {
+                Write-Host "INSTALL_PACKAGES is explicitly empty. Skipping package installation."
+                exit 0
+            }
             Write-Host "Using INSTALL_PACKAGES groups from bootstrap config: $($Groups -join ', ')"
         }
     }
+    $installAllGroups = (-not $groupsSpecified) -and (-not $bootstrapHasInstallPackages) -and ($Groups.Count -eq 0)
 
     # Collect package IDs from specified groups (or all groups if none specified).
     # The 'Packages' property contains Microsoft Store IDs which require a different install path - skip them here.
@@ -45,7 +54,7 @@ try {
     foreach ($property in $config.PSObject.Properties) {
         if ($property.Name -eq 'Packages') { continue }
 
-        $includeGroup = ($Groups.Count -eq 0) -or ($Groups -contains $property.Name)
+        $includeGroup = $installAllGroups -or ($Groups -contains $property.Name)
         if (-not $includeGroup) {
             Write-Host "Skipping group '$($property.Name)' (not in INSTALL_PACKAGES)."
             continue

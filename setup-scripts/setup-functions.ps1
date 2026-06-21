@@ -303,27 +303,130 @@ function Test-DeveloperMode {
     }
 }
 
+function Get-DotfilesConfigDirectory {
+    $DotfilesRoot = Split-Path -Parent $PSScriptRoot
+    return (Join-Path $DotfilesRoot "dotfiles-configurations")
+}
+
+function Initialize-DotfilesConfiguration {
+    param (
+        [switch]$NonInteractive
+    )
+
+    $DotfilesRoot = Split-Path -Parent $PSScriptRoot
+    $ConfigScript = Join-Path (Join-Path $DotfilesRoot "setup-scripts") "configure.ps1"
+
+    if (-not (Test-Path -LiteralPath $ConfigScript)) {
+        throw "Configuration script not found: $ConfigScript"
+    }
+
+    $ConfigDirectory = Get-DotfilesConfigDirectory
+    $RequiredConfigFiles = @(
+        "dotfiles-bootstrap-variables.json",
+        "git-variables.json",
+        "env-variables.json",
+        "winget-packages.json"
+    )
+
+    $MissingConfigFiles = @($RequiredConfigFiles | Where-Object { -not (Test-Path -LiteralPath (Join-Path $ConfigDirectory $_)) })
+    if ($MissingConfigFiles.Count -eq 0) {
+        return
+    }
+
+    Write-WarningMessage "Missing local configuration files: $($MissingConfigFiles -join ', ')"
+    Write-Info "Launching dotfiles configuration TUI to create local configuration from .example templates..."
+
+    if ($NonInteractive) {
+        & $ConfigScript -NonInteractive
+    } else {
+        & $ConfigScript
+    }
+
+    if (-not $?) {
+        throw "Configuration TUI failed."
+    }
+}
+
+function Resolve-DotfilesRepositoryUrl {
+    param (
+        [Parameter(Mandatory)]
+        $DotfilesVariables
+    )
+
+    $endpointType = $DotfilesVariables.REPOSITORY_ENDPOINT_TYPE
+    if ([string]::IsNullOrWhiteSpace($endpointType)) {
+        $endpointType = "github-https"
+    }
+
+    switch ($endpointType) {
+        "github-https" {
+            return "https://github.com/$($DotfilesVariables.GITHUB_ACCOUNT)/$($DotfilesVariables.GITHUB_DOTFILES_REPO).git"
+        }
+        "github-ssh" {
+            return "git@github.com:$($DotfilesVariables.GITHUB_ACCOUNT)/$($DotfilesVariables.GITHUB_DOTFILES_REPO).git"
+        }
+        "custom" {
+            if ([string]::IsNullOrWhiteSpace($DotfilesVariables.CUSTOM_REPOSITORY_URL)) {
+                throw "CUSTOM_REPOSITORY_URL must be set when REPOSITORY_ENDPOINT_TYPE is 'custom'."
+            }
+            return $DotfilesVariables.CUSTOM_REPOSITORY_URL
+        }
+        default {
+            throw "Unsupported REPOSITORY_ENDPOINT_TYPE '$endpointType'. Supported values: github-https, github-ssh, custom."
+        }
+    }
+}
+
+function Sync-DotfilesLocalConfiguration {
+    param (
+        [Parameter(Mandatory)]
+        [string]$SourceRoot,
+        [Parameter(Mandatory)]
+        [string]$TargetRoot
+    )
+
+    $sourceConfigDirectory = Join-Path $SourceRoot "dotfiles-configurations"
+    $targetConfigDirectory = Join-Path $TargetRoot "dotfiles-configurations"
+
+    if (-not (Test-Path -LiteralPath $sourceConfigDirectory)) { return }
+    if (-not (Test-Path -LiteralPath $targetConfigDirectory)) {
+        New-Item -ItemType Directory -Path $targetConfigDirectory -Force | Out-Null
+    }
+
+    $sourcePath = (Get-Item -LiteralPath $sourceConfigDirectory).FullName
+    $targetPath = (Get-Item -LiteralPath $targetConfigDirectory).FullName
+    if ($sourcePath -eq $targetPath) { return }
+
+    Get-ChildItem -LiteralPath $sourceConfigDirectory -Filter "*.json" -File | ForEach-Object {
+        $targetFile = Join-Path $targetConfigDirectory $_.Name
+        Copy-Item -LiteralPath $_.FullName -Destination $targetFile -Force
+        Write-Info "Copied local configuration '$($_.Name)' to cloned repository."
+    }
+}
+
 # Function to get the dotfiles bootstrap variables
 function Get-DotfilesBootstrapVariables {
     try {
-        $DotfilesRoot = Split-Path -Parent $PSScriptRoot
-        $DotfilesConfigFolder = Join-Path $DotfilesRoot "dotfiles-configurations"
-        $DotfilesVariablesFile = Get-ChildItem -Path $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json" -ErrorAction Stop
+        Initialize-DotfilesConfiguration
+
+        $DotfilesConfigFolder = Get-DotfilesConfigDirectory
+        $DotfilesVariablesFile = Get-ChildItem -LiteralPath $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json" -ErrorAction Stop
 
         if ($DotfilesVariablesFile) {
-            $DotfilesVariables = Get-Content -Path $DotfilesVariablesFile.FullName | ConvertFrom-Json
+            $DotfilesVariables = Get-Content -LiteralPath $DotfilesVariablesFile.FullName | ConvertFrom-Json
         } else {
             throw "The dotfiles-bootstrap-variables.json file was not found in $DotfilesConfigFolder"
         }
     } catch {
         Write-Host $_.Exception.Message -ForegroundColor Red
-        Write-Host "Please make sure that the file exists and try again."
+        Write-Host "Please run setup-scripts\configure.ps1 and try again."
         Stop-Logging
         Exit 1
     }
 
     Write-Host "Dotfiles Bootstrap Variables to be applied:"
     foreach ($kv in $DotfilesVariables.PSObject.Properties) {
+        if ($kv.Name -eq "REPOSITORY_ENDPOINTS") { continue }
         if ($kv.Value -is [System.Collections.IEnumerable] -and $kv.Value -isnot [string]) {
             Write-Host ("{0,-25}:" -f $kv.Name)
             foreach ($item in $kv.Value) {

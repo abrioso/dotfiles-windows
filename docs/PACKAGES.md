@@ -4,15 +4,17 @@ This repository manages Windows application packages via `winget` (Windows Packa
 
 ## How packages are managed
 
-- Package definitions live in `dotfiles-configurations/winget-packages.json`
-- The `Install-WingetPackages.ps1` module reads this JSON and installs all listed applications
-- Each entry specifies the winget package ID
+- Shared package defaults live in `dotfiles-configurations/winget-packages.json.example`
+- The configuration TUI copies that template to local `dotfiles-configurations/winget-packages.json`
+- The `Install-WingetPackages.ps1` module reads the local JSON and installs the groups selected by `INSTALL_PACKAGES`
+- Each entry specifies the `winget` package ID
 
 ## Adding a new package
 
 1. Find the package ID: `winget search <name>`
-2. Add it to `dotfiles-configurations/winget-packages.json`
-3. Document its purpose below
+2. Add it to `dotfiles-configurations/winget-packages.json.example`
+3. Run `./setup-scripts/configure.ps1` again, or copy the new group/package into your local `winget-packages.json` if you already have one
+4. Document its purpose below
 
 ## Package categories
 

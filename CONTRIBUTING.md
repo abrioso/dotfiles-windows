@@ -49,11 +49,12 @@ This project uses **gitflow**:
 
 ### Documentation
 - Update `README.md` when adding features
-- Document new packages in `docs/PACKAGES.md` and add them to `dotfiles-configurations/winget-packages.json`
+- Document new packages in `docs/PACKAGES.md` and add them to `dotfiles-configurations/winget-packages.json.example`
 - Keep lists sorted alphabetically
 
 ### Configuration
-- Application configs live in `dotfiles-configurations/` as JSON
+- Shared configuration defaults live in `dotfiles-configurations/*.json.example`
+- Local machine-specific `dotfiles-configurations/*.json` files are gitignored and must not be committed
 - PowerShell profiles go in `powershell-profiles/`
 - Setup modules are in `setup-modules/` (one task per module)
 

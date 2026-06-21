@@ -1,6 +1,6 @@
 {
-    "user.name": "Andre Kakoo Brioso",
-    "user.email": "akbrioso@iseg.ulisboa.pt",
+    "user.name": "",
+    "user.email": "",
     "core.editor": "code --wait",
     "core.autocrlf": "true",
     "core.ignorecase": "true",

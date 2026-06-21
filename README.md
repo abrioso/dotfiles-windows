@@ -14,7 +14,7 @@ Clone the repository to your local machine (e.g., into `~\workspace\dotfiles-win
 From PowerShell:
 
 ```pwsh
-git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; .\setup-scripts\setup.ps1
+git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; .\setup-scripts\configure.ps1; .\setup-scripts\setup.ps1
 ```
 
 ### Git-free Install
@@ -22,12 +22,14 @@ git clone https://github.com/abrioso/dotfiles-windows.git; cd dotfiles-windows; 
 To install these dotfiles from PowerShell without installing Git first:
 
 ```pwsh
-iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
+iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
 ```
+
+For forks or custom archive sources, see [Configuration](docs/CONFIGURATION.md#git-free-install-parameters).
 
 ## How It Works
 
-This repository uses a main setup script (`setup.ps1`) to orchestrate a series of modular PowerShell scripts located in the `setup-modules` directory. The configuration is data-driven, with package lists, environment variables, and Git settings defined in JSON files in the `dotfiles-configurations` directory.
+This repository uses a main setup script (`setup.ps1`) to orchestrate a series of modular PowerShell scripts located in the `setup-modules` directory. The configuration is data-driven, with package lists, environment variables, Git settings, and repository endpoint settings defined in local JSON files in the `dotfiles-configurations` directory. Local `*.json` configuration files are intentionally gitignored; tracked defaults live in `*.json.example` templates.
 
 The entire process is designed to be **idempotent**, meaning you can run the setup script multiple times on the same machine. It will only install or change things that are not already in the desired state.
 
@@ -37,27 +39,27 @@ The entire process is designed to be **idempotent**, meaning you can run the set
 
 This folder contains the main scripts that kick off the installation and setup process.
 
--   `install.ps1`: For Git-free installation. It downloads the repository to a temporary folder and then calls `setup.ps1`.
--   `setup.ps1`: The main bootstrap and orchestrator script. This script performs initial setup tasks (like creating symlinks and cloning the repo if necessary) and then runs the modules from the `setup-modules` directory in the correct order.
--   `setup-functions.ps1`: Contains helper functions used by the other scripts.
+-   `install.ps1`: For Git-free installation. It downloads an archive to a temporary folder, resolves the extracted root, and then calls `setup.ps1`.
+-   `setup.ps1`: The main bootstrap and orchestrator script. It initializes local configuration when missing, clones/updates the configured repository branch, syncs gitignored local config into the real clone, and then runs the modules from `setup-modules` in order.
+-   `setup-functions.ps1`: Contains helper functions used by the other scripts, including repository endpoint resolution and local config initialization.
 
 #### `setup-modules`
 
 This folder contains the modular scripts that perform the actual configuration tasks. The `setup.ps1` script calls these in sequence.
 
 -   `Configure-WindowsFeatures.ps1`: Enables necessary Windows features like WSL and Hyper-V. Requires administrator privileges.
--   `Install-WingetPackages.ps1`: Reads `winget-packages.json` and installs all specified applications using the `winget` command-line tool.
--   `Set-EnvironmentVariables.ps1`: Reads `env-variables.json` and configures environment variables.
--   `Apply-GitConfig.ps1`: Reads `git-variables.json` and applies the settings to your global Git config.
+-   `Install-WingetPackages.ps1`: Reads local `winget-packages.json` and installs the selected package groups using the `winget` command-line tool.
+-   `Set-EnvironmentVariables.ps1`: Reads local `env-variables.json` and configures environment variables.
+-   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config.
 
 #### `dotfiles-configurations`
 
-This folder contains the JSON files that define the data for the setup. To customize your setup, you'll primarily edit these files.
+This folder contains tracked `*.json.example` templates and local gitignored `*.json` files. Run `setup-scripts\configure.ps1` to create and edit local configuration interactively. See [Configuration](docs/CONFIGURATION.md) for the full file model and endpoint options.
 
--   `winget-packages.json`: Define the `winget` packages you want to install. Packages are grouped into categories.
--   `env-variables.json`: Define any custom environment variables you want to set.
--   `git-variables.json`: Define your global Git configuration settings, such as your name, email, and aliases.
--   `dotfiles-bootstrap-variables.json`: Contains variables for the initial `setup.ps1` bootstrapping process.
+-   `winget-packages.json.example`: Defines available `winget` package groups. The TUI copies it to local `winget-packages.json`.
+-   `env-variables.json.example`: Template for custom environment variables.
+-   `git-variables.json.example`: Template for global Git configuration settings, such as name, email, and aliases.
+-   `dotfiles-bootstrap-variables.json.example`: Template for bootstrap variables, install groups, and repository endpoint type (`github-https`, `github-ssh`, or `custom`).
 
 ### PowerShell Profile
 
@@ -79,19 +81,23 @@ git config --global user.email "your.email@example.com"
 
 ### Forking
 
-If you fork this repository, make sure to modify the `install.ps1` script to reference your own GitHub account and repository name.
-
-Within `setup-scripts/install.ps1`, modify these variables:
+If you fork this repository, pass your account/repository to `install.ps1` instead of editing the script:
 
 ```pwsh
-$account = "YourGitHubAccount"
-$repo    = "YourDotfilesRepoName"
-$branch  = "main"
+iex "& { $(irm 'https://raw.githubusercontent.com/YourGitHubAccount/YourDotfilesRepoName/main/setup-scripts/install.ps1') } -Account YourGitHubAccount -Repo YourDotfilesRepoName -Branch main"
 ```
+
+For non-GitHub archive endpoints, use `-EndpointType custom-archive -ArchiveUrl <zip-url>`.
 
 ### Configuring your Setup
 
-To customize the software, environment, and settings, edit the JSON files in the `dotfiles-configurations` directory. For example, to add a new application to be installed, simply add its `winget` ID to the appropriate category in `winget-packages.json`.
+To customize the software, environment, endpoint type, and settings, run:
+
+```pwsh
+.\setup-scripts\configure.ps1
+```
+
+The TUI creates local gitignored JSON files from `*.json.example` templates when needed. `setup.ps1` also launches it automatically when required config files are missing. To add a new application to the shared defaults, edit `dotfiles-configurations\winget-packages.json.example`; to customize only your machine, edit the local `winget-packages.json`.
 
 ## Feedback
 

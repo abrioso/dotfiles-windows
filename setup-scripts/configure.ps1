@@ -1,0 +1,175 @@
+<#
+.SYNOPSIS
+    Interactive configuration TUI for dotfiles-windows.
+.DESCRIPTION
+    Creates local configuration files from .example templates when missing and lets the user
+    edit the common bootstrap, Git, package-group, and endpoint settings before setup runs.
+#>
+[CmdletBinding()]
+param (
+    [string]$ConfigDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'dotfiles-configurations'),
+    [switch]$NonInteractive
+)
+
+$ErrorActionPreference = 'Stop'
+
+function Write-Section {
+    param([string]$Title)
+    Write-Host ""
+    Write-Host "=== $Title ===" -ForegroundColor Cyan
+}
+
+function Read-JsonFile {
+    param([Parameter(Mandatory)][string]$Path)
+    $content = Get-Content -LiteralPath $Path -Raw
+    if ([string]::IsNullOrWhiteSpace($content)) { return [pscustomobject]@{} }
+    return $content | ConvertFrom-Json
+}
+
+function Save-JsonFile {
+    param(
+        [Parameter(Mandatory)]$Value,
+        [Parameter(Mandatory)][string]$Path
+    )
+    $Value | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $Path -Encoding UTF8
+}
+
+function Ensure-ConfigFile {
+    param([Parameter(Mandatory)][string]$Name)
+
+    $target = Join-Path $ConfigDirectory $Name
+    $example = Join-Path $ConfigDirectory "$Name.example"
+
+    if (Test-Path -LiteralPath $target) { return $target }
+    if (-not (Test-Path -LiteralPath $example)) { throw "Missing example configuration: $example" }
+
+    Copy-Item -LiteralPath $example -Destination $target -Force
+    Write-Host "Created local configuration from template: $Name" -ForegroundColor Green
+    return $target
+}
+
+function Prompt-Value {
+    param(
+        [Parameter(Mandatory)][string]$Label,
+        [AllowNull()][string]$CurrentValue
+    )
+    $suffix = if ([string]::IsNullOrWhiteSpace($CurrentValue)) { '' } else { " [$CurrentValue]" }
+    $value = Read-Host "$Label$suffix"
+    if ([string]::IsNullOrWhiteSpace($value)) { return $CurrentValue }
+    return $value.Trim()
+}
+
+function Prompt-Choice {
+    param(
+        [Parameter(Mandatory)][string]$Label,
+        [Parameter(Mandatory)][string[]]$Choices,
+        [AllowNull()][string]$CurrentValue
+    )
+
+    Write-Host $Label
+    for ($i = 0; $i -lt $Choices.Count; $i++) {
+        $marker = if ($Choices[$i] -eq $CurrentValue) { '*' } else { ' ' }
+        Write-Host ("  {0}) [{1}] {2}" -f ($i + 1), $marker, $Choices[$i])
+    }
+
+    $answer = Read-Host "Choose 1-$($Choices.Count) or press Enter to keep current"
+    if ([string]::IsNullOrWhiteSpace($answer)) { return $CurrentValue }
+
+    $index = 0
+    if ([int]::TryParse($answer, [ref]$index) -and $index -ge 1 -and $index -le $Choices.Count) {
+        return $Choices[$index - 1]
+    }
+
+    Write-Warning "Invalid choice. Keeping current value: $CurrentValue"
+    return $CurrentValue
+}
+
+function Prompt-MultiChoice {
+    param(
+        [Parameter(Mandatory)][string]$Label,
+        [Parameter(Mandatory)][string[]]$Choices,
+        [AllowNull()][object[]]$CurrentValues
+    )
+
+    $current = @($CurrentValues | Where-Object { $_ })
+    Write-Host $Label
+    for ($i = 0; $i -lt $Choices.Count; $i++) {
+        $marker = if ($current -contains $Choices[$i]) { '*' } else { ' ' }
+        Write-Host ("  {0}) [{1}] {2}" -f ($i + 1), $marker, $Choices[$i])
+    }
+
+    $answer = Read-Host "Choose comma-separated numbers, 'all', 'none', or Enter to keep current"
+    if ([string]::IsNullOrWhiteSpace($answer)) { return $current }
+    if ($answer.Trim().ToLowerInvariant() -eq 'all') { return $Choices }
+    if ($answer.Trim().ToLowerInvariant() -eq 'none') { return @() }
+
+    $selected = [System.Collections.Generic.List[string]]::new()
+    foreach ($part in ($answer -split ',')) {
+        $index = 0
+        if ([int]::TryParse($part.Trim(), [ref]$index) -and $index -ge 1 -and $index -le $Choices.Count) {
+            $choice = $Choices[$index - 1]
+            if (-not $selected.Contains($choice)) { $selected.Add($choice) }
+        } else {
+            Write-Warning "Ignoring invalid selection: $part"
+        }
+    }
+    return $selected.ToArray()
+}
+
+if (-not (Test-Path -LiteralPath $ConfigDirectory)) {
+    New-Item -ItemType Directory -Path $ConfigDirectory -Force | Out-Null
+}
+
+$configNames = @(
+    'dotfiles-bootstrap-variables.json',
+    'git-variables.json',
+    'env-variables.json',
+    'winget-packages.json'
+)
+
+foreach ($name in $configNames) { Ensure-ConfigFile -Name $name | Out-Null }
+
+if ($NonInteractive) {
+    Write-Host "Configuration files are present. Non-interactive mode requested; skipping prompts."
+    return
+}
+
+$bootstrapPath = Join-Path $ConfigDirectory 'dotfiles-bootstrap-variables.json'
+$gitPath = Join-Path $ConfigDirectory 'git-variables.json'
+$wingetPath = Join-Path $ConfigDirectory 'winget-packages.json'
+
+$bootstrap = Read-JsonFile -Path $bootstrapPath
+$gitConfig = Read-JsonFile -Path $gitPath
+$wingetConfig = Read-JsonFile -Path $wingetPath
+
+Write-Section 'Repository endpoint'
+$endpointTypes = @('github-https', 'github-ssh', 'custom')
+$bootstrap.REPOSITORY_ENDPOINT_TYPE = Prompt-Choice -Label 'Endpoint type' -Choices $endpointTypes -CurrentValue $bootstrap.REPOSITORY_ENDPOINT_TYPE
+$bootstrap.GITHUB_ACCOUNT = Prompt-Value -Label 'GitHub account' -CurrentValue $bootstrap.GITHUB_ACCOUNT
+$bootstrap.GITHUB_DOTFILES_REPO = Prompt-Value -Label 'GitHub repository' -CurrentValue $bootstrap.GITHUB_DOTFILES_REPO
+$bootstrap.GITHUB_DOTFILES_BRANCH = Prompt-Value -Label 'GitHub branch for bootstrap downloads' -CurrentValue $bootstrap.GITHUB_DOTFILES_BRANCH
+if ($bootstrap.REPOSITORY_ENDPOINT_TYPE -eq 'custom') {
+    $bootstrap.CUSTOM_REPOSITORY_URL = Prompt-Value -Label 'Custom repository clone URL' -CurrentValue $bootstrap.CUSTOM_REPOSITORY_URL
+}
+
+Write-Section 'Local paths and locale'
+$bootstrap.WORKSPACE_FOLDER = Prompt-Value -Label 'Workspace folder under USERPROFILE' -CurrentValue $bootstrap.WORKSPACE_FOLDER
+$bootstrap.CUSTOM_PROFILE_FOLDER = Prompt-Value -Label 'Custom profile folder' -CurrentValue $bootstrap.CUSTOM_PROFILE_FOLDER
+$bootstrap.CULTURE = Prompt-Value -Label 'Windows culture' -CurrentValue $bootstrap.CULTURE
+$bootstrap.TIMEZONE = Prompt-Value -Label 'Windows timezone' -CurrentValue $bootstrap.TIMEZONE
+
+Write-Section 'Package groups'
+$packageGroups = @($wingetConfig.PSObject.Properties.Name | Where-Object { $_ -ne 'Packages' } | Sort-Object)
+$bootstrap.INSTALL_PACKAGES = Prompt-MultiChoice -Label 'Package groups to install' -Choices $packageGroups -CurrentValues $bootstrap.INSTALL_PACKAGES
+
+Write-Section 'Git global config'
+$gitConfig.'user.name' = Prompt-Value -Label 'git user.name' -CurrentValue $gitConfig.'user.name'
+$gitConfig.'user.email' = Prompt-Value -Label 'git user.email' -CurrentValue $gitConfig.'user.email'
+$gitConfig.'core.editor' = Prompt-Value -Label 'git core.editor' -CurrentValue $gitConfig.'core.editor'
+
+Save-JsonFile -Value $bootstrap -Path $bootstrapPath
+Save-JsonFile -Value $gitConfig -Path $gitPath
+
+Write-Host ""
+Write-Host "Configuration complete." -ForegroundColor Green
+Write-Host "Local config files are intentionally gitignored; commit changes only to *.example templates."
