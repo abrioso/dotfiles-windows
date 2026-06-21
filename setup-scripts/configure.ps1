@@ -21,7 +21,7 @@ function Write-Section {
 
 function Read-JsonFile {
     param([Parameter(Mandatory)][string]$Path)
-    $content = Get-Content -Path $Path -Raw
+    $content = Get-Content -LiteralPath $Path -Raw
     if ([string]::IsNullOrWhiteSpace($content)) { return [pscustomobject]@{} }
     return $content | ConvertFrom-Json
 }
@@ -31,7 +31,7 @@ function Save-JsonFile {
         [Parameter(Mandatory)]$Value,
         [Parameter(Mandatory)][string]$Path
     )
-    $Value | ConvertTo-Json -Depth 20 | Set-Content -Path $Path -Encoding UTF8
+    $Value | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
 function Ensure-ConfigFile {
@@ -40,10 +40,10 @@ function Ensure-ConfigFile {
     $target = Join-Path $ConfigDirectory $Name
     $example = Join-Path $ConfigDirectory "$Name.example"
 
-    if (Test-Path $target) { return $target }
-    if (-not (Test-Path $example)) { throw "Missing example configuration: $example" }
+    if (Test-Path -LiteralPath $target) { return $target }
+    if (-not (Test-Path -LiteralPath $example)) { throw "Missing example configuration: $example" }
 
-    Copy-Item -Path $example -Destination $target -Force
+    Copy-Item -LiteralPath $example -Destination $target -Force
     Write-Host "Created local configuration from template: $Name" -ForegroundColor Green
     return $target
 }
@@ -116,7 +116,7 @@ function Prompt-MultiChoice {
     return $selected.ToArray()
 }
 
-if (-not (Test-Path $ConfigDirectory)) {
+if (-not (Test-Path -LiteralPath $ConfigDirectory)) {
     New-Item -ItemType Directory -Path $ConfigDirectory -Force | Out-Null
 }
 
@@ -131,7 +131,7 @@ foreach ($name in $configNames) { Ensure-ConfigFile -Name $name | Out-Null }
 
 if ($NonInteractive) {
     Write-Host "Configuration files are present. Non-interactive mode requested; skipping prompts."
-    exit 0
+    return
 }
 
 $bootstrapPath = Join-Path $ConfigDirectory 'dotfiles-bootstrap-variables.json'

@@ -77,7 +77,7 @@ if ($missingVars) {
 # Create workspace directory if it does not exist
 Write-Info "Creating workspace directory"
 $workspaceDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.WORKSPACE_FOLDER
-if (-not (Test-Path $workspaceDirectory)) {
+if (-not (Test-Path -LiteralPath $workspaceDirectory)) {
     #create the workspace directory
     New-Item -ItemType Directory -Path $workspaceDirectory -Force | Out-Null
 } else {
@@ -88,11 +88,11 @@ if (-not (Test-Path $workspaceDirectory)) {
 Write-Info "Cloning the dotfiles repository"
 $dotfilesRepositoryURL = Resolve-DotfilesRepositoryUrl -DotfilesVariables $DotfilesVariables
 $dotfilesDirectory = Join-Path $workspaceDirectory $DotfilesVariables.GITHUB_DOTFILES_REPO
-if (-not (Test-Path $dotfilesDirectory)) {
+if (-not (Test-Path -LiteralPath $dotfilesDirectory)) {
     # clone the dotfiles repository
     Write-Info "Cloning repository from $dotfilesRepositoryURL"
     $cloneOutput = git clone $dotfilesRepositoryURL $dotfilesDirectory 2>&1
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $dotfilesDirectory)) {
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $dotfilesDirectory)) {
         Write-ErrorMessage "Failed to clone the dotfiles repository:`n$cloneOutput"
         Stop-Logging
         Exit 1
@@ -101,18 +101,36 @@ if (-not (Test-Path $dotfilesDirectory)) {
     Write-Info "Dotfiles directory already exists: $dotfilesDirectory"
 }
 
-# Ensure gitignored local configuration generated in the bootstrap copy follows the real clone.
-Sync-DotfilesLocalConfiguration -SourceRoot $dotfileRootDir -TargetRoot $dotfilesDirectory
-
 # Change the working directory to the dotfiles repository
-Set-Location $dotfilesDirectory
+Set-Location -LiteralPath $dotfilesDirectory
 
 if ($DotfilesVariables.GITHUB_DOTFILES_BRANCH) {
     Write-Info "Ensuring dotfiles repository is on branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'..."
     git fetch origin $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrorMessage "Failed to fetch branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)' from origin."
+        Stop-Logging
+        Exit 1
+    }
+
     git checkout $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrorMessage "Failed to checkout branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'."
+        Stop-Logging
+        Exit 1
+    }
+
     git pull --ff-only origin $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrorMessage "Failed to pull latest changes for branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'."
+        Stop-Logging
+        Exit 1
+    }
 }
+
+# Ensure gitignored local configuration generated in the bootstrap copy follows the real clone
+# after checkout/pull, so tracked JSON files deleted by this commit cannot mask local config copies.
+Sync-DotfilesLocalConfiguration -SourceRoot $dotfileRootDir -TargetRoot $dotfilesDirectory
 
 # Run the new modular setup scripts
 Write-Info "Running the modular setup scripts from 'setup-modules'..."
@@ -136,7 +154,7 @@ $adminModules = @(
     "Create-PowerShellProfileSymlink.ps1"
 )
 
-if (-not (Test-Path $moduleScriptsPath)) {
+if (-not (Test-Path -LiteralPath $moduleScriptsPath)) {
     Write-ErrorMessage "The 'setup-modules' directory was not found at '$moduleScriptsPath'."
     Stop-Logging
     Exit 1
@@ -146,7 +164,7 @@ $scriptResults = @{}
 
 foreach ($moduleName in $modulesToRun) {
     $modulePath = Join-Path $moduleScriptsPath $moduleName
-    if (-not (Test-Path $modulePath)) {
+    if (-not (Test-Path -LiteralPath $modulePath)) {
         Write-WarningMessage "Module script not found: $moduleName. Skipping."
         continue
     }
@@ -185,8 +203,8 @@ foreach ($moduleName in $modulesToRun) {
 Write-Info "`n==================== SETUP SUMMARY ===================="
 Write-Info "PowerShell 7 Installed: $(if (Get-Command pwsh -ErrorAction SilentlyContinue) {'Yes'} else {'No'})"
 Write-Info "Git Installed: $(if (Get-Command git -ErrorAction SilentlyContinue) {'Yes'} else {'No'})"
-Write-Info "Workspace Directory: $workspaceDirectory ($(if (Test-Path $workspaceDirectory) {'Exists'} else {'Missing'}))"
-Write-Info "Dotfiles Repository: $dotfilesDirectory ($(if (Test-Path $dotfilesDirectory) {'Cloned'} else {'Missing'}))"
+Write-Info "Workspace Directory: $workspaceDirectory ($(if (Test-Path -LiteralPath $workspaceDirectory) {'Exists'} else {'Missing'}))"
+Write-Info "Dotfiles Repository: $dotfilesDirectory ($(if (Test-Path -LiteralPath $dotfilesDirectory) {'Cloned'} else {'Missing'}))"
 Write-Info "Setup Modules Results:"
 foreach ($module in $scriptResults.Keys) {
     $status = if ($scriptResults[$module] -eq 0) { "Success" } else { "Failed" }

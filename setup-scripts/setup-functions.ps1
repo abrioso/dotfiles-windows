@@ -314,9 +314,9 @@ function Initialize-DotfilesConfiguration {
     )
 
     $DotfilesRoot = Split-Path -Parent $PSScriptRoot
-    $ConfigScript = Join-Path $DotfilesRoot "setup-scripts\configure.ps1"
+    $ConfigScript = Join-Path (Join-Path $DotfilesRoot "setup-scripts") "configure.ps1"
 
-    if (-not (Test-Path $ConfigScript)) {
+    if (-not (Test-Path -LiteralPath $ConfigScript)) {
         throw "Configuration script not found: $ConfigScript"
     }
 
@@ -328,7 +328,7 @@ function Initialize-DotfilesConfiguration {
         "winget-packages.json"
     )
 
-    $MissingConfigFiles = @($RequiredConfigFiles | Where-Object { -not (Test-Path (Join-Path $ConfigDirectory $_)) })
+    $MissingConfigFiles = @($RequiredConfigFiles | Where-Object { -not (Test-Path -LiteralPath (Join-Path $ConfigDirectory $_)) })
     if ($MissingConfigFiles.Count -eq 0) {
         return
     }
@@ -388,21 +388,19 @@ function Sync-DotfilesLocalConfiguration {
     $sourceConfigDirectory = Join-Path $SourceRoot "dotfiles-configurations"
     $targetConfigDirectory = Join-Path $TargetRoot "dotfiles-configurations"
 
-    if (-not (Test-Path $sourceConfigDirectory)) { return }
-    if (-not (Test-Path $targetConfigDirectory)) {
+    if (-not (Test-Path -LiteralPath $sourceConfigDirectory)) { return }
+    if (-not (Test-Path -LiteralPath $targetConfigDirectory)) {
         New-Item -ItemType Directory -Path $targetConfigDirectory -Force | Out-Null
     }
 
-    $sourcePath = (Resolve-Path $sourceConfigDirectory).Path
-    $targetPath = (Resolve-Path $targetConfigDirectory).Path
+    $sourcePath = (Get-Item -LiteralPath $sourceConfigDirectory).FullName
+    $targetPath = (Get-Item -LiteralPath $targetConfigDirectory).FullName
     if ($sourcePath -eq $targetPath) { return }
 
-    Get-ChildItem -Path $sourceConfigDirectory -Filter "*.json" -File | ForEach-Object {
+    Get-ChildItem -LiteralPath $sourceConfigDirectory -Filter "*.json" -File | ForEach-Object {
         $targetFile = Join-Path $targetConfigDirectory $_.Name
-        if (-not (Test-Path $targetFile)) {
-            Copy-Item -Path $_.FullName -Destination $targetFile -Force
-            Write-Info "Copied local configuration '$($_.Name)' to cloned repository."
-        }
+        Copy-Item -LiteralPath $_.FullName -Destination $targetFile -Force
+        Write-Info "Copied local configuration '$($_.Name)' to cloned repository."
     }
 }
 
@@ -412,10 +410,10 @@ function Get-DotfilesBootstrapVariables {
         Initialize-DotfilesConfiguration
 
         $DotfilesConfigFolder = Get-DotfilesConfigDirectory
-        $DotfilesVariablesFile = Get-ChildItem -Path $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json" -ErrorAction Stop
+        $DotfilesVariablesFile = Get-ChildItem -LiteralPath $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json" -ErrorAction Stop
 
         if ($DotfilesVariablesFile) {
-            $DotfilesVariables = Get-Content -Path $DotfilesVariablesFile.FullName | ConvertFrom-Json
+            $DotfilesVariables = Get-Content -LiteralPath $DotfilesVariablesFile.FullName | ConvertFrom-Json
         } else {
             throw "The dotfiles-bootstrap-variables.json file was not found in $DotfilesConfigFolder"
         }
