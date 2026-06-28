@@ -124,7 +124,9 @@ $configNames = @(
     'dotfiles-bootstrap-variables.json',
     'git-variables.json',
     'env-variables.json',
-    'winget-packages.json'
+    'winget-packages.json',
+    'windows-features.json',
+    'setup-modules.json'
 )
 
 foreach ($name in $configNames) { Ensure-ConfigFile -Name $name | Out-Null }
@@ -137,10 +139,14 @@ if ($NonInteractive) {
 $bootstrapPath = Join-Path $ConfigDirectory 'dotfiles-bootstrap-variables.json'
 $gitPath = Join-Path $ConfigDirectory 'git-variables.json'
 $wingetPath = Join-Path $ConfigDirectory 'winget-packages.json'
+$featuresPath = Join-Path $ConfigDirectory 'windows-features.json'
+$setupModulesPath = Join-Path $ConfigDirectory 'setup-modules.json'
 
 $bootstrap = Read-JsonFile -Path $bootstrapPath
 $gitConfig = Read-JsonFile -Path $gitPath
 $wingetConfig = Read-JsonFile -Path $wingetPath
+$featuresConfig = Read-JsonFile -Path $featuresPath
+$setupModulesConfig = Read-JsonFile -Path $setupModulesPath
 
 Write-Section 'Repository endpoint'
 $endpointTypes = @('github-https', 'github-ssh', 'custom')
@@ -161,6 +167,14 @@ $bootstrap.TIMEZONE = Prompt-Value -Label 'Windows timezone' -CurrentValue $boot
 Write-Section 'Package groups'
 $packageGroups = @($wingetConfig.PSObject.Properties.Name | Where-Object { $_ -ne 'Packages' } | Sort-Object)
 $bootstrap.INSTALL_PACKAGES = Prompt-MultiChoice -Label 'Package groups to install' -Choices $packageGroups -CurrentValues $bootstrap.INSTALL_PACKAGES
+
+Write-Section 'Windows feature groups'
+$featureGroups = if ($featuresConfig) { @($featuresConfig.PSObject.Properties.Name | Sort-Object) } else { @() }
+$bootstrap.INSTALL_FEATURES = Prompt-MultiChoice -Label 'Windows feature groups to enable' -Choices $featureGroups -CurrentValues $bootstrap.INSTALL_FEATURES
+
+Write-Section 'Setup setting groups'
+$settingGroups = if ($setupModulesConfig.settings) { @($setupModulesConfig.settings.PSObject.Properties.Name | Sort-Object) } else { @() }
+$bootstrap.INSTALL_SETTINGS = Prompt-MultiChoice -Label 'Setting groups to apply' -Choices $settingGroups -CurrentValues $bootstrap.INSTALL_SETTINGS
 
 Write-Section 'Git global config'
 $gitConfig.'user.name' = Prompt-Value -Label 'git user.name' -CurrentValue $gitConfig.'user.name'

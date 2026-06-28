@@ -136,23 +136,8 @@ Sync-DotfilesLocalConfiguration -SourceRoot $dotfileRootDir -TargetRoot $dotfile
 Write-Info "Running the modular setup scripts from 'setup-modules'..."
 
 $moduleScriptsPath = Join-Path $dotfilesDirectory "setup-modules"
-$modulesToRun = @(
-    "Configure-WindowsFeatures.ps1",
-    "Install-WingetPackages.ps1",
-    "Set-EnvironmentVariables.ps1",
-    "Apply-GitConfig.ps1",
-    "Create-PowerShellProfileSymlink.ps1",
-    "Install-NerdFont.ps1",
-    "Install-WindowsTerminalSettings.ps1",
-    "Install-OmpConfig.ps1"
-)
-
-# Modules that require administrator privileges
-$adminModules = @(
-    "Configure-WindowsFeatures.ps1",
-    "Configure-HyperV+WSL.ps1",
-    "Create-PowerShellProfileSymlink.ps1"
-)
+$moduleConfigDirectory = Join-Path $dotfilesDirectory "dotfiles-configurations"
+$modulesToRun = Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 
 if (-not (Test-Path -LiteralPath $moduleScriptsPath)) {
     Write-ErrorMessage "The 'setup-modules' directory was not found at '$moduleScriptsPath'."
@@ -162,7 +147,8 @@ if (-not (Test-Path -LiteralPath $moduleScriptsPath)) {
 
 $scriptResults = @{}
 
-foreach ($moduleName in $modulesToRun) {
+foreach ($module in $modulesToRun) {
+    $moduleName = $module.Script
     $modulePath = Join-Path $moduleScriptsPath $moduleName
     if (-not (Test-Path -LiteralPath $modulePath)) {
         Write-WarningMessage "Module script not found: $moduleName. Skipping."
@@ -172,7 +158,7 @@ foreach ($moduleName in $modulesToRun) {
     Write-Info "Running module: $moduleName"
     try {
         $scriptArg = "-File `"$modulePath`""
-        $requiresAdmin = $adminModules -contains $moduleName
+        $requiresAdmin = $module.RequiresAdmin
 
         # Check if running as administrator
         $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)

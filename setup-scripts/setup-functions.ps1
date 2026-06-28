@@ -308,6 +308,186 @@ function Get-DotfilesConfigDirectory {
     return (Join-Path $DotfilesRoot "dotfiles-configurations")
 }
 
+function Get-DotfilesConfigFile {
+    return @(
+        "dotfiles-bootstrap-variables.json",
+        "git-variables.json",
+        "env-variables.json",
+        "winget-packages.json",
+        "windows-features.json",
+        "setup-modules.json"
+    )
+}
+
+function Read-DotfilesJsonFile {
+    param (
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $content = Get-Content -LiteralPath $Path -Raw
+    if ([string]::IsNullOrWhiteSpace($content)) {
+        return [pscustomobject]@{}
+    }
+
+    return $content | ConvertFrom-Json
+}
+
+function ConvertTo-DotfilesStringArray {
+    param (
+        [AllowNull()]
+        $Value
+    )
+
+    if ($null -eq $Value) {
+        return @()
+    }
+
+    return @($Value) |
+        Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+        ForEach-Object { [string]$_ }
+}
+
+function Test-DotfilesObjectProperty {
+    param (
+        [AllowNull()]
+        $InputObject,
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    if ($null -eq $InputObject) {
+        return $false
+    }
+
+    return ($InputObject.PSObject.Properties.Name -contains $Name)
+}
+
+function Add-DotfilesSetupPlanItem {
+    param (
+        [Parameter(Mandatory)]
+        $Plan,
+        [Parameter(Mandatory)]
+        $Entry
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Entry.script)) {
+        throw "Setup module entry is missing a script value."
+    }
+
+    $scriptName = [string]$Entry.script
+    $alreadyAdded = $Plan | Where-Object { $_.Script -eq $scriptName } | Select-Object -First 1
+    if ($alreadyAdded) {
+        return
+    }
+
+    $Plan.Add([pscustomobject]@{
+        Name = if ([string]::IsNullOrWhiteSpace($Entry.name)) { [System.IO.Path]::GetFileNameWithoutExtension($scriptName) } else { [string]$Entry.name }
+        Script = $scriptName
+        RequiresAdmin = [bool]$Entry.requiresAdmin
+    })
+}
+
+function Resolve-DotfilesWindowsFeature {
+    param (
+        [string]$ConfigPath = (Join-Path (Get-DotfilesConfigDirectory) "windows-features.json"),
+        [string]$BootstrapPath = (Join-Path (Get-DotfilesConfigDirectory) "dotfiles-bootstrap-variables.json"),
+        [string[]]$Groups = @(),
+        [switch]$GroupsSpecified
+    )
+
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
+        throw "Windows feature configuration file not found: $ConfigPath"
+    }
+
+    $config = Read-DotfilesJsonFile -Path $ConfigPath
+    $bootstrapHasInstallFeatures = $false
+
+    if (-not $GroupsSpecified -and (Test-Path -LiteralPath $BootstrapPath)) {
+        $bootstrap = Read-DotfilesJsonFile -Path $BootstrapPath
+        $bootstrapHasInstallFeatures = Test-DotfilesObjectProperty -InputObject $bootstrap -Name "INSTALL_FEATURES"
+        if ($bootstrapHasInstallFeatures) {
+            $Groups = ConvertTo-DotfilesStringArray -Value $bootstrap.INSTALL_FEATURES
+            if ($Groups.Count -eq 0) {
+                return @()
+            }
+        }
+    }
+
+    $installAllGroups = (-not $GroupsSpecified) -and (-not $bootstrapHasInstallFeatures) -and ($Groups.Count -eq 0)
+    $features = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($property in $config.PSObject.Properties) {
+        $includeGroup = $installAllGroups -or ($Groups -contains $property.Name)
+        if (-not $includeGroup) {
+            continue
+        }
+
+        foreach ($featureName in (ConvertTo-DotfilesStringArray -Value $property.Value)) {
+            if ($features -notcontains $featureName) {
+                $features.Add($featureName)
+            }
+        }
+    }
+
+    return $features.ToArray()
+}
+
+function Get-DotfilesSetupPlan {
+    param (
+        [Parameter(Mandatory)]
+        $DotfilesVariables,
+        [string]$ConfigDirectory = (Get-DotfilesConfigDirectory)
+    )
+
+    $setupModulesPath = Join-Path $ConfigDirectory "setup-modules.json"
+    if (-not (Test-Path -LiteralPath $setupModulesPath)) {
+        throw "Setup module configuration file not found: $setupModulesPath"
+    }
+
+    $setupConfig = Read-DotfilesJsonFile -Path $setupModulesPath
+    $plan = [System.Collections.Generic.List[object]]::new()
+
+    $hasInstallFeatures = Test-DotfilesObjectProperty -InputObject $DotfilesVariables -Name "INSTALL_FEATURES"
+    $selectedFeatures = if ($hasInstallFeatures) { ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_FEATURES } else { @() }
+    $runAllFeatureModules = -not $hasInstallFeatures
+
+    foreach ($entry in $setupConfig.features) {
+        $matched = $runAllFeatureModules
+        if (-not $matched -and $selectedFeatures.Count -gt 0) {
+            $selectors = ConvertTo-DotfilesStringArray -Value $entry.whenSelected
+            $matched = $null -ne ($selectors | Where-Object { $selectedFeatures -contains $_ } | Select-Object -First 1)
+        }
+
+        if ($matched) {
+            Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
+        }
+    }
+
+    $hasInstallPackages = Test-DotfilesObjectProperty -InputObject $DotfilesVariables -Name "INSTALL_PACKAGES"
+    $selectedPackages = if ($hasInstallPackages) { ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_PACKAGES } else { @() }
+    if ((-not $hasInstallPackages) -or $selectedPackages.Count -gt 0) {
+        foreach ($entry in $setupConfig.packages) {
+            Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
+        }
+    }
+
+    $hasInstallSettings = Test-DotfilesObjectProperty -InputObject $DotfilesVariables -Name "INSTALL_SETTINGS"
+    $selectedSettings = if ($hasInstallSettings) { ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_SETTINGS } else { @() }
+    $runAllSettings = -not $hasInstallSettings
+
+    $settingGroups = if ($setupConfig.settings) { $setupConfig.settings.PSObject.Properties } else { @() }
+    foreach ($group in $settingGroups) {
+        if ($runAllSettings -or ($selectedSettings -contains $group.Name)) {
+            foreach ($entry in $group.Value) {
+                Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
+            }
+        }
+    }
+
+    return $plan.ToArray()
+}
+
 function Initialize-DotfilesConfiguration {
     param (
         [switch]$NonInteractive
@@ -321,12 +501,7 @@ function Initialize-DotfilesConfiguration {
     }
 
     $ConfigDirectory = Get-DotfilesConfigDirectory
-    $RequiredConfigFiles = @(
-        "dotfiles-bootstrap-variables.json",
-        "git-variables.json",
-        "env-variables.json",
-        "winget-packages.json"
-    )
+    $RequiredConfigFiles = Get-DotfilesConfigFile
 
     $MissingConfigFiles = @($RequiredConfigFiles | Where-Object { -not (Test-Path -LiteralPath (Join-Path $ConfigDirectory $_)) })
     if ($MissingConfigFiles.Count -eq 0) {

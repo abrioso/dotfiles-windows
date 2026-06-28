@@ -3,6 +3,7 @@
 # Explicit EOL rules
 # Keep JSON, Markdown and shell scripts with LF in working tree
 *.json text eol=lf
+*.json.example text eol=lf
 *.md text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf

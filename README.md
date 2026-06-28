@@ -40,7 +40,7 @@ The entire process is designed to be **idempotent**, meaning you can run the set
 This folder contains the main scripts that kick off the installation and setup process.
 
 -   `install.ps1`: For Git-free installation. It downloads an archive to a temporary folder, resolves the extracted root, and then calls `setup.ps1`.
--   `setup.ps1`: The main bootstrap and orchestrator script. It initializes local configuration when missing, clones/updates the configured repository branch, syncs gitignored local config into the real clone, and then runs the modules from `setup-modules` in order.
+-   `setup.ps1`: The main bootstrap and orchestrator script. It initializes local configuration when missing, clones/updates the configured repository branch, syncs gitignored local config into the real clone, and then runs the selected modules from `setup-modules` in the order defined by the setup module catalog.
 -   `setup-functions.ps1`: Contains helper functions used by the other scripts, including repository endpoint resolution and local config initialization.
 
 #### `setup-modules`
@@ -57,6 +57,8 @@ This folder contains the modular scripts that perform the actual configuration t
 This folder contains tracked `*.json.example` templates and local gitignored `*.json` files. Run `setup-scripts\configure.ps1` to create and edit local configuration interactively. See [Configuration](docs/CONFIGURATION.md) for the full file model and endpoint options.
 
 -   `winget-packages.json.example`: Defines available `winget` package groups. The TUI copies it to local `winget-packages.json`.
+-   `windows-features.json.example`: Defines available Windows optional feature groups. The TUI copies it to local `windows-features.json`.
+-   `setup-modules.json.example`: Defines the ordered module catalog for feature, package, and settings setup. The TUI copies it to local `setup-modules.json`.
 -   `env-variables.json.example`: Template for custom environment variables.
 -   `git-variables.json.example`: Template for global Git configuration settings, such as name, email, and aliases.
 -   `dotfiles-bootstrap-variables.json.example`: Template for bootstrap variables, install groups, and repository endpoint type (`github-https`, `github-ssh`, or `custom`).
