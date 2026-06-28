@@ -169,11 +169,11 @@ $packageGroups = @($wingetConfig.PSObject.Properties.Name | Where-Object { $_ -n
 $bootstrap.INSTALL_PACKAGES = Prompt-MultiChoice -Label 'Package groups to install' -Choices $packageGroups -CurrentValues $bootstrap.INSTALL_PACKAGES
 
 Write-Section 'Windows feature groups'
-$featureGroups = @($featuresConfig.PSObject.Properties.Name | Sort-Object)
+$featureGroups = if ($featuresConfig) { @($featuresConfig.PSObject.Properties.Name | Sort-Object) } else { @() }
 $bootstrap.INSTALL_FEATURES = Prompt-MultiChoice -Label 'Windows feature groups to enable' -Choices $featureGroups -CurrentValues $bootstrap.INSTALL_FEATURES
 
 Write-Section 'Setup setting groups'
-$settingGroups = @($setupModulesConfig.settings.PSObject.Properties.Name | Sort-Object)
+$settingGroups = if ($setupModulesConfig.settings) { @($setupModulesConfig.settings.PSObject.Properties.Name | Sort-Object) } else { @() }
 $bootstrap.INSTALL_SETTINGS = Prompt-MultiChoice -Label 'Setting groups to apply' -Choices $settingGroups -CurrentValues $bootstrap.INSTALL_SETTINGS
 
 Write-Section 'Git global config'

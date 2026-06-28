@@ -33,7 +33,7 @@ Describe 'Setup configuration resolution' {
                 Write-TestJson -Path $featuresPath -Json '{"hyperv":["HypervisorPlatform","Microsoft-Hyper-V-All"],"wsl":["VirtualMachinePlatform"]}'
                 Write-TestJson -Path $bootstrapPath -Json '{"INSTALL_FEATURES":["wsl"]}'
 
-                $features = Resolve-DotfilesWindowsFeature -ConfigPath $featuresPath -BootstrapPath $bootstrapPath
+                $features = @(Resolve-DotfilesWindowsFeature -ConfigPath $featuresPath -BootstrapPath $bootstrapPath)
                 if (($features -join ',') -ne 'VirtualMachinePlatform') {
                     throw "Expected only the WSL feature, got '$($features -join ',')'."
                 }
@@ -55,6 +55,25 @@ Describe 'Setup configuration resolution' {
                 $features = Resolve-DotfilesWindowsFeature -ConfigPath $featuresPath -BootstrapPath $bootstrapPath
                 if ($features.Count -ne 0) {
                     throw "Expected no features, got '$($features -join ',')'."
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $configDir -Recurse -Force
+            }
+        }
+
+        It 'deduplicates feature names case-insensitively' {
+            $configDir = New-TestConfigDirectory
+            try {
+                $featuresPath = Join-Path $configDir 'windows-features.json'
+                $bootstrapPath = Join-Path $configDir 'dotfiles-bootstrap-variables.json'
+
+                Write-TestJson -Path $featuresPath -Json '{"hyperv":["HypervisorPlatform"],"wsl":["hypervisorplatform"]}'
+                Write-TestJson -Path $bootstrapPath -Json '{}'
+
+                $features = @(Resolve-DotfilesWindowsFeature -ConfigPath $featuresPath -BootstrapPath $bootstrapPath)
+                if ($features.Count -ne 1 -or $features[0] -ne 'HypervisorPlatform') {
+                    throw "Expected one deduplicated feature, got '$($features -join ',')'."
                 }
             }
             finally {
@@ -130,6 +149,23 @@ Describe 'Setup configuration resolution' {
                 $plan = Get-DotfilesSetupPlan -DotfilesVariables $bootstrap -ConfigDirectory $configDir
                 if ($plan.Count -ne 0) {
                     throw "Expected empty module plan, got '$(@($plan | ForEach-Object { $_.Script }) -join ',')'."
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $configDir -Recurse -Force
+            }
+        }
+
+        It 'handles missing module groups without creating null plan entries' {
+            $configDir = New-TestConfigDirectory
+            try {
+                $setupModulesPath = Join-Path $configDir 'setup-modules.json'
+                Write-TestJson -Path $setupModulesPath -Json '{}'
+                $bootstrap = '{"INSTALL_FEATURES":["wsl"],"INSTALL_PACKAGES":["base"],"INSTALL_SETTINGS":["developer"]}' | ConvertFrom-Json
+
+                $plan = Get-DotfilesSetupPlan -DotfilesVariables $bootstrap -ConfigDirectory $configDir
+                if ($plan.Count -ne 0) {
+                    throw "Expected empty module plan for missing groups, got '$(@($plan | ForEach-Object { $_.Script }) -join ',')'."
                 }
             }
             finally {

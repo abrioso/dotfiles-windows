@@ -420,7 +420,7 @@ function Resolve-DotfilesWindowsFeature {
         }
 
         foreach ($featureName in (ConvertTo-DotfilesStringArray -Value $property.Value)) {
-            if (-not $features.Contains($featureName)) {
+            if ($features -notcontains $featureName) {
                 $features.Add($featureName)
             }
         }
@@ -448,7 +448,7 @@ function Get-DotfilesSetupPlan {
     $selectedFeatures = if ($hasInstallFeatures) { ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_FEATURES } else { @() }
     $runAllFeatureModules = -not $hasInstallFeatures
 
-    foreach ($entry in @($setupConfig.features)) {
+    foreach ($entry in $setupConfig.features) {
         $matched = $runAllFeatureModules
         if (-not $matched -and $selectedFeatures.Count -gt 0) {
             $selectors = ConvertTo-DotfilesStringArray -Value $entry.whenSelected
@@ -463,7 +463,7 @@ function Get-DotfilesSetupPlan {
     $hasInstallPackages = Test-DotfilesObjectProperty -InputObject $DotfilesVariables -Name "INSTALL_PACKAGES"
     $selectedPackages = if ($hasInstallPackages) { ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_PACKAGES } else { @() }
     if ((-not $hasInstallPackages) -or $selectedPackages.Count -gt 0) {
-        foreach ($entry in @($setupConfig.packages)) {
+        foreach ($entry in $setupConfig.packages) {
             Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
         }
     }
@@ -472,9 +472,10 @@ function Get-DotfilesSetupPlan {
     $selectedSettings = if ($hasInstallSettings) { ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_SETTINGS } else { @() }
     $runAllSettings = -not $hasInstallSettings
 
-    foreach ($group in $setupConfig.settings.PSObject.Properties) {
+    $settingGroups = if ($setupConfig.settings) { $setupConfig.settings.PSObject.Properties } else { @() }
+    foreach ($group in $settingGroups) {
         if ($runAllSettings -or ($selectedSettings -contains $group.Name)) {
-            foreach ($entry in @($group.Value)) {
+            foreach ($entry in $group.Value) {
                 Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
             }
         }
