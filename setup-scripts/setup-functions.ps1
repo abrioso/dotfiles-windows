@@ -350,11 +350,15 @@ function ConvertTo-DotfilesStringArray {
 
 function Test-DotfilesObjectProperty {
     param (
-        [Parameter(Mandatory)]
+        [AllowNull()]
         $InputObject,
         [Parameter(Mandatory)]
         [string]$Name
     )
+
+    if ($null -eq $InputObject) {
+        return $false
+    }
 
     return ($InputObject.PSObject.Properties.Name -contains $Name)
 }

@@ -136,7 +136,8 @@ Sync-DotfilesLocalConfiguration -SourceRoot $dotfileRootDir -TargetRoot $dotfile
 Write-Info "Running the modular setup scripts from 'setup-modules'..."
 
 $moduleScriptsPath = Join-Path $dotfilesDirectory "setup-modules"
-$modulesToRun = Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables
+$moduleConfigDirectory = Join-Path $dotfilesDirectory "dotfiles-configurations"
+$modulesToRun = Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 
 if (-not (Test-Path -LiteralPath $moduleScriptsPath)) {
     Write-ErrorMessage "The 'setup-modules' directory was not found at '$moduleScriptsPath'."

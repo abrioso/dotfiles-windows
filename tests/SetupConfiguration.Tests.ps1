@@ -3,14 +3,9 @@ Describe 'Setup configuration resolution' {
         . "$PSScriptRoot/../setup-scripts/setup-functions.ps1"
     }
 
-    function New-TestConfigDirectory {
-        [CmdletBinding(SupportsShouldProcess)]
-        param()
-
+    function Get-TestConfigDirectory {
         $path = Join-Path $env:TEMP ([System.Guid]::NewGuid())
-        if ($PSCmdlet.ShouldProcess($path, 'Create test configuration directory')) {
-            New-Item -ItemType Directory -Path $path | Out-Null
-        }
+        New-Item -ItemType Directory -Path $path | Out-Null
         return $path
     }
 
@@ -25,7 +20,7 @@ Describe 'Setup configuration resolution' {
 
     Context 'Resolve-DotfilesWindowsFeature' {
         It 'returns only features selected by INSTALL_FEATURES' {
-            $configDir = New-TestConfigDirectory
+            $configDir = Get-TestConfigDirectory
             try {
                 $featuresPath = Join-Path $configDir 'windows-features.json'
                 $bootstrapPath = Join-Path $configDir 'dotfiles-bootstrap-variables.json'
@@ -44,7 +39,7 @@ Describe 'Setup configuration resolution' {
         }
 
         It 'returns no features when INSTALL_FEATURES is explicitly empty' {
-            $configDir = New-TestConfigDirectory
+            $configDir = Get-TestConfigDirectory
             try {
                 $featuresPath = Join-Path $configDir 'windows-features.json'
                 $bootstrapPath = Join-Path $configDir 'dotfiles-bootstrap-variables.json'
@@ -63,7 +58,7 @@ Describe 'Setup configuration resolution' {
         }
 
         It 'deduplicates feature names case-insensitively' {
-            $configDir = New-TestConfigDirectory
+            $configDir = Get-TestConfigDirectory
             try {
                 $featuresPath = Join-Path $configDir 'windows-features.json'
                 $bootstrapPath = Join-Path $configDir 'dotfiles-bootstrap-variables.json'
@@ -84,7 +79,7 @@ Describe 'Setup configuration resolution' {
 
     Context 'Get-DotfilesSetupPlan' {
         It 'builds a module plan from selected feature, package, and setting groups' {
-            $configDir = New-TestConfigDirectory
+            $configDir = Get-TestConfigDirectory
             try {
                 $setupModulesPath = Join-Path $configDir 'setup-modules.json'
                 Write-TestJson -Path $setupModulesPath -Json @'
@@ -126,7 +121,7 @@ Describe 'Setup configuration resolution' {
         }
 
         It 'skips package and setting modules for explicit empty selections' {
-            $configDir = New-TestConfigDirectory
+            $configDir = Get-TestConfigDirectory
             try {
                 $setupModulesPath = Join-Path $configDir 'setup-modules.json'
                 Write-TestJson -Path $setupModulesPath -Json @'
@@ -157,7 +152,7 @@ Describe 'Setup configuration resolution' {
         }
 
         It 'handles missing module groups without creating null plan entries' {
-            $configDir = New-TestConfigDirectory
+            $configDir = Get-TestConfigDirectory
             try {
                 $setupModulesPath = Join-Path $configDir 'setup-modules.json'
                 Write-TestJson -Path $setupModulesPath -Json '{}'
@@ -170,6 +165,27 @@ Describe 'Setup configuration resolution' {
             }
             finally {
                 Remove-Item -LiteralPath $configDir -Recurse -Force
+            }
+        }
+    }
+
+    Context 'Test-DotfilesObjectProperty' {
+        It 'returns false for null input' {
+            $hasProperty = Test-DotfilesObjectProperty -InputObject $null -Name 'INSTALL_FEATURES'
+            if ($hasProperty) {
+                throw 'Expected null input to report property not present.'
+            }
+        }
+    }
+
+    Context 'Setup script orchestration' {
+        It 'builds the setup plan from the cloned repository configuration directory' {
+            $setupScript = Get-Content -LiteralPath "$PSScriptRoot/../setup-scripts/setup.ps1" -Raw
+            if ($setupScript -notmatch [regex]::Escape('$moduleConfigDirectory = Join-Path $dotfilesDirectory "dotfiles-configurations"')) {
+                throw 'Expected setup.ps1 to derive module config from the cloned dotfiles directory.'
+            }
+            if ($setupScript -notmatch [regex]::Escape('Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory')) {
+                throw 'Expected setup.ps1 to pass the cloned config directory into Get-DotfilesSetupPlan.'
             }
         }
     }
