@@ -4,9 +4,8 @@ This repository contains scripts and configuration files for automating the setu
 
 ## Directory Layout
 
-- `setup-scripts/` – Bootstrap scripts for installing prerequisites, cloning the repository and applying DSC configurations.
-- `dsc-configurations/` – WinGet Desired State Configuration (DSC) YAML files that define packages and system settings.
-- `dotfiles-configurations/` – JSON files storing bootstrap variables, environment variables and package lists used by the setup scripts.
+- `setup-scripts/` – Bootstrap scripts for installing prerequisites, cloning the repository and applying setup modules.
+- `dotfiles-configurations/` – JSON templates for bootstrap variables, package groups, Windows feature groups, environment variables, Git config and setup module selection.
 - `powershell-scripts/` – Reusable PowerShell functions and utilities.
 - `powershell-profiles/` – Example profile scripts that configure modules, functions and aliases at startup.
 - `windows-terminal-settings/` – Sample `settings.json` for Windows Terminal.
@@ -19,4 +18,4 @@ Create an `extra.ps1` file to store private commands or secrets that you do not 
 
 ## Next Steps
 
-Explore the DSC files in `dsc-configurations/` to see which packages and configurations are applied. Review the helper scripts in `powershell-scripts/` for environment management utilities. Customize the JSON files in `dotfiles-configurations/` to tailor the installation to your needs.
+Review the helper scripts in `powershell-scripts/` for environment management utilities. Customize the local JSON files in `dotfiles-configurations/` to tailor the installation to your needs, or update the tracked `*.json.example` templates to change shared defaults.

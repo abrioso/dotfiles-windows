@@ -8,6 +8,14 @@
     This script requires administrative privileges to run.
     This script is designed to be idempotent.
 #>
+param (
+    [string]$ConfigPath = "$PSScriptRoot/../dotfiles-configurations/windows-features.json",
+    [string]$BootstrapPath = "$PSScriptRoot/../dotfiles-configurations/dotfiles-bootstrap-variables.json",
+    [string[]]$Groups = @()
+)
+
+$dotfilesRoot = Split-Path -Parent $PSScriptRoot
+. "$dotfilesRoot\setup-scripts\setup-functions.ps1"
 
 function Test-IsElevated {
     $id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -20,11 +28,12 @@ if (-not (Test-IsElevated)) {
     exit 1
 }
 
-$featuresToEnable = @(
-    "Microsoft-Hyper-V-All",
-    "VirtualMachinePlatform",
-    "Microsoft-Windows-Subsystem-Linux"
-)
+$featuresToEnable = Resolve-DotfilesWindowsFeature -ConfigPath $ConfigPath -BootstrapPath $BootstrapPath -Groups $Groups -GroupsSpecified:$PSBoundParameters.ContainsKey('Groups')
+
+if ($featuresToEnable.Count -eq 0) {
+    Write-Output "No Windows feature groups selected. Skipping Windows feature configuration."
+    exit 0
+}
 
 $restartNeeded = $false
 

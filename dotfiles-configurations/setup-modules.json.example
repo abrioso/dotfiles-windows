@@ -1,0 +1,46 @@
+{
+    "features": [
+        {
+            "name": "windows-features",
+            "script": "Configure-WindowsFeatures.ps1",
+            "requiresAdmin": true,
+            "whenSelected": [
+                "hyperv",
+                "wsl"
+            ]
+        }
+    ],
+    "packages": [
+        {
+            "name": "winget-packages",
+            "script": "Install-WingetPackages.ps1"
+        }
+    ],
+    "settings": {
+        "base": [
+            {
+                "script": "Set-EnvironmentVariables.ps1"
+            },
+            {
+                "script": "Install-WindowsTerminalSettings.ps1"
+            }
+        ],
+        "developer": [
+            {
+                "script": "Apply-GitConfig.ps1"
+            }
+        ],
+        "pwsh": [
+            {
+                "script": "Create-PowerShellProfileSymlink.ps1",
+                "requiresAdmin": true
+            },
+            {
+                "script": "Install-NerdFont.ps1"
+            },
+            {
+                "script": "Install-OmpConfig.ps1"
+            }
+        ]
+    }
+}
