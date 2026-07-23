@@ -114,7 +114,7 @@ $dotfilesInstallDir = Resolve-ExtractedDotfilesDirectory -ExpectedDirectory $dot
 
 Push-Location -LiteralPath $dotfilesInstallDir
 try {
-    & .\setup-scripts\setup.ps1
+    & .\setup-scripts\setup.ps1 -BootstrapBranch $branch
 } finally {
     Pop-Location
 }

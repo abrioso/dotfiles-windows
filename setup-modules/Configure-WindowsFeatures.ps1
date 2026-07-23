@@ -53,15 +53,11 @@ try {
             Write-Host "Feature '$featureName' is already enabled. Skipping."
         } else {
             Write-Host "Feature '$featureName' is currently $($feature.State). Enabling..."
-            $result = Enable-WindowsOptionalFeature -Online -FeatureName $featureName -All -NoRestart
+            $result = Enable-WindowsOptionalFeature -Online -FeatureName $featureName -All -NoRestart -ErrorAction Stop
 
-            if ($LASTEXITCODE -ne 0) {
-                Write-Error "Failed to enable feature '$featureName'."
-            } else {
-                Write-Host "Successfully enabled feature '$featureName'."
-                if ($result.RestartNeeded) {
-                    $restartNeeded = $true
-                }
+            Write-Host "Successfully enabled feature '$featureName'."
+            if ($result.RestartNeeded) {
+                $restartNeeded = $true
             }
         }
     }

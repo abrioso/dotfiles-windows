@@ -11,6 +11,11 @@ To make this work, you need to set your execution policy to unrestricted (or at 
 
 #>
 
+[CmdletBinding()]
+param (
+    [string]$BootstrapBranch
+)
+
 # dotfileRootDir is the root directory of the dotfiles repository
 $dotfileRootDir = Split-Path -Parent $PSScriptRoot
 
@@ -71,6 +76,11 @@ if ($missingVars) {
     Write-ErrorMessage "Missing required configuration variables: $($missingVars -join ', ')"
     Stop-Logging
     Exit 1
+}
+
+if (-not [string]::IsNullOrWhiteSpace($BootstrapBranch)) {
+    Write-Info "Using bootstrap branch override: $BootstrapBranch"
+    $DotfilesVariables.GITHUB_DOTFILES_BRANCH = $BootstrapBranch
 }
 
 
