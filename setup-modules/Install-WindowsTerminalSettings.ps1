@@ -45,7 +45,8 @@ if (-not $devModeEnabled) {
 }
 
 $settingsSourceFile = Join-Path $dotfileRootDir "windows-terminal-settings\settings.json"
-$wtLocalStatePath   = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState"
+$wtPackagePath      = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe"
+$wtLocalStatePath   = Join-Path $wtPackagePath "LocalState"
 $symlinkPath        = Join-Path $wtLocalStatePath "settings.json"
 
 if (-not (Test-Path $settingsSourceFile)) {
@@ -54,11 +55,22 @@ if (-not (Test-Path $settingsSourceFile)) {
     Exit 1
 }
 
-if (-not (Test-Path $wtLocalStatePath)) {
-    Write-ErrorMessage "Windows Terminal LocalState directory not found: $wtLocalStatePath"
+if (-not (Test-Path -LiteralPath $wtPackagePath)) {
+    Write-ErrorMessage "Windows Terminal package directory not found: $wtPackagePath"
     Write-ErrorMessage "Make sure Windows Terminal is installed before running this script."
     Stop-Logging
     Exit 1
+}
+
+if (-not (Test-Path -LiteralPath $wtLocalStatePath)) {
+    try {
+        Write-Info "Creating Windows Terminal LocalState directory: $wtLocalStatePath"
+        New-Item -ItemType Directory -Path $wtLocalStatePath -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-ErrorMessage "Failed to create Windows Terminal LocalState directory: $($_.Exception.Message)"
+        Stop-Logging
+        Exit 1
+    }
 }
 
 if (Test-Path $symlinkPath) {

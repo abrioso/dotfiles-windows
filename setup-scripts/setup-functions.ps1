@@ -69,12 +69,21 @@ function Stop-Logging {
     }
 }
 
+function Update-DotfilesProcessPath {
+    $pathSegments = @(
+        [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+        [System.Environment]::GetEnvironmentVariable("Path", "User")
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+    $env:Path = $pathSegments -join [System.IO.Path]::PathSeparator
+}
+
 # Function to install the dotfiles pre-requisites
 function Install-DotfilesPrerequisites {
     Write-Info "Installing dotfiles prerequisites..."
     $installModuleParams = @{}
     $allUsersScope = if (Test-IsElevated) { 'AllUsers' } else { 'CurrentUser' }
-    $wingetScope    = if (Test-IsElevated) { '--scope machine' } else { '' }
+    $wingetScopeArgs = if (Test-IsElevated) { @('--scope', 'machine') } else { @() }
     try {
         # Check if NuGet provider is installed
         if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
@@ -95,7 +104,8 @@ function Install-DotfilesPrerequisites {
         if ($wingetAvailable) {
             Write-Info "Winget is available, proceeding with installations."
         } else {
-            Write-WarningMessage "Winget is not available. Some installations may not work as expected."
+            Write-ErrorMessage "Winget is required to install bootstrap prerequisites. Install App Installer and re-run setup."
+            return $false
         }
     } catch {
         Write-ErrorMessage "Failed to check winget availability: $($_.Exception.Message)"
@@ -106,16 +116,20 @@ function Install-DotfilesPrerequisites {
     try {
         if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
             Write-Info "PowerShell is not installed. Installing PowerShell..."
-            if ($wingetAvailable) {
-                try {
-                    $result = Invoke-Expression "winget install --id Microsoft.PowerShell -e $wingetScope --force --accept-source-agreements --accept-package-agreements"
-                    if ($LASTEXITCODE -ne 0) { throw "Failed to install PowerShell: $result" }
-                } catch {
-                    Write-ErrorMessage "Error installing PowerShell: $_"
-                    Write-WarningMessage "Continuing with script, but some features may not work correctly."
-                }
-            } else {
-                Write-WarningMessage "Winget is not available. Please install PowerShell manually."
+            $wingetArguments = @(
+                'install', '--id', 'Microsoft.PowerShell', '--exact', '--force',
+                '--accept-source-agreements', '--accept-package-agreements'
+            ) + $wingetScopeArgs
+            & winget @wingetArguments
+            if ($LASTEXITCODE -ne 0) {
+                Write-ErrorMessage "Winget failed to install PowerShell (exit code $LASTEXITCODE)."
+                return $false
+            }
+
+            Update-DotfilesProcessPath
+            if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+                Write-ErrorMessage "PowerShell was installed but pwsh is not available on PATH."
+                return $false
             }
         } else {
             Write-Info "PowerShell 7 is already installed, skipping installation."
@@ -177,16 +191,20 @@ function Install-DotfilesPrerequisites {
     # Install Git if not present
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         Write-Info "Git not found. Installing Git..."
-        if ($wingetAvailable) {
-            try {
-                $result = Invoke-Expression "winget install --id Git.Git -e $wingetScope --force --accept-source-agreements --accept-package-agreements"
-                if ($LASTEXITCODE -ne 0) { throw "Failed to install Git: $result" }
-            } catch {
-                Write-ErrorMessage "Error installing Git: $_"
-                Write-WarningMessage "Continuing with script, but some features may not work correctly."
-            }
-        } else {
-            Write-WarningMessage "Winget is not available. Please install Git manually."
+        $wingetArguments = @(
+            'install', '--id', 'Git.Git', '--exact', '--force',
+            '--accept-source-agreements', '--accept-package-agreements'
+        ) + $wingetScopeArgs
+        & winget @wingetArguments
+        if ($LASTEXITCODE -ne 0) {
+            Write-ErrorMessage "Winget failed to install Git (exit code $LASTEXITCODE)."
+            return $false
+        }
+
+        Update-DotfilesProcessPath
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+            Write-ErrorMessage "Git was installed but git is not available on PATH."
+            return $false
         }
     } else {
         Write-Info "Git is already installed, skipping installation."

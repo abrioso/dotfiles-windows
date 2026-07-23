@@ -121,6 +121,8 @@ An explicit empty array skips setting modules. If the property is absent, setup 
 iex "& { $(irm 'https://raw.githubusercontent.com/YourGitHubAccount/YourDotfilesRepoName/main/setup-scripts/install.ps1') } -Account YourGitHubAccount -Repo YourDotfilesRepoName -Branch main"
 ```
 
+The `-Branch` value is used for both the downloaded archive and the repository checkout, so a bootstrap started from `develop` or another branch does not switch back to the template's default branch.
+
 For a custom ZIP archive endpoint:
 
 ```pwsh

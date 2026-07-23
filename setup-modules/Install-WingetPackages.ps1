@@ -21,6 +21,10 @@ function Test-IsElevated {
 }
 
 try {
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        throw "Winget is required to install configured packages."
+    }
+
     Write-Host "Reading package configuration from $ConfigPath..."
     if (-not (Test-Path -LiteralPath $ConfigPath)) {
         Write-Warning "Package configuration file not found: $ConfigPath. Skipping package installation."
@@ -68,6 +72,7 @@ try {
     }
 
     Write-Host "Found $($packageIds.Count) unique packages to process."
+    $failedPackages = [System.Collections.Generic.List[string]]::new()
 
     foreach ($packageId in $packageIds) {
         Write-Host "Processing package: $packageId"
@@ -84,11 +89,16 @@ try {
             winget install --id $packageId --exact --accept-source-agreements --accept-package-agreements
 
             if ($LASTEXITCODE -ne 0) {
-                Write-Warning "Failed to install package '$packageId'. Winget exited with code $LASTEXITCODE. Continuing..."
+                Write-Warning "Failed to install package '$packageId'. Winget exited with code $LASTEXITCODE."
+                $failedPackages.Add($packageId)
             } else {
                 Write-Host "Successfully installed package '$packageId'."
             }
         }
+    }
+
+    if ($failedPackages.Count -gt 0) {
+        throw "Winget failed to install $($failedPackages.Count) package(s): $($failedPackages -join ', ')"
     }
 }
 catch {
