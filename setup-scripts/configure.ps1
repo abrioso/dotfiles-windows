@@ -12,6 +12,8 @@ param (
 )
 
 $ErrorActionPreference = 'Stop'
+$dotfilesRoot = Split-Path -Parent $PSScriptRoot
+. "$dotfilesRoot\setup-scripts\setup-functions.ps1"
 
 function Write-Section {
     param([string]$Title)
@@ -158,14 +160,11 @@ if ($bootstrap.REPOSITORY_ENDPOINT_TYPE -eq 'custom') {
     $bootstrap.CUSTOM_REPOSITORY_URL = Prompt-Value -Label 'Custom repository clone URL' -CurrentValue $bootstrap.CUSTOM_REPOSITORY_URL
 }
 
-Write-Section 'Local paths and locale'
+Write-Section 'Local paths'
 $bootstrap.WORKSPACE_FOLDER = Prompt-Value -Label 'Workspace folder under USERPROFILE' -CurrentValue $bootstrap.WORKSPACE_FOLDER
-$bootstrap.CUSTOM_PROFILE_FOLDER = Prompt-Value -Label 'Custom profile folder' -CurrentValue $bootstrap.CUSTOM_PROFILE_FOLDER
-$bootstrap.CULTURE = Prompt-Value -Label 'Windows culture' -CurrentValue $bootstrap.CULTURE
-$bootstrap.TIMEZONE = Prompt-Value -Label 'Windows timezone' -CurrentValue $bootstrap.TIMEZONE
 
 Write-Section 'Package groups'
-$packageGroups = @($wingetConfig.PSObject.Properties.Name | Where-Object { $_ -ne 'Packages' } | Sort-Object)
+$packageGroups = @($wingetConfig.PSObject.Properties.Name | Sort-Object)
 $bootstrap.INSTALL_PACKAGES = Prompt-MultiChoice -Label 'Package groups to install' -Choices $packageGroups -CurrentValues $bootstrap.INSTALL_PACKAGES
 
 Write-Section 'Windows feature groups'
@@ -175,6 +174,21 @@ $bootstrap.INSTALL_FEATURES = Prompt-MultiChoice -Label 'Windows feature groups 
 Write-Section 'Setup setting groups'
 $settingGroups = if ($setupModulesConfig.settings) { @($setupModulesConfig.settings.PSObject.Properties.Name | Sort-Object) } else { @() }
 $bootstrap.INSTALL_SETTINGS = Prompt-MultiChoice -Label 'Setting groups to apply' -Choices $settingGroups -CurrentValues $bootstrap.INSTALL_SETTINGS
+
+$requiredPackageGroups = Get-DotfilesRequiredPackageGroup -SetupConfig $setupModulesConfig -SelectedSettings $bootstrap.INSTALL_SETTINGS
+$selectedPackageGroups = [System.Collections.Generic.List[string]]::new()
+foreach ($group in @($bootstrap.INSTALL_PACKAGES)) {
+    if (-not [string]::IsNullOrWhiteSpace($group) -and -not $selectedPackageGroups.Contains($group)) {
+        $selectedPackageGroups.Add($group)
+    }
+}
+foreach ($requiredGroup in $requiredPackageGroups) {
+    if (-not $selectedPackageGroups.Contains($requiredGroup)) {
+        Write-Warning "Adding package group '$requiredGroup' because it is required by the selected settings."
+        $selectedPackageGroups.Add($requiredGroup)
+    }
+}
+$bootstrap.INSTALL_PACKAGES = $selectedPackageGroups.ToArray()
 
 Write-Section 'Git global config'
 $gitConfig.'user.name' = Prompt-Value -Label 'git user.name' -CurrentValue $gitConfig.'user.name'

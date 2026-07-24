@@ -1,21 +1,21 @@
 Describe 'Setup configuration resolution' {
     BeforeAll {
         . "$PSScriptRoot/../setup-scripts/setup-functions.ps1"
-    }
 
-    function Get-TestConfigDirectory {
-        $path = Join-Path $env:TEMP ([System.Guid]::NewGuid())
-        New-Item -ItemType Directory -Path $path | Out-Null
-        return $path
-    }
+        function Get-TestConfigDirectory {
+            $path = Join-Path $env:TEMP ([System.Guid]::NewGuid())
+            New-Item -ItemType Directory -Path $path | Out-Null
+            return $path
+        }
 
-    function Write-TestJson {
-        param(
-            [Parameter(Mandatory)][string]$Path,
-            [Parameter(Mandatory)][string]$Json
-        )
+        function Write-TestJson {
+            param(
+                [Parameter(Mandatory)][string]$Path,
+                [Parameter(Mandatory)][string]$Json
+            )
 
-        Set-Content -LiteralPath $Path -Value $Json -Encoding UTF8
+            Set-Content -LiteralPath $Path -Value $Json -Encoding UTF8
+        }
     }
 
     Context 'Resolve-DotfilesWindowsFeature' {
@@ -169,6 +169,72 @@ Describe 'Setup configuration resolution' {
         }
     }
 
+    Context 'Setup dependencies' {
+        It 'resolves required package groups from selected settings' {
+            $setupConfig = @'
+{
+  "settings": {
+    "base": [
+      { "script": "Install-WindowsTerminalSettings.ps1", "requiresPackageGroups": ["base"] }
+    ],
+    "pwsh": [
+      { "script": "Install-OmpConfig.ps1", "requiresPackageGroups": ["pwsh"] }
+    ]
+  }
+}
+'@ | ConvertFrom-Json
+
+            $required = @(Get-DotfilesRequiredPackageGroup -SetupConfig $setupConfig -SelectedSettings @('base', 'pwsh'))
+            if (($required -join ',') -ne 'base,pwsh') {
+                throw "Expected package dependencies 'base,pwsh', got '$($required -join ',')'."
+            }
+        }
+
+        It 'rejects selected settings with missing package groups' {
+            $configDir = Get-TestConfigDirectory
+            try {
+                $setupModulesPath = Join-Path $configDir 'setup-modules.json'
+                Write-TestJson -Path $setupModulesPath -Json '{"settings":{"pwsh":[{"script":"Install-OmpConfig.ps1","requiresPackageGroups":["pwsh"]}]}}'
+                $bootstrap = '{"INSTALL_PACKAGES":["base"],"INSTALL_SETTINGS":["pwsh"]}' | ConvertFrom-Json
+                $threw = $false
+
+                try {
+                    Assert-DotfilesSetupDependencies -DotfilesVariables $bootstrap -ConfigDirectory $configDir
+                }
+                catch {
+                    $threw = $_.Exception.Message -match 'missing package group'
+                }
+
+                if (-not $threw) {
+                    throw 'Expected missing package dependencies to fail validation.'
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $configDir -Recurse -Force
+            }
+        }
+    }
+
+    Context 'Bootstrap branch persistence' {
+        It 'writes a branch override to local configuration' {
+            $configDir = Get-TestConfigDirectory
+            try {
+                $bootstrapPath = Join-Path $configDir 'dotfiles-bootstrap-variables.json'
+                Write-TestJson -Path $bootstrapPath -Json '{"GITHUB_DOTFILES_BRANCH":"main"}'
+
+                Set-DotfilesBootstrapBranch -ConfigPath $bootstrapPath -Branch 'develop'
+                $bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
+
+                if ($bootstrap.GITHUB_DOTFILES_BRANCH -ne 'develop') {
+                    throw "Expected persisted branch 'develop', got '$($bootstrap.GITHUB_DOTFILES_BRANCH)'."
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $configDir -Recurse -Force
+            }
+        }
+    }
+
     Context 'Test-DotfilesObjectProperty' {
         It 'returns false for null input' {
             $hasProperty = Test-DotfilesObjectProperty -InputObject $null -Name 'INSTALL_FEATURES'
@@ -186,6 +252,9 @@ Describe 'Setup configuration resolution' {
             }
             if ($setupScript -notmatch [regex]::Escape('Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory')) {
                 throw 'Expected setup.ps1 to pass the cloned config directory into Get-DotfilesSetupPlan.'
+            }
+            if ($setupScript -notmatch [regex]::Escape('Assert-DotfilesSetupDependencies -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory')) {
+                throw 'Expected setup.ps1 to validate package dependencies before running modules.'
             }
         }
     }

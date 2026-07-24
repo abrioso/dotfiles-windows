@@ -27,6 +27,8 @@ iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.co
 
 For forks or custom archive sources, see [Configuration](docs/CONFIGURATION.md#git-free-install-parameters).
 
+Use `-NonInteractive` with the parameterized installer when all `.json.example` defaults should be accepted without opening the configuration prompts.
+
 ## How It Works
 
 This repository uses a main setup script (`setup.ps1`) to orchestrate a series of modular PowerShell scripts located in the `setup-modules` directory. The configuration is data-driven, with package lists, environment variables, Git settings, and repository endpoint settings defined in local JSON files in the `dotfiles-configurations` directory. Local `*.json` configuration files are intentionally gitignored; tracked defaults live in `*.json.example` templates.
@@ -100,6 +102,10 @@ To customize the software, environment, endpoint type, and settings, run:
 ```
 
 The TUI creates local gitignored JSON files from `*.json.example` templates when needed. `setup.ps1` also launches it automatically when required config files are missing. To add a new application to the shared defaults, edit `dotfiles-configurations\winget-packages.json.example`; to customize only your machine, edit the local `winget-packages.json`.
+
+## Validation
+
+Pull requests and pushes to `develop` or `main` run Pester, PSScriptAnalyzer, PowerShell syntax parsing, JSON parsing, and whitespace checks on Windows through GitHub Actions.
 
 ## Feedback
 

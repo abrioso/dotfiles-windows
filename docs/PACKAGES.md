@@ -8,6 +8,7 @@ This repository manages Windows application packages via `winget` (Windows Packa
 - The configuration TUI copies that template to local `dotfiles-configurations/winget-packages.json`
 - The `Install-WingetPackages.ps1` module reads the local JSON and installs the groups selected by `INSTALL_PACKAGES`
 - Each entry specifies the `winget` package ID
+- Setting modules can declare `requiresPackageGroups` in `setup-modules.json`; the TUI adds these groups automatically and setup validates them
 
 ## Adding a new package
 
@@ -18,14 +19,12 @@ This repository manages Windows application packages via `winget` (Windows Packa
 
 ## Package categories
 
-### Development
-- Git, Visual Studio Code, Windows Terminal, Docker Desktop, Node.js
-
-### Productivity
-- PowerToys, 7-Zip, Notepad++
-
-### System
-- Oh My Posh (terminal prompt), Nerd Fonts
-
-### Virtualization
-- Hyper-V, WSL2, Docker
+- `base` — Git, PowerShell, Visual Studio Code, Windows Terminal, Edge and gsudo
+- `browsers` — Chrome, Edge and Firefox
+- `development` — Azure tooling, Dev Home, GitHub CLI, Python, Git, PowerShell and Visual Studio Code
+- `docker` — Docker Desktop
+- `multimedia` — OBS Studio and VLC
+- `poweruser` — package-management and Sysinternals tooling
+- `productivity` — Microsoft Office, OneDrive, Power BI and Teams
+- `pwsh` — Oh My Posh
+- `wsl` — WSL and Ubuntu

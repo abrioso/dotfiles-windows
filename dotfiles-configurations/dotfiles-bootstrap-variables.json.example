@@ -10,26 +10,19 @@
         "custom": "{CUSTOM_REPOSITORY_URL}"
     },
     "WORKSPACE_FOLDER": "workspace",
-    "CUSTOM_PROFILE_FOLDER": "Profile-Custom",
-    "CULTURE": "pt-PT",
-    "TIMEZONE": "GMT Standard Time",
-    "INSTALL_TYPE": "windows",
-    "VM_EXCEPTIONS": [
-        "hyperv",
-        "wsl",
-        "docker"
-    ],
     "INSTALL_FEATURES": [
         "hyperv",
         "wsl"
     ],
     "INSTALL_PACKAGES": [
         "base",
-        "docker",
-        "development",
-        "productivity",
         "browsers",
-        "multimedia"
+        "development",
+        "docker",
+        "multimedia",
+        "productivity",
+        "pwsh",
+        "wsl"
     ],
     "INSTALL_SETTINGS": [
         "base",

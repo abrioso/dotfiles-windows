@@ -23,7 +23,10 @@
             },
             {
                 "script": "Install-WindowsTerminalSettings.ps1",
-                "requiresAdmin": true
+                "requiresAdmin": true,
+                "requiresPackageGroups": [
+                    "base"
+                ]
             }
         ],
         "developer": [
@@ -41,7 +44,10 @@
             },
             {
                 "script": "Install-OmpConfig.ps1",
-                "requiresAdmin": true
+                "requiresAdmin": true,
+                "requiresPackageGroups": [
+                    "pwsh"
+                ]
             }
         ]
     }

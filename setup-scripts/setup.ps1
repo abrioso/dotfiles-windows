@@ -13,7 +13,8 @@ To make this work, you need to set your execution policy to unrestricted (or at 
 
 [CmdletBinding()]
 param (
-    [string]$BootstrapBranch
+    [string]$BootstrapBranch,
+    [switch]$NonInteractive
 )
 
 # dotfileRootDir is the root directory of the dotfiles repository
@@ -61,7 +62,7 @@ try {
 
 # Apply the dotfiles bootstrap variables
 Write-Info "Applying dotfiles bootstrap variables..."
-$DotfilesVariables = Get-DotfilesBootstrapVariables
+$DotfilesVariables = Get-DotfilesBootstrapVariables -NonInteractive:$NonInteractive
 if (-not $DotfilesVariables) {
     Write-WarningMessage "No dotfiles bootstrap variables found."
     Stop-Transcript
@@ -69,7 +70,7 @@ if (-not $DotfilesVariables) {
 }
 
 # Validate required configuration values
-$requiredVars = @("CUSTOM_PROFILE_FOLDER", "WORKSPACE_FOLDER", "GITHUB_ACCOUNT", "GITHUB_DOTFILES_REPO")
+$requiredVars = @("WORKSPACE_FOLDER", "GITHUB_ACCOUNT", "GITHUB_DOTFILES_REPO")
 $missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
 
 if ($missingVars) {
@@ -81,6 +82,8 @@ if ($missingVars) {
 if (-not [string]::IsNullOrWhiteSpace($BootstrapBranch)) {
     Write-Info "Using bootstrap branch override: $BootstrapBranch"
     $DotfilesVariables.GITHUB_DOTFILES_BRANCH = $BootstrapBranch
+    $bootstrapConfigPath = Join-Path $dotfileRootDir "dotfiles-configurations\dotfiles-bootstrap-variables.json"
+    Set-DotfilesBootstrapBranch -ConfigPath $bootstrapConfigPath -Branch $BootstrapBranch
 }
 
 
@@ -147,6 +150,7 @@ Write-Info "Running the modular setup scripts from 'setup-modules'..."
 
 $moduleScriptsPath = Join-Path $dotfilesDirectory "setup-modules"
 $moduleConfigDirectory = Join-Path $dotfilesDirectory "dotfiles-configurations"
+Assert-DotfilesSetupDependencies -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 $modulesToRun = Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 
 if (-not (Test-Path -LiteralPath $moduleScriptsPath)) {
@@ -161,8 +165,9 @@ foreach ($module in $modulesToRun) {
     $moduleName = $module.Script
     $modulePath = Join-Path $moduleScriptsPath $moduleName
     if (-not (Test-Path -LiteralPath $modulePath)) {
-        Write-WarningMessage "Module script not found: $moduleName. Skipping."
-        continue
+        Write-ErrorMessage "Module script not found: $moduleName."
+        Stop-Logging
+        Exit 1
     }
 
     Write-Info "Running module: $moduleName"
