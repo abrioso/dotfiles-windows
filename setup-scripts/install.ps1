@@ -20,7 +20,8 @@ param (
     [string]$Branch = "main",
     [ValidateSet("github-archive", "custom-archive")]
     [string]$EndpointType = "github-archive",
-    [string]$ArchiveUrl = ""
+    [string]$ArchiveUrl = "",
+    [switch]$NonInteractive
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,7 +64,7 @@ function Expand-Zip {
         [System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
         [System.IO.Compression.ZipFile]::ExtractToDirectory("$filePath", "$destinationPath")
     } catch {
-        Write-Warning -Message "Unexpected Error. Error details: $_.Exception.Message"
+        throw "Failed to extract '$File' to '$Destination': $($_.Exception.Message)"
     }
 }
 
@@ -114,7 +115,7 @@ $dotfilesInstallDir = Resolve-ExtractedDotfilesDirectory -ExpectedDirectory $dot
 
 Push-Location -LiteralPath $dotfilesInstallDir
 try {
-    & .\setup-scripts\setup.ps1 -BootstrapBranch $branch
+    & .\setup-scripts\setup.ps1 -BootstrapBranch $branch -NonInteractive:$NonInteractive
 } finally {
     Pop-Location
 }

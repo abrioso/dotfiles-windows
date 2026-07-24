@@ -351,6 +351,28 @@ function Read-DotfilesJsonFile {
     return $content | ConvertFrom-Json
 }
 
+function Set-DotfilesBootstrapBranch {
+    param (
+        [Parameter(Mandatory)]
+        [string]$ConfigPath,
+        [Parameter(Mandatory)]
+        [string]$Branch
+    )
+
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
+        throw "Bootstrap configuration file not found: $ConfigPath"
+    }
+
+    $config = Read-DotfilesJsonFile -Path $ConfigPath
+    if (Test-DotfilesObjectProperty -InputObject $config -Name "GITHUB_DOTFILES_BRANCH") {
+        $config.GITHUB_DOTFILES_BRANCH = $Branch
+    } else {
+        $config | Add-Member -NotePropertyName "GITHUB_DOTFILES_BRANCH" -NotePropertyValue $Branch
+    }
+
+    $config | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
+}
+
 function ConvertTo-DotfilesStringArray {
     param (
         [AllowNull()]
@@ -506,6 +528,65 @@ function Get-DotfilesSetupPlan {
     return $plan.ToArray()
 }
 
+function Get-DotfilesRequiredPackageGroup {
+    param (
+        [Parameter(Mandatory)]
+        $SetupConfig,
+        [string[]]$SelectedSettings = @()
+    )
+
+    $requiredGroups = [System.Collections.Generic.List[string]]::new()
+    $settingGroups = if ($SetupConfig.settings) { $SetupConfig.settings.PSObject.Properties } else { @() }
+
+    foreach ($group in $settingGroups) {
+        if ($SelectedSettings -notcontains $group.Name) {
+            continue
+        }
+
+        foreach ($entry in $group.Value) {
+            foreach ($packageGroup in (ConvertTo-DotfilesStringArray -Value $entry.requiresPackageGroups)) {
+                if ($requiredGroups -notcontains $packageGroup) {
+                    $requiredGroups.Add($packageGroup)
+                }
+            }
+        }
+    }
+
+    return $requiredGroups.ToArray()
+}
+
+function Assert-DotfilesSetupDependencies {
+    param (
+        [Parameter(Mandatory)]
+        $DotfilesVariables,
+        [string]$ConfigDirectory = (Get-DotfilesConfigDirectory)
+    )
+
+    if (-not (Test-DotfilesObjectProperty -InputObject $DotfilesVariables -Name "INSTALL_PACKAGES")) {
+        return
+    }
+
+    $setupModulesPath = Join-Path $ConfigDirectory "setup-modules.json"
+    if (-not (Test-Path -LiteralPath $setupModulesPath)) {
+        throw "Setup module configuration file not found: $setupModulesPath"
+    }
+
+    $setupConfig = Read-DotfilesJsonFile -Path $setupModulesPath
+    $selectedPackages = ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_PACKAGES
+    $selectedSettings = if (Test-DotfilesObjectProperty -InputObject $DotfilesVariables -Name "INSTALL_SETTINGS") {
+        ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_SETTINGS
+    } else {
+        @($setupConfig.settings.PSObject.Properties.Name)
+    }
+
+    $requiredPackages = Get-DotfilesRequiredPackageGroup -SetupConfig $setupConfig -SelectedSettings $selectedSettings
+    $missingPackages = @($requiredPackages | Where-Object { $selectedPackages -notcontains $_ })
+
+    if ($missingPackages.Count -gt 0) {
+        throw "Selected settings require missing package group(s): $($missingPackages -join ', ')"
+    }
+}
+
 function Initialize-DotfilesConfiguration {
     param (
         [switch]$NonInteractive
@@ -599,8 +680,12 @@ function Sync-DotfilesLocalConfiguration {
 
 # Function to get the dotfiles bootstrap variables
 function Get-DotfilesBootstrapVariables {
+    param (
+        [switch]$NonInteractive
+    )
+
     try {
-        Initialize-DotfilesConfiguration
+        Initialize-DotfilesConfiguration -NonInteractive:$NonInteractive
 
         $DotfilesConfigFolder = Get-DotfilesConfigDirectory
         $DotfilesVariablesFile = Get-ChildItem -LiteralPath $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json" -ErrorAction Stop

@@ -52,12 +52,9 @@ try {
     $installAllGroups = (-not $groupsSpecified) -and (-not $bootstrapHasInstallPackages) -and ($Groups.Count -eq 0)
 
     # Collect package IDs from specified groups (or all groups if none specified).
-    # The 'Packages' property contains Microsoft Store IDs which require a different install path - skip them here.
     $packageIds = [System.Collections.Generic.List[string]]::new()
 
     foreach ($property in $config.PSObject.Properties) {
-        if ($property.Name -eq 'Packages') { continue }
-
         $includeGroup = $installAllGroups -or ($Groups -contains $property.Name)
         if (-not $includeGroup) {
             Write-Host "Skipping group '$($property.Name)' (not in INSTALL_PACKAGES)."
@@ -77,16 +74,15 @@ try {
     foreach ($packageId in $packageIds) {
         Write-Host "Processing package: $packageId"
 
-        # Check if the package is already installed.
-        # winget list always outputs a header, so we must match the package ID in the output text.
-        $listOutput = winget list --id $packageId --exact --accept-source-agreements 2>&1 | Out-String
-        $isInstalled = $listOutput -match [regex]::Escape($packageId)
+        # Winget returns a non-zero exit code when no exact installed package is found.
+        & winget list --id $packageId --exact --accept-source-agreements --disable-interactivity | Out-Null
+        $isInstalled = $LASTEXITCODE -eq 0
 
         if ($isInstalled) {
             Write-Host "Package '$packageId' is already installed. Skipping."
         } else {
             Write-Host "Package '$packageId' not found. Installing..."
-            winget install --id $packageId --exact --accept-source-agreements --accept-package-agreements
+            & winget install --id $packageId --exact --accept-source-agreements --accept-package-agreements --disable-interactivity
 
             if ($LASTEXITCODE -ne 0) {
                 Write-Warning "Failed to install package '$packageId'. Winget exited with code $LASTEXITCODE."

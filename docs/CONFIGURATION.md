@@ -8,7 +8,7 @@ Tracked templates live in `dotfiles-configurations/` with a `.json.example` suff
 
 | Template | Local file created by the TUI | Purpose |
 | --- | --- | --- |
-| `dotfiles-bootstrap-variables.json.example` | `dotfiles-bootstrap-variables.json` | Bootstrap settings, repository endpoint type, install groups, workspace paths, locale/timezone. |
+| `dotfiles-bootstrap-variables.json.example` | `dotfiles-bootstrap-variables.json` | Bootstrap settings, repository endpoint type, install groups, and workspace path. |
 | `winget-packages.json.example` | `winget-packages.json` | Available `winget` package groups and package IDs. |
 | `windows-features.json.example` | `windows-features.json` | Available Windows optional feature groups and feature names. |
 | `setup-modules.json.example` | `setup-modules.json` | Ordered setup module plan for features, packages, and settings. |
@@ -30,6 +30,8 @@ For non-interactive bootstrap flows, the TUI can create local files from templat
 ```pwsh
 .\setup-scripts\configure.ps1 -NonInteractive
 ```
+
+The TUI automatically adds package groups required by selected setting groups. Setup validates the same dependency metadata before running any module, including when local JSON files are edited manually.
 
 ## Repository endpoint types
 
@@ -122,6 +124,13 @@ iex "& { $(irm 'https://raw.githubusercontent.com/YourGitHubAccount/YourDotfiles
 ```
 
 The `-Branch` value is used for both the downloaded archive and the repository checkout, so a bootstrap started from `develop` or another branch does not switch back to the template's default branch.
+The branch override is persisted to the local bootstrap JSON and therefore remains active on later setup runs.
+
+For an unattended bootstrap that accepts all template defaults:
+
+```pwsh
+iex "& { $(irm 'https://raw.githubusercontent.com/YourGitHubAccount/YourDotfilesRepoName/main/setup-scripts/install.ps1') } -Account YourGitHubAccount -Repo YourDotfilesRepoName -Branch main -NonInteractive"
+```
 
 For a custom ZIP archive endpoint:
 
@@ -139,5 +148,6 @@ During setup:
 2. The repository is cloned, if needed, using the selected endpoint type.
 3. The configured branch is fetched, checked out, and fast-forward pulled.
 4. Local gitignored configuration generated during git-free bootstrap is copied into the real workspace clone after branch checkout.
-5. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
-6. Setup modules consume the local `*.json` files.
+5. Setup validates package-group dependencies declared by selected settings.
+6. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
+7. Setup modules consume the local `*.json` files and setup stops if a configured module is missing or fails.

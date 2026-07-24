@@ -1,57 +1,55 @@
 {
-    "Packages": [
-        "9MV8F79FGXTR",
-        "9NZCC27PR6N6"
-        ],
     "base": [
-        "Microsoft.WindowsTerminal",
-        "Microsoft.VisualStudioCode",
-        "Git.Git",
-        "Microsoft.PowerShell",
         "gerardog.gsudo",
-        "Microsoft.Edge"
+        "Git.Git",
+        "Microsoft.Edge",
+        "Microsoft.PowerShell",
+        "Microsoft.VisualStudioCode",
+        "Microsoft.WindowsTerminal"
     ],
     "poweruser": [
-        "Microsoft.VisualStudioCode",
-        "Git.Git",
-        "Microsoft.WindowsTerminal",
-        "Microsoft.PowerShell",
         "gerardog.gsudo",
-        "Microsoft.WindowsPackageManager",
+        "Git.Git",
+        "Microsoft.PowerShell",
         "Microsoft.Powertoys",
         "Microsoft.Sysinternals",
-        "JanDeDobbeleer.OhMyPosh"
+        "Microsoft.VisualStudioCode",
+        "Microsoft.WindowsPackageManager",
+        "Microsoft.WindowsTerminal"
     ],
     "browsers": [
-        "Microsoft.Edge",
         "Google.Chrome",
+        "Microsoft.Edge",
         "Mozilla.Firefox"
     ],
     "productivity": [
         "Microsoft.Office",
         "Microsoft.OneDrive",
-        "Microsoft.Teams",
-        "Microsoft.PowerBI"
+        "Microsoft.PowerBI",
+        "Microsoft.Teams"
     ],
     "development": [
-        "Microsoft.VisualStudioCode",
         "Git.Git",
-        "Microsoft.AzureCLI",
-        "Microsoft.azd",
-        "Microsoft.PowerShell",
-        "Python.Python.3.13",
         "GitHub.cli",
-        "Microsoft.DevHome"
-    ],
-    "multimedia": [
-        "VideoLAN.VLC",
-        "OBSProject.OBSStudio"
-    ],
-    "wsl": [
-        "Microsoft.WindowsSubsystemForLinux",
-        "Canonical.Ubuntu"
+        "Microsoft.azd",
+        "Microsoft.AzureCLI",
+        "Microsoft.DevHome",
+        "Microsoft.PowerShell",
+        "Microsoft.VisualStudioCode",
+        "Python.Python.3.13"
     ],
     "docker": [
         "Docker.DockerDesktop"
+    ],
+    "multimedia": [
+        "OBSProject.OBSStudio",
+        "VideoLAN.VLC"
+    ],
+    "pwsh": [
+        "JanDeDobbeleer.OhMyPosh"
+    ],
+    "wsl": [
+        "Canonical.Ubuntu",
+        "Microsoft.WindowsSubsystemForLinux"
     ]
 }
