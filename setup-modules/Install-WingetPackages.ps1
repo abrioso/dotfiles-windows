@@ -48,7 +48,7 @@ try {
     # Collect package specifications from selected groups. String entries remain supported
     # for local configuration compatibility; object entries can declare an install scope.
     $packageSpecs = [System.Collections.Generic.List[object]]::new()
-    $packageIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $seenPackages = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
     foreach ($property in $config.PSObject.Properties) {
         $includeGroup = $installAllGroups -or ($Groups -contains $property.Name)
@@ -65,12 +65,23 @@ try {
                 throw "Package '$packageId' has unsupported scope '$packageScope'. Expected 'user' or 'machine'."
             }
 
-            if (-not [string]::IsNullOrWhiteSpace($packageId) -and $packageIds.Add($packageId)) {
-                $packageSpecs.Add([pscustomobject]@{
-                    Id = $packageId
-                    Scope = $packageScope
-                })
+            if ([string]::IsNullOrWhiteSpace($packageId)) {
+                continue
             }
+
+            if ($seenPackages.ContainsKey($packageId)) {
+                $existingScope = $seenPackages[$packageId]
+                if ($existingScope -ne $packageScope) {
+                    throw "Package '$packageId' is declared with conflicting scopes '$existingScope' and '$packageScope'. Resolve the conflict before re-running."
+                }
+                continue
+            }
+
+            $seenPackages[$packageId] = $packageScope
+            $packageSpecs.Add([pscustomobject]@{
+                Id = $packageId
+                Scope = $packageScope
+            })
         }
     }
 
