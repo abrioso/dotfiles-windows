@@ -66,8 +66,10 @@ if ($themeFiles.Count -eq 0) {
                     continue
                 }
 
-                Write-WarningMessage "Theme file '$($themeFile.Name)' exists with different content at '$targetPath'. Skipping to avoid data loss."
-                continue
+                $backupPath = "$targetPath.bak"
+                Write-Info "Theme '$($themeFile.Name)' has changed; backing up existing file to '$backupPath' and replacing it."
+                Copy-Item -LiteralPath $targetPath -Destination $backupPath -Force
+                Remove-Item $targetPath -Force
             }
         }
 
