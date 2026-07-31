@@ -17,15 +17,41 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
-        It 'runs symlink modules elevated' {
+        It 'elevates only settings that still require symbolic-link privileges' {
             $configPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/setup-modules.json.example'
             $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-            $modules = @($config.settings.PSObject.Properties.Value) |
-                ForEach-Object { $_ } |
-                Where-Object { $_.script -in @('Install-WindowsTerminalSettings.ps1', 'Install-OmpConfig.ps1') }
+            $terminalModule = @($config.settings.base | Where-Object { $_.script -eq 'Install-WindowsTerminalSettings.ps1' })[0]
+            $ompModule = @($config.settings.pwsh | Where-Object { $_.script -eq 'Install-OmpConfig.ps1' })[0]
 
-            if ($modules.Count -ne 2 -or @($modules | Where-Object { -not $_.requiresAdmin }).Count -gt 0) {
-                throw 'All settings modules that create symbolic links must require elevation.'
+            if (-not $terminalModule.requiresAdmin) {
+                throw 'Windows Terminal settings must remain elevated while they use a symbolic link.'
+            }
+            if ($ompModule.requiresAdmin) {
+                throw 'Oh My Posh theme deployment must not require elevation.'
+            }
+        }
+
+        It 'installs the required Nerd Font before applying terminal settings' {
+            $configPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/setup-modules.json.example'
+            $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+            $baseScripts = @($config.settings.base.script)
+            $fontIndex = [Array]::IndexOf($baseScripts, 'Install-NerdFont.ps1')
+            $terminalIndex = [Array]::IndexOf($baseScripts, 'Install-WindowsTerminalSettings.ps1')
+
+            if ($fontIndex -lt 0 -or $terminalIndex -lt 0 -or $fontIndex -gt $terminalIndex) {
+                throw 'The base settings must install the Nerd Font before Windows Terminal settings.'
+            }
+        }
+
+        It 'deploys Oh My Posh themes without Administrator privileges' {
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Install-OmpConfig.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+
+            if ($module -notmatch 'ItemType HardLink' -or $module -notmatch 'Copy-Item') {
+                throw 'Oh My Posh themes must use a hard link with a copy fallback.'
+            }
+            if ($module -match 'Test-IsElevated') {
+                throw 'Oh My Posh theme deployment must not require an elevated process.'
             }
         }
     }
@@ -114,6 +140,44 @@ Describe 'Bootstrap reliability contracts' {
                 throw 'The setup orchestrator must pass NonInteractive to configuration initialization.'
             }
         }
+
+        It 'relaunches Windows PowerShell callers in PowerShell 7 before Git operations' {
+            $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+            $relaunchIndex = $setup.IndexOf('$PSVersionTable.PSEdition -ne "Core"')
+            $cloneIndex = $setup.IndexOf('git clone')
+
+            if ($relaunchIndex -lt 0 -or $cloneIndex -lt 0 -or $relaunchIndex -gt $cloneIndex) {
+                throw 'Windows PowerShell must relaunch in PowerShell 7 before Git writes progress to stderr.'
+            }
+            if ($setup -notmatch '& \$pwshCommand\.Source @pwshArguments') {
+                throw 'The setup script must execute its PowerShell 7 relaunch arguments.'
+            }
+        }
+
+        It 'installs bootstrap prerequisites per-user without updating legacy PowerShellGet' {
+            $functionsPath = Join-Path $script:repositoryRoot 'setup-scripts/setup-functions.ps1'
+            $functions = Get-Content -LiteralPath $functionsPath -Raw
+
+            if ($functions -notmatch "'--scope', 'user'") {
+                throw 'Git and PowerShell bootstrap prerequisites must request user scope.'
+            }
+            if ($functions -match 'Install-Module -Name PowerShellGet') {
+                throw 'Bootstrap must not update PowerShellGet in the active Windows PowerShell process.'
+            }
+        }
+
+        It 'passes declarative package scopes to Winget installs' {
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Install-WingetPackages.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+
+            if ($module -notmatch '\$packageEntry\.scope') {
+                throw 'Winget package objects must expose their configured scope.'
+            }
+            if ($module -notmatch '@\(''--scope'', \$packageScope\)') {
+                throw 'Configured package scopes must be passed to Winget.'
+            }
+        }
     }
 
     Context 'Default configuration consistency' {
@@ -137,8 +201,27 @@ Describe 'Bootstrap reliability contracts' {
                 throw 'The pwsh package group must install Oh My Posh.'
             }
 
+            $baseScopes = @{}
+            foreach ($package in $packages.base) {
+                if ($package -isnot [string]) {
+                    $baseScopes[$package.id] = $package.scope
+                }
+            }
+            foreach ($packageId in @('Git.Git', 'Microsoft.PowerShell', 'Microsoft.VisualStudioCode', 'Microsoft.WindowsTerminal')) {
+                if ($baseScopes[$packageId] -ne 'user') {
+                    throw "Base package '$packageId' must use user scope."
+                }
+            }
+            foreach ($packageId in @('gerardog.gsudo', 'Microsoft.Edge')) {
+                if ($baseScopes[$packageId] -ne 'machine') {
+                    throw "Base package '$packageId' must use machine scope."
+                }
+            }
+
             foreach ($group in $packages.PSObject.Properties) {
-                $actual = @($group.Value)
+                $actual = @($group.Value | ForEach-Object {
+                    if ($_ -is [string]) { $_ } else { $_.id }
+                })
                 $sorted = @($actual | Sort-Object)
                 if (($actual -join '|') -ne ($sorted -join '|')) {
                     throw "Package group '$($group.Name)' must remain sorted."

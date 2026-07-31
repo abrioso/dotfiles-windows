@@ -81,22 +81,6 @@ function Update-DotfilesProcessPath {
 # Function to install the dotfiles pre-requisites
 function Install-DotfilesPrerequisites {
     Write-Info "Installing dotfiles prerequisites..."
-    $installModuleParams = @{}
-    $allUsersScope = if (Test-IsElevated) { 'AllUsers' } else { 'CurrentUser' }
-    $wingetScopeArgs = if (Test-IsElevated) { @('--scope', 'machine') } else { @() }
-    try {
-        # Check if NuGet provider is installed
-        if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-            Write-Info "NuGet provider is not installed. Installing now..."
-            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope $allUsersScope
-            Import-PackageProvider -Name NuGet -Force
-        } else {
-            Write-Info "NuGet provider is already installed, skipping installation."
-        }
-    } catch {
-        Write-ErrorMessage "Failed to check/install NuGet provider: $($_.Exception.Message)"
-        return $false
-    }
 
     # Check if winget is available
     try {
@@ -118,8 +102,9 @@ function Install-DotfilesPrerequisites {
             Write-Info "PowerShell is not installed. Installing PowerShell..."
             $wingetArguments = @(
                 'install', '--id', 'Microsoft.PowerShell', '--exact', '--force',
-                '--accept-source-agreements', '--accept-package-agreements'
-            ) + $wingetScopeArgs
+                '--scope', 'user', '--accept-source-agreements', '--accept-package-agreements',
+                '--disable-interactivity'
+            )
             & winget @wingetArguments
             if ($LASTEXITCODE -ne 0) {
                 Write-ErrorMessage "Winget failed to install PowerShell (exit code $LASTEXITCODE)."
@@ -139,62 +124,14 @@ function Install-DotfilesPrerequisites {
         return $false
     }
 
-    # Ensure NuGet and PowerShellGet are up to date
-    # Check and update NuGet provider
-    try {
-        $nugetProvider = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
-        if (-not $nugetProvider -or $nugetProvider.Version -lt [Version]'2.8.5.201') {
-            Write-Info "Updating NuGet provider..."
-            try {
-                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope $allUsersScope -ErrorAction Stop
-                Import-PackageProvider -Name NuGet -Force
-            } catch {
-                Write-WarningMessage "Failed to update NuGet provider: $_"
-            }
-        } else {
-            Write-Info "NuGet provider is up to date."
-        }
-    } catch {
-        Write-ErrorMessage "Failed to update NuGet provider: $($_.Exception.Message)"
-    }
-
-    # Check and update PowerShellGet
-    try {
-        $psGetModule = Get-Module -ListAvailable PowerShellGet | Sort-Object Version -Descending | Select-Object -First 1
-        if (-not $psGetModule -or $psGetModule.Version -lt [Version]'2.2.5') {
-            Write-Info "Updating PowerShellGet module..."
-            try {
-                Install-Module -Name PowerShellGet -Force -Scope $allUsersScope -ErrorAction Stop
-                Write-Info "PowerShellGet updated. Please restart PowerShell to use the new version."
-            } catch {
-                Write-WarningMessage "Failed to update PowerShellGet: $_"
-            }
-        } else {
-            Write-Info "PowerShellGet is up to date."
-        }
-    } catch {
-        Write-ErrorMessage "Failed to install PowerShellGet module: $($_.Exception.Message)"
-        return $false
-    }
-
-    try {
-        # Determine if -AcceptLicense switch is supported
-        $psGetModule = Get-Module PowerShellGet -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
-        if ($psGetModule -and $psGetModule.Version -ge [Version]"2.0.0") {
-            $installModuleParams.AcceptLicense = $true
-        }
-    } catch {
-        Write-WarningMessage "Failed to check PowerShellGet version: $($_.Exception.Message)"
-        $installModuleParams = @{}
-    }
-
     # Install Git if not present
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         Write-Info "Git not found. Installing Git..."
         $wingetArguments = @(
             'install', '--id', 'Git.Git', '--exact', '--force',
-            '--accept-source-agreements', '--accept-package-agreements'
-        ) + $wingetScopeArgs
+            '--scope', 'user', '--accept-source-agreements', '--accept-package-agreements',
+            '--disable-interactivity'
+        )
         & winget @wingetArguments
         if ($LASTEXITCODE -ne 0) {
             Write-ErrorMessage "Winget failed to install Git (exit code $LASTEXITCODE)."
@@ -208,48 +145,6 @@ function Install-DotfilesPrerequisites {
         }
     } else {
         Write-Info "Git is already installed, skipping installation."
-    }
-
-    # Ensure the PSGallery repository is registered
-    try {
-        $psGallery = Get-PSRepository -Name "PSGallery" -ErrorAction Stop
-        if ($psGallery -and $psGallery.InstallationPolicy -ne "Trusted") {
-            Write-Info "PSGallery repository is not trusted. Setting it to Trusted..."
-            Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
-        }
-    } catch {
-        if ($_.Exception.Message -like '*already exists*') {
-            Write-Info "PSGallery repository already exists. Skipping registration."
-        } else {
-            Write-Info "PSGallery repository not found. Registering it now..."
-            try {
-                Register-PSRepository -Default -ErrorAction Stop
-            } catch {
-                Write-ErrorMessage "Failed to register PSGallery repository: $_"
-            }
-        }
-    }
-
-    # Register the default repository if not already registered
-    if (-not (Get-PSRepository -Name "PSGallery" -ErrorAction SilentlyContinue)) {
-        Write-Info "Registering default PowerShell repository..."
-        Register-PSRepository -Default
-    }
-
-    # Install the Winget Cmdlet required for enabling Windows features and system-level installation
-    Write-Info "Ensuring the Winget Cmdlet is installed..."
-
-    # Only install the module if it isn't already installed
-    if (-not (Get-Module -ListAvailable -Name Microsoft.WinGet.Configuration)) {
-        Write-Info "Installing the Microsoft.WinGet.Configuration module..."
-        try {
-            Install-Module -Name Microsoft.WinGet.Configuration -Force -Scope $allUsersScope @installModuleParams
-            Write-Info "Microsoft.WinGet.Configuration module installed."
-        } catch {
-            Write-WarningMessage "Failed to install Microsoft.WinGet.Configuration: $_"
-        }
-    } else {
-        Write-Info "Microsoft.WinGet.Configuration module is already installed, skipping installation."
     }
 
     return $true

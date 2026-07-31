@@ -1,25 +1,61 @@
 {
     "base": [
-        "gerardog.gsudo",
-        "Git.Git",
-        "Microsoft.Edge",
-        "Microsoft.PowerShell",
-        "Microsoft.VisualStudioCode",
-        "Microsoft.WindowsTerminal"
+        {
+            "id": "gerardog.gsudo",
+            "scope": "machine"
+        },
+        {
+            "id": "Git.Git",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.Edge",
+            "scope": "machine"
+        },
+        {
+            "id": "Microsoft.PowerShell",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.VisualStudioCode",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.WindowsTerminal",
+            "scope": "user"
+        }
     ],
     "poweruser": [
-        "gerardog.gsudo",
-        "Git.Git",
-        "Microsoft.PowerShell",
+        {
+            "id": "gerardog.gsudo",
+            "scope": "machine"
+        },
+        {
+            "id": "Git.Git",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.PowerShell",
+            "scope": "user"
+        },
         "Microsoft.Powertoys",
         "Microsoft.Sysinternals",
-        "Microsoft.VisualStudioCode",
+        {
+            "id": "Microsoft.VisualStudioCode",
+            "scope": "user"
+        },
         "Microsoft.WindowsPackageManager",
-        "Microsoft.WindowsTerminal"
+        {
+            "id": "Microsoft.WindowsTerminal",
+            "scope": "user"
+        }
     ],
     "browsers": [
         "Google.Chrome",
-        "Microsoft.Edge",
+        {
+            "id": "Microsoft.Edge",
+            "scope": "machine"
+        },
         "Mozilla.Firefox"
     ],
     "productivity": [
@@ -29,13 +65,22 @@
         "Microsoft.Teams"
     ],
     "development": [
-        "Git.Git",
+        {
+            "id": "Git.Git",
+            "scope": "user"
+        },
         "GitHub.cli",
         "Microsoft.azd",
         "Microsoft.AzureCLI",
         "Microsoft.DevHome",
-        "Microsoft.PowerShell",
-        "Microsoft.VisualStudioCode",
+        {
+            "id": "Microsoft.PowerShell",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.VisualStudioCode",
+            "scope": "user"
+        },
         "Python.Python.3.13"
     ],
     "docker": [

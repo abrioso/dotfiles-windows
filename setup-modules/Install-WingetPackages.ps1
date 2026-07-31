@@ -14,12 +14,6 @@ param (
     [string[]]$Groups = @()
 )
 
-function Test-IsElevated {
-    $id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-    $p = [System.Security.Principal.WindowsPrincipal]::new($id)
-    $p.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
 try {
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         throw "Winget is required to install configured packages."
@@ -51,8 +45,10 @@ try {
     }
     $installAllGroups = (-not $groupsSpecified) -and (-not $bootstrapHasInstallPackages) -and ($Groups.Count -eq 0)
 
-    # Collect package IDs from specified groups (or all groups if none specified).
-    $packageIds = [System.Collections.Generic.List[string]]::new()
+    # Collect package specifications from selected groups. String entries remain supported
+    # for local configuration compatibility; object entries can declare an install scope.
+    $packageSpecs = [System.Collections.Generic.List[object]]::new()
+    $packageIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
     foreach ($property in $config.PSObject.Properties) {
         $includeGroup = $installAllGroups -or ($Groups -contains $property.Name)
@@ -61,17 +57,29 @@ try {
             continue
         }
 
-        foreach ($pkgId in $property.Value) {
-            if (-not [string]::IsNullOrWhiteSpace($pkgId) -and -not $packageIds.Contains($pkgId)) {
-                $packageIds.Add($pkgId)
+        foreach ($packageEntry in $property.Value) {
+            $packageId = if ($packageEntry -is [string]) { $packageEntry } else { [string]$packageEntry.id }
+            $packageScope = if ($packageEntry -is [string]) { $null } else { [string]$packageEntry.scope }
+
+            if (-not [string]::IsNullOrWhiteSpace($packageScope) -and $packageScope -notin @('user', 'machine')) {
+                throw "Package '$packageId' has unsupported scope '$packageScope'. Expected 'user' or 'machine'."
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($packageId) -and $packageIds.Add($packageId)) {
+                $packageSpecs.Add([pscustomobject]@{
+                    Id = $packageId
+                    Scope = $packageScope
+                })
             }
         }
     }
 
-    Write-Host "Found $($packageIds.Count) unique packages to process."
+    Write-Host "Found $($packageSpecs.Count) unique packages to process."
     $failedPackages = [System.Collections.Generic.List[string]]::new()
 
-    foreach ($packageId in $packageIds) {
+    foreach ($packageSpec in $packageSpecs) {
+        $packageId = $packageSpec.Id
+        $packageScope = $packageSpec.Scope
         Write-Host "Processing package: $packageId"
 
         # Winget returns a non-zero exit code when no exact installed package is found.
@@ -81,8 +89,16 @@ try {
         if ($isInstalled) {
             Write-Host "Package '$packageId' is already installed. Skipping."
         } else {
-            Write-Host "Package '$packageId' not found. Installing..."
-            & winget install --id $packageId --exact --accept-source-agreements --accept-package-agreements --disable-interactivity
+            $scopeDescription = if ($packageScope) { " with '$packageScope' scope" } else { '' }
+            Write-Host "Package '$packageId' not found. Installing${scopeDescription}..."
+            $installArguments = @(
+                'install', '--id', $packageId, '--exact',
+                '--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity'
+            )
+            if ($packageScope) {
+                $installArguments += @('--scope', $packageScope)
+            }
+            & winget @installArguments
 
             if ($LASTEXITCODE -ne 0) {
                 Write-Warning "Failed to install package '$packageId'. Winget exited with code $LASTEXITCODE."

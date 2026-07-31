@@ -50,14 +50,38 @@ if (-not $prerequisitesInstalled) {
     Write-Info "Prerequisites installed successfully."
 }
 
-# Update the environment PATH variable to include the system PATH
-# This is necessary for the script to find the WinGet Cmdlet and other system tools
+# Refresh PATH after installing per-user prerequisites.
 Write-Info "Refreshing PATH environment variable..."
 try {
-    $env:Path += ";" + [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    Update-DotfilesProcessPath
     Write-Info "PATH environment variable refreshed successfully"
 } catch {
     Write-WarningMessage "Failed to refresh PATH environment variable: $_"
+}
+
+# Windows PowerShell treats normal native stderr output (for example, Git progress)
+# as PowerShell errors when it is redirected. Continue the bootstrap in PowerShell 7
+# before running any Git commands so callers can safely start from Windows PowerShell 5.1.
+if ($PSVersionTable.PSEdition -ne "Core") {
+    $pwshCommand = Get-Command pwsh -ErrorAction SilentlyContinue
+    if (-not $pwshCommand) {
+        Write-ErrorMessage "PowerShell 7 is installed but pwsh could not be resolved for bootstrap relaunch."
+        Stop-Logging
+        Exit 1
+    }
+
+    $pwshArguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath)
+    if (-not [string]::IsNullOrWhiteSpace($BootstrapBranch)) {
+        $pwshArguments += @("-BootstrapBranch", $BootstrapBranch)
+    }
+    if ($NonInteractive) {
+        $pwshArguments += "-NonInteractive"
+    }
+
+    Write-Info "Relaunching bootstrap in PowerShell 7..."
+    Stop-Logging
+    & $pwshCommand.Source @pwshArguments
+    Exit $LASTEXITCODE
 }
 
 # Apply the dotfiles bootstrap variables
