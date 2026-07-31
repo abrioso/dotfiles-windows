@@ -25,6 +25,8 @@ To install these dotfiles from PowerShell without installing Git first:
 iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
 ```
 
+Windows PowerShell 5.1 is supported as the entry point. The bootstrap installs or reuses per-user PowerShell 7 and Git prerequisites, refreshes the process path, and then continues automatically in PowerShell 7 before running Git commands.
+
 For forks or custom archive sources, see [Configuration](docs/CONFIGURATION.md#git-free-install-parameters).
 
 Use `-NonInteractive` with the parameterized installer when all `.json.example` defaults should be accepted without opening the configuration prompts.
@@ -50,7 +52,7 @@ This folder contains the main scripts that kick off the installation and setup p
 This folder contains the modular scripts that perform the actual configuration tasks. The `setup.ps1` script calls these in sequence.
 
 -   `Configure-WindowsFeatures.ps1`: Enables necessary Windows features like WSL and Hyper-V. Requires administrator privileges.
--   `Install-WingetPackages.ps1`: Reads local `winget-packages.json` and installs the selected package groups using the `winget` command-line tool.
+-   `Install-WingetPackages.ps1`: Reads local `winget-packages.json` and installs the selected package groups using the `winget` command-line tool, including optional per-package `user` or `machine` scope declarations.
 -   `Set-EnvironmentVariables.ps1`: Reads local `env-variables.json` and configures environment variables.
 -   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config.
 

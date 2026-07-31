@@ -144,10 +144,14 @@ The installer resolves the extracted root dynamically, so custom archives do not
 
 During setup:
 
-1. Missing local config files are created from the `.json.example` templates.
-2. The repository is cloned, if needed, using the selected endpoint type.
-3. The configured branch is fetched, checked out, and fast-forward pulled.
-4. Local gitignored configuration generated during git-free bootstrap is copied into the real workspace clone after branch checkout.
-5. Setup validates package-group dependencies declared by selected settings.
-6. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
-7. Setup modules consume the local `*.json` files and setup stops if a configured module is missing or fails.
+1. Missing Git and PowerShell prerequisites are installed for the current user.
+2. A bootstrap started from Windows PowerShell 5.1 relaunches itself in PowerShell 7 before running Git commands.
+3. Missing local config files are created from the `.json.example` templates.
+4. The repository is cloned, if needed, using the selected endpoint type.
+5. The configured branch is fetched, checked out, and fast-forward pulled.
+6. Local gitignored configuration generated during git-free bootstrap is copied into the real workspace clone after branch checkout.
+7. Setup validates package-group dependencies declared by selected settings.
+8. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
+9. Setup modules consume the local `*.json` files and setup stops if a configured module is missing or fails.
+
+The `base` setting installs the CaskaydiaCove Nerd Font before applying Windows Terminal settings because the tracked terminal configuration references that font. Oh My Posh themes use non-elevated hard links when source and target are on the same volume, with a regular copy fallback across volumes.
