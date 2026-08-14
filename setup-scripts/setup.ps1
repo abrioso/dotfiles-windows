@@ -196,7 +196,7 @@ foreach ($module in $modulesToRun) {
 
     Write-Info "Running module: $moduleName"
     try {
-        $scriptArg = "-File `"$modulePath`""
+        $scriptArg = "-NoProfile -File `"$modulePath`""
         $requiresAdmin = $module.RequiresAdmin
 
         # Check if running as administrator
@@ -204,16 +204,18 @@ foreach ($module in $modulesToRun) {
 
         if ($requiresAdmin -and -not $isAdmin) {
             Write-WarningMessage "Module '$moduleName' requires elevated privileges. Relaunching this module as administrator..."
-            $process = Start-Process -FilePath "pwsh.exe" -ArgumentList $scriptArg -Verb RunAs -PassThru -Wait
+            $process = Start-Process -FilePath "pwsh.exe" -ArgumentList $scriptArg -WorkingDirectory $dotfilesDirectory -Verb RunAs -PassThru -Wait
+            $moduleExitCode = $process.ExitCode
         } else {
-            $process = Start-Process -FilePath "pwsh.exe" -ArgumentList $scriptArg -PassThru -Wait
+            & pwsh.exe -NoProfile -File $modulePath
+            $moduleExitCode = $LASTEXITCODE
         }
 
-        $scriptResults.Add($moduleName, $process.ExitCode)
-        if ($process.ExitCode -eq 0) {
+        $scriptResults.Add($moduleName, $moduleExitCode)
+        if ($moduleExitCode -eq 0) {
             Write-Info "Module '$moduleName' completed successfully."
         } else {
-            Write-ErrorMessage "Module '$moduleName' exited with code: $($process.ExitCode). Halting setup."
+            Write-ErrorMessage "Module '$moduleName' exited with code: $moduleExitCode. Halting setup."
             Stop-Logging
             Exit 1 # Stop the entire setup if a module fails
         }
