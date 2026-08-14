@@ -38,13 +38,13 @@
             "id": "Microsoft.PowerShell",
             "scope": "user"
         },
-        "Microsoft.Powertoys",
-        "Microsoft.Sysinternals",
+        "Microsoft.PowerToys",
+        "Microsoft.Sysinternals.Suite",
         {
             "id": "Microsoft.VisualStudioCode",
             "scope": "user"
         },
-        "Microsoft.WindowsPackageManager",
+        "Microsoft.AppInstaller",
         {
             "id": "Microsoft.WindowsTerminal",
             "scope": "user"
@@ -70,9 +70,8 @@
             "scope": "user"
         },
         "GitHub.cli",
-        "Microsoft.azd",
+        "Microsoft.Azd",
         "Microsoft.AzureCLI",
-        "Microsoft.DevHome",
         {
             "id": "Microsoft.PowerShell",
             "scope": "user"
@@ -95,6 +94,6 @@
     ],
     "wsl": [
         "Canonical.Ubuntu",
-        "Microsoft.WindowsSubsystemForLinux"
+        "Microsoft.WSL"
     ]
 }
