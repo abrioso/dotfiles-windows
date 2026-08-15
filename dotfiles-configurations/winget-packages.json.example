@@ -131,7 +131,10 @@
         }
     ],
     "pwsh": [
-        "JanDeDobbeleer.OhMyPosh"
+        {
+            "id": "JanDeDobbeleer.OhMyPosh",
+            "scope": "user"
+        }
     ],
     "wsl": [
         {
