@@ -2,16 +2,7 @@
 
 ## Branching Strategy
 
-This project uses **gitflow**:
-
-| Branch | Purpose | Merges into |
-|--------|---------|-------------|
-| main | Stable releases | — |
-| develop | Next release integration | main (via release PR) |
-| feature/* | New functionality | develop |
-| fix/* | Non-urgent fixes | develop |
-| hotfix/* | Critical fixes | main + develop |
-| release/* | Release prep | main |
+This project uses **gitflow**. See [docs/GITFLOW.md](docs/GITFLOW.md) for the full policy, enforcement details, and workflow examples.
 
 ## How to Contribute
 

@@ -31,15 +31,13 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
-        It 'installs the required Nerd Font before applying terminal settings' {
+        It 'installs the required Nerd Font as part of the pwsh settings' {
             $configPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/setup-modules.json.example'
             $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-            $baseScripts = @($config.settings.base.script)
-            $fontIndex = [Array]::IndexOf($baseScripts, 'Install-NerdFont.ps1')
-            $terminalIndex = [Array]::IndexOf($baseScripts, 'Install-WindowsTerminalSettings.ps1')
+            $pwshScripts = @($config.settings.pwsh.script)
 
-            if ($fontIndex -lt 0 -or $terminalIndex -lt 0 -or $fontIndex -gt $terminalIndex) {
-                throw 'The base settings must install the Nerd Font before Windows Terminal settings.'
+            if ($pwshScripts -notcontains 'Install-NerdFont.ps1') {
+                throw 'The pwsh settings must install the Nerd Font.'
             }
         }
 
@@ -197,7 +195,8 @@ Describe 'Bootstrap reliability contracts' {
             if ($packages.PSObject.Properties.Name -contains 'Packages') {
                 throw "The obsolete, ignored 'Packages' property must not be present."
             }
-            if ($packages.pwsh -notcontains 'JanDeDobbeleer.OhMyPosh') {
+            $pwshIds = @($packages.pwsh | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.id } })
+            if ($pwshIds -notcontains 'JanDeDobbeleer.OhMyPosh') {
                 throw 'The pwsh package group must install Oh My Posh.'
             }
 
@@ -212,10 +211,25 @@ Describe 'Bootstrap reliability contracts' {
                     throw "Base package '$packageId' must use user scope."
                 }
             }
-            foreach ($packageId in @('gerardog.gsudo', 'Microsoft.Edge')) {
-                if ($baseScopes[$packageId] -ne 'machine') {
-                    throw "Base package '$packageId' must use machine scope."
+
+            $poweruserScopes = @{}
+            foreach ($package in $packages.poweruser) {
+                if ($package -isnot [string]) {
+                    $poweruserScopes[$package.id] = $package.scope
                 }
+            }
+            if ($poweruserScopes['gerardog.gsudo'] -ne 'machine') {
+                throw "Power-user package 'gerardog.gsudo' must use machine scope."
+            }
+
+            $browsersScopes = @{}
+            foreach ($package in $packages.browsers) {
+                if ($package -isnot [string]) {
+                    $browsersScopes[$package.id] = $package.scope
+                }
+            }
+            if ($browsersScopes['Microsoft.Edge'] -ne 'user') {
+                throw "Browsers package 'Microsoft.Edge' must use user scope."
             }
 
             foreach ($group in $packages.PSObject.Properties) {
