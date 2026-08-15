@@ -13,6 +13,14 @@ This project uses **gitflow**:
 | hotfix/* | Critical fixes | main + develop |
 | release/* | Release prep | main |
 
+### Enforcing the policy locally
+
+`git-hooks/pre-commit` and `git-hooks/pre-push` block direct commits/pushes to `main` and `develop`.
+They are wired up globally (across all repos on your machine) via the `core.hooksPath` entry in
+`git-variables.json`, applied by `Apply-GitConfig.ps1`. Bypass in an emergency with
+`GITFLOW_HOOK_BYPASS=1 git commit ...` — this is a local reminder only, not a substitute for
+server-side branch protection on GitHub.
+
 ## How to Contribute
 
 1. **Fork** or create a feature branch from `develop`:

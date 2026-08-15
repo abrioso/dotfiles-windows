@@ -6,6 +6,7 @@
     "core.ignorecase": "true",
     "core.filemode": "false",
     "core.safecrlf": "true",
+    "core.hooksPath": "",
     "init.defaultBranch": "main",
     "pull.rebase": "false",
     "push.default": "simple",

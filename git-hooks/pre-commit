@@ -1,0 +1,21 @@
+#!/bin/sh
+# Blocks direct commits to protected gitflow branches (main, develop) in ANY repo
+# that has core.hooksPath pointed at this folder.
+protected_branches="^(main|develop)$"
+current_branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+if [ -n "$GITFLOW_HOOK_BYPASS" ]; then
+    exit 0
+fi
+
+if echo "$current_branch" | grep -Eq "$protected_branches"; then
+    echo ""
+    echo "Direct commits to '$current_branch' are blocked by gitflow policy."
+    echo "Create a feature/fix/hotfix branch instead, e.g.:"
+    echo "  git checkout -b feature/short-description"
+    echo ""
+    echo "To bypass once (not recommended): GITFLOW_HOOK_BYPASS=1 git commit ..."
+    exit 1
+fi
+
+exit 0

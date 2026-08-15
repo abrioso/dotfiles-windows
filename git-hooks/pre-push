@@ -1,0 +1,22 @@
+#!/bin/sh
+# Blocks direct pushes to protected gitflow branches (main, develop) in ANY repo
+# that has core.hooksPath pointed at this folder.
+protected_branches="^(main|develop)$"
+
+if [ -n "$GITFLOW_HOOK_BYPASS" ]; then
+    exit 0
+fi
+
+while read local_ref local_sha remote_ref remote_sha; do
+    branch=$(echo "$remote_ref" | sed -e 's,.*/\(.*\),\1,')
+    if echo "$branch" | grep -Eq "$protected_branches"; then
+        echo ""
+        echo "Direct push to '$branch' is blocked by gitflow policy."
+        echo "Push your feature/fix/hotfix branch and open a PR into 'develop' instead."
+        echo ""
+        echo "To bypass once (not recommended): GITFLOW_HOOK_BYPASS=1 git push ..."
+        exit 1
+    fi
+done
+
+exit 0
