@@ -2,24 +2,7 @@
 
 ## Branching Strategy
 
-This project uses **gitflow**:
-
-| Branch | Purpose | Merges into |
-|--------|---------|-------------|
-| main | Stable releases | — |
-| develop | Next release integration | main (via release PR) |
-| feature/* | New functionality | develop |
-| fix/* | Non-urgent fixes | develop |
-| hotfix/* | Critical fixes | main + develop |
-| release/* | Release prep | main |
-
-### Enforcing the policy locally
-
-`git-hooks/pre-commit` and `git-hooks/pre-push` block direct commits/pushes to `main` and `develop`.
-They are wired up globally (across all repos on your machine) via the `core.hooksPath` entry in
-`git-variables.json`, applied by `Apply-GitConfig.ps1`. Bypass in an emergency with
-`GITFLOW_HOOK_BYPASS=1 git commit ...` — this is a local reminder only, not a substitute for
-server-side branch protection on GitHub.
+This project uses **gitflow**. See [docs/GITFLOW.md](docs/GITFLOW.md) for the full policy, enforcement details, and workflow examples.
 
 ## How to Contribute
 
