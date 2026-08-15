@@ -26,6 +26,7 @@
             "id": "Git.Git",
             "scope": "user"
         },
+        "Microsoft.AppInstaller",
         {
             "id": "Microsoft.PowerShell",
             "scope": "user"
@@ -42,7 +43,6 @@
             "id": "Microsoft.VisualStudioCode",
             "scope": "user"
         },
-        "Microsoft.AppInstaller",
         {
             "id": "Microsoft.WindowsTerminal",
             "scope": "user"
@@ -50,7 +50,7 @@
     ],
     "browsers": [
         {
-            "id": "Google.Chrome",
+            "id": "Google.Chrome.EXE",
             "scope": "user"
         },
         {
