@@ -1,16 +1,8 @@
 {
     "base": [
         {
-            "id": "gerardog.gsudo",
-            "scope": "machine"
-        },
-        {
             "id": "Git.Git",
             "scope": "user"
-        },
-        {
-            "id": "Microsoft.Edge",
-            "scope": "machine"
         },
         {
             "id": "Microsoft.PowerShell",
@@ -38,8 +30,14 @@
             "id": "Microsoft.PowerShell",
             "scope": "user"
         },
-        "Microsoft.PowerToys",
-        "Microsoft.Sysinternals.Suite",
+        {
+            "id": "Microsoft.PowerToys",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.Sysinternals.Suite",
+            "scope": "user"
+        }
         {
             "id": "Microsoft.VisualStudioCode",
             "scope": "user"
@@ -51,12 +49,18 @@
         }
     ],
     "browsers": [
-        "Google.Chrome",
+        {
+            "id": "Google.Chrome",
+            "scope": "user"
+        },
         {
             "id": "Microsoft.Edge",
-            "scope": "machine"
+            "scope": "user"
         },
-        "Mozilla.Firefox"
+        {
+            "id": "Mozilla.Firefox",
+            "scope": "user"
+        }
     ],
     "productivity": [
         "Microsoft.Office",
@@ -69,9 +73,18 @@
             "id": "Git.Git",
             "scope": "user"
         },
-        "GitHub.cli",
-        "Microsoft.Azd",
-        "Microsoft.AzureCLI",
+        {
+            "id": "GitHub.cli",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.Azd",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.AzureCLI",
+            "scope": "user"
+        },
         {
             "id": "Microsoft.PowerShell",
             "scope": "user"
