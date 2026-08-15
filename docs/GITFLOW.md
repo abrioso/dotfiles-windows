@@ -28,9 +28,11 @@ flowchart LR
 ## How enforcement works
 
 - **Local git hooks** (`git-hooks/pre-commit`, `git-hooks/pre-push`): block direct commits/pushes
-  to `main`/`develop`. Wired up globally via the `core.hooksPath` entry in `git-variables.json`,
-  applied by `Apply-GitConfig.ps1`, so the policy covers every repo on the machine, not just this
-  one. Bypass only in an emergency: `GITFLOW_HOOK_BYPASS=1 git commit ...`.
+  to `main`/`develop`. To activate, set `core.hooksPath` to the absolute path of the `git-hooks`
+  folder in your local `git-variables.json` (the value is empty in `git-variables.json.example`
+  and skipped by `Apply-GitConfig.ps1` unless you fill it in). Once set, `Apply-GitConfig.ps1`
+  wires the hooks globally so the policy covers every repo on the machine, not just this one.
+  Bypass only in an emergency: `GITFLOW_HOOK_BYPASS=1 git commit ...`.
 - **GitHub branch protection**: `main`/`develop` reject direct pushes server-side (PR required,
   `enforce_admins` on) even from another machine or collaborator. Applied with
   `powershell-scripts/Set-GitflowBranchProtection.ps1 -Repos 'owner/repo', ...`. Note: GitHub's

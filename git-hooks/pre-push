@@ -12,7 +12,8 @@ while read local_ref local_sha remote_ref remote_sha; do
     if echo "$branch" | grep -Eq "$protected_branches"; then
         echo ""
         echo "Direct push to '$branch' is blocked by gitflow policy."
-        echo "Push your feature/fix/hotfix branch and open a PR into 'develop' instead."
+        echo "Push your feature/fix/hotfix branch and open a PR into the appropriate base branch"
+        echo "(use 'develop' for features/fixes, 'main' for hotfixes/releases)."
         echo ""
         echo "To bypass once (not recommended): GITFLOW_HOOK_BYPASS=1 git push ..."
         exit 1

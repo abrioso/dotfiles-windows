@@ -5,7 +5,10 @@
 .DESCRIPTION
     Requires an authenticated `gh` CLI session (gh auth login). For each "owner/repo" passed in,
     protects the 'main' branch, and the 'develop' branch if it exists, so changes must come in via PR.
-    Idempotent: safe to re-run.
+    Re-runnable, but note: each run overwrites the full branch protection payload with the fixed
+    settings defined here (e.g. required_status_checks is always cleared). Existing protections
+    such as required status checks will be removed. Review the payload before running against repos
+    that already have custom branch protection rules.
 
 .PARAMETER Repos
     List of repos in "owner/repo" format.
