@@ -37,7 +37,7 @@
         {
             "id": "Microsoft.Sysinternals.Suite",
             "scope": "user"
-        }
+        },
         {
             "id": "Microsoft.VisualStudioCode",
             "scope": "user"
@@ -63,10 +63,26 @@
         }
     ],
     "productivity": [
-        "Microsoft.Office",
-        "Microsoft.OneDrive",
-        "Microsoft.PowerBI",
-        "Microsoft.Teams"
+        {
+            "id": "Microsoft.Office",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.OneDrive",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.PowerBI",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.Teams",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.365Copilot",
+            "scope": "user"
+        }
     ],
     "development": [
         {
@@ -93,20 +109,41 @@
             "id": "Microsoft.VisualStudioCode",
             "scope": "user"
         },
-        "Python.Python.3.13"
+        {
+            "id": "Python.Python.3.13",
+            "scope": "user"
+        }
     ],
     "docker": [
-        "Docker.DockerDesktop"
+        {
+            "id": "Docker.DockerDesktop",
+            "scope": "user"
+        }
     ],
     "multimedia": [
-        "OBSProject.OBSStudio",
-        "VideoLAN.VLC"
+        {
+            "id": "OBSProject.OBSStudio",
+            "scope": "user"
+        },
+        {
+            "id": "VideoLAN.VLC",
+            "scope": "user"
+        }
     ],
     "pwsh": [
-        "JanDeDobbeleer.OhMyPosh"
+        {
+            "id": "JanDeDobbeleer.OhMyPosh",
+            "scope": "user"
+        }
     ],
     "wsl": [
-        "Canonical.Ubuntu",
-        "Microsoft.WSL"
+        {
+            "id": "Microsoft.WSL",
+            "scope": "user"
+        },
+        {
+            "id": "Canonical.Ubuntu",
+            "scope": "user"
+        } 
     ]
 }
