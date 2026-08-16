@@ -232,13 +232,65 @@ Describe 'Bootstrap reliability contracts' {
                 throw "Browsers package 'Microsoft.Edge' must use user scope."
             }
 
+        }
+
+        It 'defines valid package entries with consistent scopes' {
+            $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
+            $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
+            $declaredScopes = [System.Collections.Generic.Dictionary[string, string]]::new(
+                [System.StringComparer]::OrdinalIgnoreCase
+            )
+
             foreach ($group in $packages.PSObject.Properties) {
-                $actual = @($group.Value | ForEach-Object {
+                $seenInGroup = [System.Collections.Generic.HashSet[string]]::new(
+                    [System.StringComparer]::OrdinalIgnoreCase
+                )
+
+                foreach ($packageEntry in $group.Value) {
+                    $packageId = if ($packageEntry -is [string]) { $packageEntry } else { [string]$packageEntry.id }
+                    $packageScope = if ($packageEntry -is [string]) { $null } else { [string]$packageEntry.scope }
+
+                    if ([string]::IsNullOrWhiteSpace($packageId)) {
+                        throw "Package group '$($group.Name)' contains an entry without an id."
+                    }
+                    if (-not $seenInGroup.Add($packageId)) {
+                        throw "Package group '$($group.Name)' contains duplicate package '$packageId'."
+                    }
+                    if ($packageScope -and $packageScope -notin @('user', 'machine')) {
+                        throw "Package '$packageId' has unsupported scope '$packageScope'."
+                    }
+
+                    if ($declaredScopes.ContainsKey($packageId)) {
+                        if ($declaredScopes[$packageId] -ne $packageScope) {
+                            throw "Package '$packageId' has conflicting scopes across package groups."
+                        }
+                    } else {
+                        $declaredScopes[$packageId] = $packageScope
+                    }
+                }
+            }
+        }
+
+        It 'installs known package prerequisites before their dependents' {
+            $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
+            $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
+            $dependencyContracts = @(
+                [pscustomobject]@{
+                    Group = 'wsl'
+                    Prerequisite = 'Microsoft.WSL'
+                    Dependent = 'Canonical.Ubuntu'
+                }
+            )
+
+            foreach ($contract in $dependencyContracts) {
+                $packageIds = @($packages.($contract.Group) | ForEach-Object {
                     if ($_ -is [string]) { $_ } else { $_.id }
                 })
-                $sorted = @($actual | Sort-Object)
-                if (($actual -join '|') -ne ($sorted -join '|')) {
-                    throw "Package group '$($group.Name)' must remain sorted."
+                $prerequisiteIndex = [Array]::IndexOf($packageIds, $contract.Prerequisite)
+                $dependentIndex = [Array]::IndexOf($packageIds, $contract.Dependent)
+
+                if ($prerequisiteIndex -lt 0 -or $dependentIndex -lt 0 -or $prerequisiteIndex -gt $dependentIndex) {
+                    throw "Package '$($contract.Prerequisite)' must be installed before '$($contract.Dependent)' in group '$($contract.Group)'."
                 }
             }
         }

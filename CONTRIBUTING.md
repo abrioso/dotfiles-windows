@@ -41,7 +41,7 @@ This project uses **gitflow**. See [docs/GITFLOW.md](docs/GITFLOW.md) for the fu
 ### Documentation
 - Update `README.md` when adding features
 - Document new packages in `docs/PACKAGES.md` and add them to `dotfiles-configurations/winget-packages.json.example`
-- Keep lists sorted alphabetically
+- Treat package arrays as ordered lists: prerequisites must precede dependents; alphabetize only when it preserves dependency order
 
 ### Configuration
 - Shared configuration defaults live in `dotfiles-configurations/*.json.example`

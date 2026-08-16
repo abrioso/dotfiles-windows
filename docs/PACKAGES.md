@@ -10,6 +10,12 @@ This repository manages Windows application packages via `winget` (Windows Packa
 - String entries specify a `winget` package ID; object entries can also declare `id` and `scope`
 - Setting modules can declare `requiresPackageGroups` in `setup-modules.json`; the TUI adds these groups automatically and setup validates them
 
+## Package ordering and dependencies
+
+Package arrays are ordered lists, not sets. `Install-WingetPackages.ps1` processes entries in declaration order, so prerequisites must appear before their dependents. Do not alphabetize a package group when doing so would change a required installation sequence.
+
+The `wsl` group intentionally installs `Microsoft.WSL` before `Canonical.Ubuntu`. Add a matching dependency-order contract to `tests/BootstrapReliability.Tests.ps1` when another package requires a specific predecessor.
+
 Example with an explicit per-user scope:
 
 ```json
