@@ -192,6 +192,22 @@ Describe 'Dotfiles update helpers' {
     }
 
     Context 'update.ps1 non-interactive selection' {
+        It 'derives the configuration directory from an overridden repository root' {
+            $root = New-UpdateTestDirectory
+            try {
+                $repository = Join-Path $root 'repository'
+                $config = Join-Path $repository 'dotfiles-configurations'
+                New-Item -ItemType Directory -Path $config -Force | Out-Null
+                Set-Content -LiteralPath (Join-Path $config 'winget-packages.json.example') -Value '{"source":"tracked"}' -Encoding UTF8
+                Initialize-UpdateTestRepository -RepositoryRoot $repository
+
+                & "$PSScriptRoot/../setup-scripts/update.ps1" -NonInteractive -SkipRepositoryUpdate -RepositoryRoot $repository -BackupDirectory (Join-Path $root 'backups')
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+
         It 'rejects a modified template even when Git marks it assume-unchanged' {
             $root = New-UpdateTestDirectory
             try {

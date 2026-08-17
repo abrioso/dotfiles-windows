@@ -2,9 +2,10 @@
 .SYNOPSIS
     Safely updates the dotfiles checkout and selected local JSON configuration files.
 .DESCRIPTION
-    Optionally fast-forward pulls the current repository branch, then discovers every tracked
-    *.json.example template. The user chooses which templates replace the corresponding local,
-    gitignored *.json files. Existing local files are backed up before atomic replacement.
+    Optionally fast-forwards the current repository branch, then discovers every tracked
+    *.json.example template. The user chooses which templates replace the corresponding local
+    *.json files, which are ignored by Git. Existing local files are backed up before atomic
+    replacement.
 
     This script does not run setup modules, install packages, enable Windows features, or apply
     settings. Shared catalogs are recommended by default; files containing user or machine
@@ -19,7 +20,7 @@
 [CmdletBinding()]
 param(
     [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot),
-    [string]$ConfigDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'dotfiles-configurations'),
+    [string]$ConfigDirectory,
     [string]$BackupDirectory,
     [string[]]$TemplateName = @(),
     [switch]$Tui,
@@ -30,6 +31,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $dotfilesRoot = $RepositoryRoot
+if ([string]::IsNullOrWhiteSpace($ConfigDirectory)) {
+    $ConfigDirectory = Join-Path $dotfilesRoot 'dotfiles-configurations'
+}
 . "$PSScriptRoot\update-functions.ps1"
 
 function Read-UpdateConfirmation {
