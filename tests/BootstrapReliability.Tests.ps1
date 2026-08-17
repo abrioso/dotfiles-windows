@@ -249,8 +249,8 @@ Describe 'Bootstrap reliability contracts' {
                 }
             }
 
-            if ($packages.PSObject.Properties.Name -notcontains 'PowerBI') {
-                throw "The PowerBI package group must be defined."
+            if ($packages.PSObject.Properties.Name -cnotcontains 'PowerBI') {
+                throw "The PowerBI package group must be defined with exact casing."
             }
             $powerBiPackages = @($packages.PowerBI)
             if ($powerBiPackages.Count -ne 1 -or $powerBiPackages[0].id -ne 'Microsoft.PowerBI' -or $powerBiPackages[0].scope -ne 'machine') {
