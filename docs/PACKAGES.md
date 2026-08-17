@@ -39,8 +39,9 @@ Example with an explicit per-user scope:
 - `development` — Azure tooling, Dev Home, GitHub CLI, Python, Git, PowerShell and Visual Studio Code
 - `docker` — Docker Desktop
 - `multimedia` — OBS Studio and VLC
-- `poweruser` — package-management and Sysinternals tooling
-- `productivity` — Microsoft Office, OneDrive, Power BI and Teams
+- `poweruser` — package-management and power-user tooling
+- `PowerBI` — Power BI Desktop, installed with machine scope
+- `productivity` — Microsoft Office, OneDrive and Teams
 - `pwsh` — Oh My Posh
 - `wsl` — WSL and Ubuntu
 

@@ -234,6 +234,33 @@ Describe 'Bootstrap reliability contracts' {
 
         }
 
+        It 'keeps excluded packages out and Power BI in its machine-scoped group' {
+            $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
+            $bootstrapPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/dotfiles-bootstrap-variables.json.example'
+            $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
+            $bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
+            $allPackageIds = @($packages.PSObject.Properties.Value | ForEach-Object {
+                $_ | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.id } }
+            })
+
+            foreach ($excludedPackageId in @('Microsoft.365Copilot', 'Microsoft.Sysinternals.Suite')) {
+                if ($allPackageIds -contains $excludedPackageId) {
+                    throw "Excluded package '$excludedPackageId' must not be in the install pool."
+                }
+            }
+
+            if ($packages.PSObject.Properties.Name -cnotcontains 'PowerBI') {
+                throw "The PowerBI package group must be defined with exact casing."
+            }
+            $powerBiPackages = @($packages.PowerBI)
+            if ($powerBiPackages.Count -ne 1 -or $powerBiPackages[0].id -ne 'Microsoft.PowerBI' -or $powerBiPackages[0].scope -ne 'machine') {
+                throw "The PowerBI group must contain only Microsoft.PowerBI with machine scope."
+            }
+            if ($bootstrap.INSTALL_PACKAGES -notcontains 'PowerBI') {
+                throw "The default package selection must include the PowerBI group."
+            }
+        }
+
         It 'defines valid package entries with consistent scopes' {
             $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
             $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
