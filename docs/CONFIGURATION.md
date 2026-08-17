@@ -33,6 +33,47 @@ For non-interactive bootstrap flows, the TUI can create local files from templat
 
 The TUI automatically adds package groups required by selected setting groups. Setup validates the same dependency metadata before running any module, including when local JSON files are edited manually.
 
+## Updating the checkout and local JSON files
+
+Run the updater when new shared templates are available:
+
+```pwsh
+.\setup-scripts\update.ps1
+```
+
+It first asks whether the current Git branch should be updated with `git pull --ff-only`. It then asks independently which clean, Git-tracked `*.json.example` templates should replace their local, gitignored `*.json` counterparts. Untracked or locally modified templates are rejected. No setup module is executed, so this operation alone does not install packages, enable Windows features, or apply settings.
+
+By default, the updater recommends only shared catalogs that do not contain user identity or machine endpoint values:
+
+- `setup-modules.json`
+- `windows-features.json`
+- `winget-packages.json`
+
+The remaining templates are still selectable, but are marked as containing user or machine variables:
+
+- `dotfiles-bootstrap-variables.json`
+- `env-variables.json`
+- `git-variables.json`
+
+Use the compact, numbered multi-selection TUI with:
+
+```pwsh
+.\setup-scripts\update.ps1 -Tui
+```
+
+Existing local files are backed up under `%LOCALAPPDATA%\dotfiles-windows\config-backups\<timestamp>` before replacement. If `LOCALAPPDATA` is unavailable, the fallback is `~\.dotfiles-windows\config-backups\<timestamp>`. Backups may contain personal values and should be retained only as long as needed. Invalid template JSON is rejected before any local file is changed. If a later filesystem operation fails, earlier replacements from that invocation are rolled back; a rollback failure is reported explicitly with the affected filename. Review the resulting JSON before running `setup.ps1`.
+
+For an explicit unattended update, name every local JSON that may be replaced:
+
+```pwsh
+.\setup-scripts\update.ps1 `
+    -NonInteractive `
+    -UpdateRepository `
+    -TemplateName winget-packages.json,windows-features.json,setup-modules.json
+```
+
+In non-interactive mode the repository is updated only when `-UpdateRepository` is present, and no JSON is replaced unless named with `-TemplateName`.
+
 ## Repository endpoint types
 
 `dotfiles-bootstrap-variables.json` supports these endpoint types:
