@@ -36,10 +36,6 @@
             "scope": "user"
         },
         {
-            "id": "Microsoft.Sysinternals.Suite",
-            "scope": "user"
-        },
-        {
             "id": "Microsoft.VisualStudioCode",
             "scope": "user"
         },
@@ -72,16 +68,14 @@
             "scope": "user"
         },
         {
-            "id": "Microsoft.PowerBI",
-            "scope": "user"
-        },
-        {
             "id": "Microsoft.Teams",
             "scope": "user"
-        },
+        }
+    ],
+    "PowerBI": [
         {
-            "id": "Microsoft.365Copilot",
-            "scope": "user"
+            "id": "Microsoft.PowerBI",
+            "scope": "machine"
         }
     ],
     "development": [
