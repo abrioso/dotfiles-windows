@@ -37,6 +37,13 @@ function Get-DotfilesCanonicalPath {
     return $fullPath
 }
 
+function Get-DotfilesPathComparison {
+    if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+        return [System.StringComparison]::OrdinalIgnoreCase
+    }
+    return [System.StringComparison]::Ordinal
+}
+
 function Test-DotfilesPathWithinRoot {
     [CmdletBinding()]
     param(
@@ -46,9 +53,10 @@ function Test-DotfilesPathWithinRoot {
 
     $fullPath = Get-DotfilesCanonicalPath -Path $Path
     $fullRoot = Get-DotfilesCanonicalPath -Path $Root
-    if ($fullPath.Equals($fullRoot, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    $comparison = Get-DotfilesPathComparison
+    if ($fullPath.Equals($fullRoot, $comparison)) { return $true }
     $rootPrefix = $fullRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
-    return $fullPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)
+    return $fullPath.StartsWith($rootPrefix, $comparison)
 }
 
 function Assert-DotfilesPathHasNoReparsePoint {
@@ -87,7 +95,8 @@ function Assert-DotfilesUpdaterPathBoundary {
 
     $expectedConfig = Join-Path (Get-DotfilesCanonicalPath -Path $RepositoryRoot) 'dotfiles-configurations'
     $actualConfig = Get-DotfilesCanonicalPath -Path $ConfigDirectory
-    if (-not $actualConfig.Equals((Get-DotfilesCanonicalPath -Path $expectedConfig), [System.StringComparison]::Ordinal)) {
+    $comparison = Get-DotfilesPathComparison
+    if (-not $actualConfig.Equals((Get-DotfilesCanonicalPath -Path $expectedConfig), $comparison)) {
         throw "Configuration directory must be the repository's dotfiles-configurations directory: $expectedConfig"
     }
 
@@ -125,7 +134,9 @@ function Get-DotfilesConfigurationTemplate {
         ForEach-Object {
             $targetName = $_.Name.Substring(0, $_.Name.Length - '.example'.Length)
             $templatePath = Get-DotfilesCanonicalPath -Path $_.FullName
-            if ($AllowedTemplatePath -ccontains $templatePath) {
+            $comparison = Get-DotfilesPathComparison
+            $isAllowed = @($AllowedTemplatePath | Where-Object { $templatePath.Equals((Get-DotfilesCanonicalPath -Path $_), $comparison) }).Count -gt 0
+            if ($isAllowed) {
                 $isRecommended = $recommendedNames -contains $targetName
                 $scope = if ($isRecommended) { 'shared catalog' } else { 'user or machine variables' }
 

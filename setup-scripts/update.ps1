@@ -112,7 +112,7 @@ function Get-TrackedConfigurationTemplatePath {
         $trackedPath = [string]$_
         $fullPath = Get-DotfilesCanonicalPath -Path (Join-Path $RepositoryRoot $trackedPath)
         $parentPath = Get-DotfilesCanonicalPath -Path (Split-Path -Parent $fullPath)
-        if (-not $parentPath.Equals($configRoot, [System.StringComparison]::Ordinal)) {
+        if (-not $parentPath.Equals($configRoot, (Get-DotfilesPathComparison))) {
             throw "Tracked JSON template is outside the top-level configuration directory: $trackedPath"
         }
 
