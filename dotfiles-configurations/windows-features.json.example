@@ -5,7 +5,6 @@
         "Microsoft-Hyper-V-Tools-All"
     ],
     "wsl": [
-        "VirtualMachinePlatform",
-        "Microsoft-Windows-Subsystem-Linux"
+        "VirtualMachinePlatform"
     ]
 }

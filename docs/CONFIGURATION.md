@@ -99,6 +99,12 @@ If `INSTALL_PACKAGES` is absent and no groups are passed directly to `Install-Wi
 
 An explicit empty array skips Windows optional feature configuration. If the property is absent, setup preserves the old behavior and enables all feature groups from the feature catalog.
 
+The shared `wsl` feature group targets WSL 2 only and enables `VirtualMachinePlatform`. The modern `Microsoft.WSL` runtime and Ubuntu distribution are installed separately through Winget; the legacy `Microsoft-Windows-Subsystem-Linux` component used for WSL 1 is not enabled on clean installations. After package installation, `Configure-WSL2.ps1` sets version 2 as the default and converts an existing `Ubuntu` registration to WSL 2.
+
+If enabling a selected Windows feature requires a reboot, setup exits with Windows code `3010` before installing packages or applying settings. Restart Windows and run setup again; the feature module skips features that are already enabled and setup continues with the remaining modules.
+
+Local configuration files are intentionally preserved once created. When upgrading an existing checkout, reconcile `windows-features.json`, `winget-packages.json`, `dotfiles-bootstrap-variables.json`, and `setup-modules.json` with their updated `.example` templates before testing this flow. The setup does not automatically disable an already enabled `Microsoft-Windows-Subsystem-Linux` component because another local distro may still depend on WSL 1; verify all distros with `wsl --list --verbose` before disabling that legacy feature manually.
+
 ## Setup setting group selection
 
 `INSTALL_SETTINGS` controls which setting modules are run from `setup-modules.json`.
@@ -154,4 +160,4 @@ During setup:
 8. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
 9. Setup modules consume the local `*.json` files and setup stops if a configured module is missing or fails.
 
-The `base` setting installs the CaskaydiaCove Nerd Font before applying Windows Terminal settings because the tracked terminal configuration references that font. Oh My Posh themes use non-elevated hard links when source and target are on the same volume, with a regular copy fallback across volumes.
+The `pwsh` setting installs the CaskaydiaCove Nerd Font used by the tracked Windows Terminal configuration. The current default plan applies the Terminal settings first and installs the font later in the same run; the final configuration is complete once all selected modules finish. Oh My Posh themes use non-elevated hard links when source and target are on the same volume, with a regular copy fallback across volumes.

@@ -401,9 +401,18 @@ function Get-DotfilesSetupPlan {
 
     $hasInstallPackages = Test-DotfilesObjectProperty -InputObject $DotfilesVariables -Name "INSTALL_PACKAGES"
     $selectedPackages = if ($hasInstallPackages) { ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_PACKAGES } else { @() }
-    if ((-not $hasInstallPackages) -or $selectedPackages.Count -gt 0) {
+    $runAllPackageModules = -not $hasInstallPackages
+    if ($runAllPackageModules -or $selectedPackages.Count -gt 0) {
         foreach ($entry in $setupConfig.packages) {
-            Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
+            $selectors = ConvertTo-DotfilesStringArray -Value $entry.whenSelected
+            $matched = $runAllPackageModules -or $selectors.Count -eq 0
+            if (-not $matched) {
+                $matched = $null -ne ($selectors | Where-Object { $selectedPackages -contains $_ } | Select-Object -First 1)
+            }
+
+            if ($matched) {
+                Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
+            }
         }
     }
 

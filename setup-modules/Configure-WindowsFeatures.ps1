@@ -42,11 +42,10 @@ try {
 
     foreach ($featureName in $featuresToEnable) {
         Write-Host "Processing feature: $featureName"
-        $feature = Get-WindowsOptionalFeature -Online -FeatureName $featureName -ErrorAction SilentlyContinue
+        $feature = Get-WindowsOptionalFeature -Online -FeatureName $featureName -ErrorAction Stop
 
         if (-not $feature) {
-            Write-Warning "Could not find feature '$featureName'. It might not be available on this version of Windows. Skipping."
-            continue
+            throw "Selected Windows feature '$featureName' is not available on this version or edition of Windows."
         }
 
         if ($feature.State -eq 'Enabled') {
@@ -70,5 +69,6 @@ catch {
 Write-Host "Windows feature configuration complete."
 
 if ($restartNeeded) {
-    Write-Warning "A system restart is required to complete the installation of some features. Please restart your computer."
+    Write-Warning "A system restart is required to complete the Windows feature changes. Restart Windows, then re-run setup to continue with packages and settings."
+    exit 3010
 }

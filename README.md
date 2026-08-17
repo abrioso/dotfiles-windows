@@ -51,8 +51,9 @@ This folder contains the main scripts that kick off the installation and setup p
 
 This folder contains the modular scripts that perform the actual configuration tasks. The `setup.ps1` script calls these in sequence.
 
--   `Configure-WindowsFeatures.ps1`: Enables necessary Windows features like WSL and Hyper-V. Requires administrator privileges.
+-   `Configure-WindowsFeatures.ps1`: Enables selected Windows features such as `VirtualMachinePlatform` for WSL 2 and the independently selectable Hyper-V group. If Windows requires a reboot, setup stops with code `3010`; restart and rerun before package installation continues.
 -   `Install-WingetPackages.ps1`: Reads local `winget-packages.json` and installs the selected package groups using the `winget` command-line tool, including optional per-package `user` or `machine` scope declarations.
+-   `Configure-WSL2.ps1`: Runs after Winget when the `wsl` group is selected, sets WSL 2 as the default, and applies WSL 2 to an existing Ubuntu registration.
 -   `Set-EnvironmentVariables.ps1`: Reads local `env-variables.json` and configures environment variables.
 -   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config.
 

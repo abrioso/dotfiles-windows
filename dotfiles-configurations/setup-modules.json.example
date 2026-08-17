@@ -14,6 +14,13 @@
         {
             "name": "winget-packages",
             "script": "Install-WingetPackages.ps1"
+        },
+        {
+            "name": "wsl2-state",
+            "script": "Configure-WSL2.ps1",
+            "whenSelected": [
+                "wsl"
+            ]
         }
     ],
     "settings": {

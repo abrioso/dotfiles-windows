@@ -18,12 +18,12 @@
         "base",
         "browsers",
         "development",
+        "wsl",
         "docker",
         "multimedia",
         "PowerBI",
         "productivity",
-        "pwsh",
-        "wsl"
+        "pwsh"
     ],
     "INSTALL_SETTINGS": [
         "base",

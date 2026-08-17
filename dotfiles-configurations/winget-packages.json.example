@@ -107,6 +107,16 @@
             "scope": "user"
         }
     ],
+    "wsl": [
+        {
+            "id": "Microsoft.WSL",
+            "scope": "user"
+        },
+        {
+            "id": "Canonical.Ubuntu",
+            "scope": "user"
+        }
+    ],
     "docker": [
         {
             "id": "Docker.DockerDesktop",
@@ -128,15 +138,5 @@
             "id": "JanDeDobbeleer.OhMyPosh",
             "scope": "user"
         }
-    ],
-    "wsl": [
-        {
-            "id": "Microsoft.WSL",
-            "scope": "user"
-        },
-        {
-            "id": "Canonical.Ubuntu",
-            "scope": "user"
-        } 
     ]
 }
