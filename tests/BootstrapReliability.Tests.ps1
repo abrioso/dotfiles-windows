@@ -80,11 +80,49 @@ Describe 'Bootstrap reliability contracts' {
             $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsFeatures.ps1'
             $module = Get-Content -LiteralPath $modulePath -Raw
 
+            if ($module -notmatch 'Get-WindowsOptionalFeature.+-ErrorAction Stop') {
+                throw 'Get-WindowsOptionalFeature must fail when a selected feature cannot be queried.'
+            }
+            if ($module -match "Could not find feature '.+'[\s\S]*?continue") {
+                throw 'Selected Windows features must not be skipped when unavailable.'
+            }
             if ($module -match '\$LASTEXITCODE') {
                 throw 'PowerShell cmdlet failures must not be inferred from LASTEXITCODE.'
             }
             if ($module -notmatch 'Enable-WindowsOptionalFeature.+-ErrorAction Stop') {
                 throw 'Enable-WindowsOptionalFeature must emit a terminating error on failure.'
+            }
+        }
+
+        It 'stops setup with the Windows reboot-required exit code before running later modules' {
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsFeatures.ps1'
+            $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+
+            if ($module -notmatch 'if \(\$restartNeeded\)[\s\S]*?exit 3010') {
+                throw 'The Windows feature module must return exit code 3010 when a reboot is required.'
+            }
+
+            $restartHandlerIndex = $setup.IndexOf('$moduleExitCode -eq 3010')
+            $successHandlerIndex = $setup.IndexOf('$moduleExitCode -eq 0')
+            if ($restartHandlerIndex -lt 0 -or $successHandlerIndex -lt 0 -or $restartHandlerIndex -gt $successHandlerIndex) {
+                throw 'Setup must stop on exit code 3010 before treating later module outcomes.'
+            }
+            if ($setup -notmatch 'Exit 3010') {
+                throw 'Setup must propagate the reboot-required exit code to its caller.'
+            }
+        }
+
+        It 'propagates setup exit codes through the Git-free installer' {
+            $installerPath = Join-Path $script:repositoryRoot 'setup-scripts/install.ps1'
+            $installer = Get-Content -LiteralPath $installerPath -Raw
+
+            if ($installer -notmatch '\$setupExitCode\s*=\s*\$LASTEXITCODE') {
+                throw 'The Git-free installer must capture the setup exit code.'
+            }
+            if ($installer -notmatch 'exit \$setupExitCode') {
+                throw 'The Git-free installer must propagate setup failures and reboot-required status.'
             }
         }
 
@@ -179,6 +217,16 @@ Describe 'Bootstrap reliability contracts' {
     }
 
     Context 'Default configuration consistency' {
+        It 'uses only VirtualMachinePlatform for the WSL 2 feature group' {
+            $featuresPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/windows-features.json.example'
+            $features = Get-Content -LiteralPath $featuresPath -Raw | ConvertFrom-Json
+            $wslFeatures = @($features.wsl)
+
+            if (($wslFeatures -join ',') -ne 'VirtualMachinePlatform') {
+                throw "The WSL 2 feature group must contain only VirtualMachinePlatform, got '$($wslFeatures -join ',')'."
+            }
+        }
+
         It 'installs the package groups required by default settings' {
             $bootstrapPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/dotfiles-bootstrap-variables.json.example'
             $modulesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/setup-modules.json.example'
@@ -332,6 +380,20 @@ Describe 'Bootstrap reliability contracts' {
                         $declaredScopes[$packageId] = $packageScope
                     }
                 }
+            }
+        }
+
+        It 'installs the WSL runtime before Docker Desktop' {
+            $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
+            $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
+            $packageIds = @($packages.PSObject.Properties.Value | ForEach-Object {
+                $_ | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.id } }
+            })
+            $wslIndex = [Array]::IndexOf($packageIds, 'Microsoft.WSL')
+            $dockerIndex = [Array]::IndexOf($packageIds, 'Docker.DockerDesktop')
+
+            if ($wslIndex -lt 0 -or $dockerIndex -lt 0 -or $wslIndex -gt $dockerIndex) {
+                throw "Package 'Microsoft.WSL' must be installed before 'Docker.DockerDesktop'."
             }
         }
 

@@ -113,9 +113,15 @@ $extractionStartedAt = Get-Date
 Expand-Zip $sourceFile $dotfilesTempDir
 $dotfilesInstallDir = Resolve-ExtractedDotfilesDirectory -ExpectedDirectory $dotfilesInstallDir -ExtractionRoot $dotfilesTempDir -ExtractionStartedAt $extractionStartedAt
 
+$setupExitCode = 0
 Push-Location -LiteralPath $dotfilesInstallDir
 try {
     & .\setup-scripts\setup.ps1 -BootstrapBranch $branch -NonInteractive:$NonInteractive
+    $setupExitCode = $LASTEXITCODE
 } finally {
     Pop-Location
+}
+
+if ($setupExitCode -ne 0) {
+    exit $setupExitCode
 }

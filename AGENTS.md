@@ -44,7 +44,7 @@ gh pr create --base develop --title "feat: add docker config" --body "Adds daemo
 - Pass PSScriptAnalyzer with no errors
 - All scripts must be idempotent (safe to re-run)
 - Document new files in README.md
-- Treat package arrays as ordered lists: prerequisites must precede dependents; alphabetize only when it preserves dependency order
+- Treat package groups and their arrays as ordered lists: prerequisites must precede dependents; alphabetize only when it preserves dependency order
 
 ## Repository Owner
 

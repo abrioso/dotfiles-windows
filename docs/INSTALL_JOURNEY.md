@@ -120,12 +120,13 @@ Using the current example defaults on `develop`, the resulting module order is:
 
 1. `Configure-WindowsFeatures.ps1`
 2. `Install-WingetPackages.ps1`
-3. `Set-EnvironmentVariables.ps1`
-4. `Install-NerdFont.ps1`
+3. `Configure-WSL2.ps1`
+4. `Set-EnvironmentVariables.ps1`
 5. `Install-WindowsTerminalSettings.ps1`
 6. `Apply-GitConfig.ps1`
 7. `Create-PowerShellProfileSymlink.ps1`
 8. `Install-OmpConfig.ps1`
+9. `Install-NerdFont.ps1`
 
 ## 13. Modules run one by one
 
@@ -133,17 +134,22 @@ Each module runs in its own PowerShell 7 process.
 
 - Modules marked `requiresAdmin` are relaunched elevated when needed.
 - Non-admin modules run without elevation.
-- If any module fails, setup stops immediately.
+- If the Windows feature module returns reboot-required code `3010`, setup stops before packages and settings; restart Windows and rerun setup to continue.
+- If any other module fails, setup stops immediately.
 
 ## 14. What each module does for the user
 
 ### `Configure-WindowsFeatures.ps1`
 
-Enables the selected Windows optional features, typically Hyper-V and WSL-related features.
+Enables the selected Windows optional features. The shared WSL 2 configuration enables `VirtualMachinePlatform`; Hyper-V remains an independently selectable feature group. When Windows reports that a restart is required, the module returns code `3010` so setup does not continue into WSL, Ubuntu, or Docker installation before the reboot.
 
 ### `Install-WingetPackages.ps1`
 
 Installs the selected `winget` package groups, including packages that declare explicit `user` or `machine` scope.
+
+### `Configure-WSL2.ps1`
+
+Runs only when the `wsl` package group is selected. It sets WSL 2 as the default for future distro registrations and idempotently applies WSL 2 to an existing `Ubuntu` registration. When the Ubuntu package has not yet completed its first launch, the WSL 2 default governs that later registration.
 
 ### `Set-EnvironmentVariables.ps1`
 

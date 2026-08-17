@@ -120,6 +120,48 @@ Describe 'Setup configuration resolution' {
             }
         }
 
+        It 'runs WSL 2 state enforcement only when the wsl package group is selected' {
+            $configDir = Get-TestConfigDirectory
+            try {
+                $setupModulesPath = Join-Path $configDir 'setup-modules.json'
+                Write-TestJson -Path $setupModulesPath -Json @'
+{
+  "packages": [
+    { "name": "winget-packages", "script": "Install-WingetPackages.ps1" },
+    { "name": "wsl2-state", "script": "Configure-WSL2.ps1", "whenSelected": [ "wsl" ] }
+  ]
+}
+'@
+                $withWsl = '{"INSTALL_PACKAGES":["wsl"]}' | ConvertFrom-Json
+                $withoutWsl = '{"INSTALL_PACKAGES":["base"]}' | ConvertFrom-Json
+                $allPackages = '{}' | ConvertFrom-Json
+                $noPackages = '{"INSTALL_PACKAGES":[]}' | ConvertFrom-Json
+
+                $wslScripts = @(Get-DotfilesSetupPlan -DotfilesVariables $withWsl -ConfigDirectory $configDir | ForEach-Object { $_.Script })
+                if (($wslScripts -join ',') -ne 'Install-WingetPackages.ps1,Configure-WSL2.ps1') {
+                    throw "Expected Winget followed by WSL 2 configuration, got '$($wslScripts -join ',')'."
+                }
+
+                $baseScripts = @(Get-DotfilesSetupPlan -DotfilesVariables $withoutWsl -ConfigDirectory $configDir | ForEach-Object { $_.Script })
+                if (($baseScripts -join ',') -ne 'Install-WingetPackages.ps1') {
+                    throw "Expected only the generic Winget module without WSL, got '$($baseScripts -join ',')'."
+                }
+
+                $allScripts = @(Get-DotfilesSetupPlan -DotfilesVariables $allPackages -ConfigDirectory $configDir | ForEach-Object { $_.Script })
+                if (($allScripts -join ',') -ne 'Install-WingetPackages.ps1,Configure-WSL2.ps1') {
+                    throw "Expected all package modules when INSTALL_PACKAGES is absent, got '$($allScripts -join ',')'."
+                }
+
+                $noScripts = @(Get-DotfilesSetupPlan -DotfilesVariables $noPackages -ConfigDirectory $configDir | ForEach-Object { $_.Script })
+                if ($noScripts.Count -ne 0) {
+                    throw "Expected no package modules for an empty INSTALL_PACKAGES selection, got '$($noScripts -join ',')'."
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $configDir -Recurse -Force
+            }
+        }
+
         It 'skips package and setting modules for explicit empty selections' {
             $configDir = Get-TestConfigDirectory
             try {

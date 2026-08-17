@@ -12,9 +12,9 @@ This repository manages Windows application packages via `winget` (Windows Packa
 
 ## Package ordering and dependencies
 
-Package arrays are ordered lists, not sets. `Install-WingetPackages.ps1` processes entries in declaration order, so prerequisites must appear before their dependents. Do not alphabetize a package group when doing so would change a required installation sequence.
+Package arrays and package groups are ordered lists, not sets. `Install-WingetPackages.ps1` processes the package groups and their entries in declaration order, so prerequisites must appear before their dependents. Do not alphabetize groups or packages when doing so would change a required installation sequence.
 
-The `wsl` group intentionally installs `Microsoft.WSL` before `Canonical.Ubuntu`. Add a matching dependency-order contract to `tests/BootstrapReliability.Tests.ps1` when another package requires a specific predecessor.
+The `wsl` group intentionally installs `Microsoft.WSL` before `Canonical.Ubuntu`, and the complete `wsl` group is declared before `docker` so that the WSL 2 runtime is installed before Docker Desktop. Ubuntu is not required for Docker Desktop itself, but installing it first makes subsequent WSL integration deterministic. After Winget completes, `Configure-WSL2.ps1` sets WSL 2 as the default and applies version 2 to an existing Ubuntu registration. Add a matching dependency-order contract to `tests/BootstrapReliability.Tests.ps1` when another package requires a specific predecessor.
 
 Example with an explicit per-user scope:
 

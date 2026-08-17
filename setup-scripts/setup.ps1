@@ -212,6 +212,11 @@ foreach ($module in $modulesToRun) {
         }
 
         $scriptResults.Add($moduleName, $moduleExitCode)
+        if ($moduleExitCode -eq 3010) {
+            Write-WarningMessage "Module '$moduleName' enabled Windows features that require a restart. Restart Windows, then re-run setup to continue."
+            Stop-Logging
+            Exit 3010
+        }
         if ($moduleExitCode -eq 0) {
             Write-Info "Module '$moduleName' completed successfully."
         } else {
