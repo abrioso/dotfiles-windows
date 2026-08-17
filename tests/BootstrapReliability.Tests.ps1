@@ -271,7 +271,11 @@ Describe 'Bootstrap reliability contracts' {
                     if ($packageEntry -is [string]) {
                         throw "Package '$packageEntry' must declare an explicit scope."
                     }
-                    $packageScopes[$packageEntry.id] = $packageEntry.scope
+                    $packageScope = [string]$packageEntry.scope
+                    if ([string]::IsNullOrWhiteSpace($packageScope)) {
+                        throw "Package '$($packageEntry.id)' must declare an explicit scope."
+                    }
+                    $packageScopes[$packageEntry.id] = $packageScope
                 }
             }
 
