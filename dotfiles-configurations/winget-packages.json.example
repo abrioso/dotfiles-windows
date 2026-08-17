@@ -26,7 +26,6 @@
             "id": "Git.Git",
             "scope": "user"
         },
-        "Microsoft.AppInstaller",
         {
             "id": "Microsoft.PowerShell",
             "scope": "user"
@@ -51,17 +50,17 @@
         },
         {
             "id": "Microsoft.Edge",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Mozilla.Firefox",
-            "scope": "user"
+            "scope": "machine"
         }
     ],
     "productivity": [
         {
             "id": "Microsoft.Office",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.OneDrive",
@@ -93,7 +92,7 @@
         },
         {
             "id": "Microsoft.AzureCLI",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.PowerShell",
@@ -111,7 +110,7 @@
     "docker": [
         {
             "id": "Docker.DockerDesktop",
-            "scope": "user"
+            "scope": "machine"
         }
     ],
     "multimedia": [

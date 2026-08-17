@@ -228,8 +228,8 @@ Describe 'Bootstrap reliability contracts' {
                     $browsersScopes[$package.id] = $package.scope
                 }
             }
-            if ($browsersScopes['Microsoft.Edge'] -ne 'user') {
-                throw "Browsers package 'Microsoft.Edge' must use user scope."
+            if ($browsersScopes['Microsoft.Edge'] -ne 'machine') {
+                throw "Browsers package 'Microsoft.Edge' must use machine scope."
             }
 
         }
@@ -258,6 +258,39 @@ Describe 'Bootstrap reliability contracts' {
             }
             if ($bootstrap.INSTALL_PACKAGES -notcontains 'PowerBI') {
                 throw "The default package selection must include the PowerBI group."
+            }
+        }
+
+        It 'uses explicit upstream-compatible scopes for the default package pool' {
+            $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
+            $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
+            $packageScopes = @{}
+
+            foreach ($group in $packages.PSObject.Properties) {
+                foreach ($packageEntry in $group.Value) {
+                    if ($packageEntry -is [string]) {
+                        throw "Package '$packageEntry' must declare an explicit scope."
+                    }
+                    $packageScopes[$packageEntry.id] = $packageEntry.scope
+                }
+            }
+
+            if ($packageScopes.ContainsKey('Microsoft.AppInstaller')) {
+                throw 'Microsoft.AppInstaller must not be installed through Winget itself.'
+            }
+
+            foreach ($packageId in @(
+                'Docker.DockerDesktop',
+                'gerardog.gsudo',
+                'Microsoft.AzureCLI',
+                'Microsoft.Edge',
+                'Microsoft.Office',
+                'Microsoft.PowerBI',
+                'Mozilla.Firefox'
+            )) {
+                if ($packageScopes[$packageId] -ne 'machine') {
+                    throw "Package '$packageId' must use machine scope."
+                }
             }
         }
 
