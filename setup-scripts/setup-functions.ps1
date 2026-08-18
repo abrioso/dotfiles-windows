@@ -37,28 +37,40 @@ function Write-ErrorMessage {
 function Start-Logging {
     param (
         [Parameter(Mandatory)]
-        [string]$LogFilePath
+        [string]$LogFilePath,
+        [switch]$PassThru,
+        [switch]$RequireRequestedPath
     )
-    # Ensure the log directory exists
-    $logDir = Split-Path -Parent $LogFilePath
-    if (!(Test-Path -Path $logDir)) { 
-        try {
-            New-Item -Path $logDir -ItemType Directory | Out-Null
-        }
-        catch {
-            Write-WarningMessage "Cannot create log directory: $($_.Exception.Message)"
-            $LogFilePath = "$env:TEMP\$(Split-Path -Leaf $LogFilePath)"
-            Write-WarningMessage "Logging to temporary location: $LogFilePath"
-        }
-    }
-    # Start logging to the specified file
+
+    $actualLogFilePath = $LogFilePath
     try {
-        Start-Transcript -Path $LogFilePath -ErrorAction Stop
+        $logDir = Split-Path -Parent $actualLogFilePath
+        if (-not (Test-Path -LiteralPath $logDir -PathType Container)) {
+            New-Item -Path $logDir -ItemType Directory -ErrorAction Stop | Out-Null
+        }
+        Start-Transcript -Path $actualLogFilePath -ErrorAction Stop | Out-Null
     }
     catch {
-        Write-WarningMessage "Cannot start transcript: $($_.Exception.Message)"
+        if ($RequireRequestedPath) {
+            throw "Cannot start transcript at '$actualLogFilePath': $($_.Exception.Message)"
+        }
+
+        Write-WarningMessage "Cannot start transcript at '$actualLogFilePath': $($_.Exception.Message)"
+        $fallbackName = "{0}-{1}.txt" -f [System.IO.Path]::GetFileNameWithoutExtension($LogFilePath), [System.Guid]::NewGuid().ToString('N')
+        $actualLogFilePath = Join-Path $env:TEMP $fallbackName
+        try {
+            Start-Transcript -Path $actualLogFilePath -ErrorAction Stop | Out-Null
+            Write-WarningMessage "Logging to temporary location: $actualLogFilePath"
+        }
+        catch {
+            throw "Cannot start transcript at the requested or temporary path: $($_.Exception.Message)"
+        }
     }
-}        
+
+    if ($PassThru) {
+        return $actualLogFilePath
+    }
+}
  
 function Stop-Logging {
     try {
