@@ -2,6 +2,10 @@ Describe 'Setup configuration resolution' {
     BeforeAll {
         . "$PSScriptRoot/../setup-scripts/setup-functions.ps1"
 
+        if (-not (Get-Command Get-CimInstance -ErrorAction SilentlyContinue)) {
+            function Get-CimInstance { throw 'Test placeholder must be mocked.' }
+        }
+
         function Get-TestConfigDirectory {
             $path = Join-Path $env:TEMP ([System.Guid]::NewGuid())
             New-Item -ItemType Directory -Path $path | Out-Null
@@ -73,6 +77,59 @@ Describe 'Setup configuration resolution' {
             }
             finally {
                 Remove-Item -LiteralPath $configDir -Recurse -Force
+            }
+        }
+    }
+
+    Context 'Test-DotfilesWindowsFeaturesEnabled' {
+        It 'returns true only when every requested feature is enabled' {
+            Mock Get-CimInstance {
+                @(
+                    [pscustomobject]@{ Name = 'VirtualMachinePlatform'; InstallState = 1 }
+                    [pscustomobject]@{ Name = 'Microsoft-Hyper-V-All'; InstallState = 1 }
+                )
+            }
+
+            $enabled = Test-DotfilesWindowsFeaturesEnabled -FeatureName @('VirtualMachinePlatform', 'Microsoft-Hyper-V-All')
+            if (-not $enabled) {
+                throw 'All requested features in InstallState 1 must satisfy the non-elevated preflight.'
+            }
+        }
+        It 'returns false when any requested feature is not enabled or cannot be identified exactly' {
+            Mock Get-CimInstance {
+                @(
+                    [pscustomobject]@{ Name = 'VirtualMachinePlatform'; InstallState = 1 }
+                    [pscustomobject]@{ Name = 'Microsoft-Hyper-V-All'; InstallState = 2 }
+                )
+            }
+
+            if (Test-DotfilesWindowsFeaturesEnabled -FeatureName @('VirtualMachinePlatform', 'Microsoft-Hyper-V-All')) {
+                throw 'A disabled requested feature must keep the elevated module in the setup plan.'
+            }
+            if (Test-DotfilesWindowsFeaturesEnabled -FeatureName @('VirtualMachinePlatform', 'MissingFeature')) {
+                throw 'A missing requested feature must keep the elevated module in the setup plan.'
+            }
+        }
+
+        It 'returns false when the non-elevated CIM query fails' {
+            Mock Get-CimInstance { throw 'CIM unavailable' }
+
+            if (Test-DotfilesWindowsFeaturesEnabled -FeatureName @('VirtualMachinePlatform')) {
+                throw 'An inconclusive preflight must fail closed and preserve elevation.'
+            }
+        }
+
+        It 'skips the Windows feature module before elevation when the requested state is satisfied' {
+            $setupPath = Join-Path $PSScriptRoot '../setup-scripts/setup.ps1'
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+            $preflightIndex = $setup.IndexOf('Test-DotfilesWindowsFeaturesEnabled')
+            $elevationIndex = $setup.IndexOf('Start-Process -FilePath "pwsh.exe"')
+
+            if ($preflightIndex -lt 0 -or $elevationIndex -lt 0 -or $preflightIndex -gt $elevationIndex) {
+                throw 'Windows feature state must be checked before setup requests elevation.'
+            }
+            if ($setup -notmatch 'All requested Windows features are already enabled[\s\S]*?continue') {
+                throw 'A satisfied preflight must skip the administrative module entirely.'
             }
         }
     }

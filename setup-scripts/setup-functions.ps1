@@ -380,6 +380,31 @@ function Resolve-DotfilesWindowsFeature {
     return $features.ToArray()
 }
 
+function Test-DotfilesWindowsFeaturesEnabled {
+    param([Parameter(Mandatory)][string[]]$FeatureName)
+
+    if ($FeatureName.Count -eq 0) {
+        return $true
+    }
+
+    try {
+        $featureStates = @(Get-CimInstance -ClassName Win32_OptionalFeature -ErrorAction Stop)
+    }
+    catch {
+        Write-WarningMessage "Could not query Windows optional feature state without elevation: $($_.Exception.Message)"
+        return $false
+    }
+
+    foreach ($requestedFeature in $FeatureName) {
+        $matches = @($featureStates | Where-Object { $_.Name -ceq $requestedFeature })
+        if ($matches.Count -ne 1 -or [uint32]$matches[0].InstallState -ne 1) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
 function Get-DotfilesSetupPlan {
     param (
         [Parameter(Mandatory)]
