@@ -210,6 +210,7 @@ foreach ($module in $modulesToRun) {
 
     Write-Info "Running module: $moduleName"
     try {
+        $moduleLogFile = $null
         $moduleHost = if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
             Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
         } else {
@@ -221,7 +222,6 @@ foreach ($module in $modulesToRun) {
 
         $moduleArguments = @('-NoProfile', '-File', $modulePath)
         $scriptArg = "-NoProfile -File `"$modulePath`""
-        $moduleLogFile = $null
         if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
             $moduleLogName = "{0}-{1}-{2}.txt" -f $moduleName, (Get-Date -Format 'yyyyMMdd-HHmmssfff'), [System.Guid]::NewGuid().ToString('N').Substring(0, 8)
             $moduleLogFile = Join-Path $moduleLogDirectory $moduleLogName
