@@ -4,6 +4,44 @@ Describe 'Bootstrap reliability contracts' {
         . "$script:repositoryRoot/setup-scripts/setup-functions.ps1"
     }
 
+    Context 'Logging reliability' {
+        It 'returns the temporary fallback path when the requested log directory cannot be created' {
+            $requestedPath = Join-Path (Join-Path $TestDrive 'blocked') 'setup.txt'
+            $script:capturedTranscriptPath = $null
+            Mock Test-Path { return $false }
+            Mock New-Item { throw [System.UnauthorizedAccessException]::new('denied') }
+            Mock Start-Transcript {
+                $script:capturedTranscriptPath = $Path
+                'Transcript started, output file is representative.txt'
+            }
+
+            $actualPath = Start-Logging -LogFilePath $requestedPath -PassThru
+
+            if ($actualPath -isnot [string] -or (Split-Path -Parent $actualPath) -ne $env:TEMP -or $actualPath -ne $script:capturedTranscriptPath) {
+                throw 'Start-Logging must emit exactly the actual temporary transcript path.'
+            }
+        }
+
+        It 'fails closed when an explicitly required transcript path is unavailable' {
+            $requestedPath = Join-Path (Join-Path $TestDrive 'blocked') 'module.txt'
+            Mock Test-Path { return $false }
+            Mock New-Item { throw [System.UnauthorizedAccessException]::new('denied') }
+            Mock Start-Transcript { }
+
+            $threw = $false
+            try {
+                Start-Logging -LogFilePath $requestedPath -PassThru -RequireRequestedPath | Out-Null
+            }
+            catch {
+                $threw = $true
+            }
+            if (-not $threw) {
+                throw 'A required module transcript path must fail closed instead of running without diagnostics.'
+            }
+            Should -Invoke Start-Transcript -Times 0 -Exactly
+        }
+    }
+
     Context 'Windows Terminal configuration' {
         It 'does not contain machine-specific user paths or WSL distribution IDs' {
             $settingsPath = Join-Path $script:repositoryRoot 'windows-terminal-settings/settings.json'
@@ -94,13 +132,36 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
+        It 'writes an independent transcript for the elevated Windows feature module' {
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsFeatures.ps1'
+            $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+
+            if ($module -notmatch 'Start-Logging\s+-LogFilePath\s+\$LogFilePath\s+-PassThru\s+-RequireRequestedPath') {
+                throw 'The elevated Windows feature module must start and capture its own required transcript path.'
+            }
+            if ($module -notmatch 'Stop-Logging') {
+                throw 'The Windows feature module must close its transcript on completion and failure.'
+            }
+            if ($setup -notmatch 'Write-ModuleLogLocation\s+-ModuleLogFile\s+\$moduleLogFile' -or $setup -notmatch 'Test-Path\s+-LiteralPath\s+\$ModuleLogFile\s+-PathType\s+Leaf') {
+                throw 'Setup must report only a concrete module log file that actually exists.'
+            }
+            if ($setup -notmatch '\$moduleArguments\s*\+=\s*@\(''-LogFilePath'',\s*\$moduleLogFile\)' -or $setup -notmatch '&\s+pwsh\.exe\s+@moduleArguments') {
+                throw 'Already-elevated and newly elevated module launches must receive the same explicit log path.'
+            }
+            if ($setup -notmatch '\$logFile\s*=\s*Start-Logging\s+-LogFilePath\s+\$logFile\s+-PassThru') {
+                throw 'The parent setup summary must retain the actual transcript path after fallback.'
+            }
+        }
+
         It 'stops setup with the Windows reboot-required exit code before running later modules' {
             $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsFeatures.ps1'
             $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
             $module = Get-Content -LiteralPath $modulePath -Raw
             $setup = Get-Content -LiteralPath $setupPath -Raw
 
-            if ($module -notmatch 'if \(\$restartNeeded\)[\s\S]*?exit 3010') {
+            if ($module -notmatch 'if \(\$restartNeeded\)[\s\S]*?\$moduleExitCode\s*=\s*3010' -or $module -notmatch 'exit \$moduleExitCode') {
                 throw 'The Windows feature module must return exit code 3010 when a reboot is required.'
             }
 

@@ -29,7 +29,7 @@ $scriptName = Split-Path -Leaf $PSCommandPath
 $logFile = "$logDir/$scriptName-$dateTime.txt"
 
 # Start logging
-Start-Logging -LogFilePath $logFile
+$logFile = Start-Logging -LogFilePath $logFile -PassThru
 
 # Check execution policy at script start
 $currentPolicy = Get-ExecutionPolicy
@@ -174,6 +174,7 @@ Write-Info "Running the modular setup scripts from 'setup-modules'..."
 
 $moduleScriptsPath = Join-Path $dotfilesDirectory "setup-modules"
 $moduleConfigDirectory = Join-Path $dotfilesDirectory "dotfiles-configurations"
+$moduleLogDirectory = Join-Path $dotfilesDirectory "logs"
 Assert-DotfilesSetupDependencies -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 $modulesToRun = Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 
@@ -184,6 +185,19 @@ if (-not (Test-Path -LiteralPath $moduleScriptsPath)) {
 }
 
 $scriptResults = @{}
+
+function Write-ModuleLogLocation {
+    param([string]$ModuleLogFile)
+
+    if ([string]::IsNullOrWhiteSpace($ModuleLogFile)) {
+        return
+    }
+    if (Test-Path -LiteralPath $ModuleLogFile -PathType Leaf) {
+        Write-Info "Module log: $ModuleLogFile"
+    } else {
+        Write-WarningMessage "The module did not create its expected log file: $ModuleLogFile"
+    }
+}
 
 foreach ($module in $modulesToRun) {
     $moduleName = $module.Script
@@ -196,7 +210,15 @@ foreach ($module in $modulesToRun) {
 
     Write-Info "Running module: $moduleName"
     try {
+        $moduleArguments = @('-NoProfile', '-File', $modulePath)
         $scriptArg = "-NoProfile -File `"$modulePath`""
+        $moduleLogFile = $null
+        if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
+            $moduleLogName = "{0}-{1}-{2}.txt" -f $moduleName, (Get-Date -Format 'yyyyMMdd-HHmmssfff'), [System.Guid]::NewGuid().ToString('N').Substring(0, 8)
+            $moduleLogFile = Join-Path $moduleLogDirectory $moduleLogName
+            $moduleArguments += @('-LogFilePath', $moduleLogFile)
+            $scriptArg += " -LogFilePath `"$moduleLogFile`""
+        }
         $requiresAdmin = $module.RequiresAdmin
 
         # Check if running as administrator
@@ -207,13 +229,14 @@ foreach ($module in $modulesToRun) {
             $process = Start-Process -FilePath "pwsh.exe" -ArgumentList $scriptArg -WorkingDirectory $dotfilesDirectory -Verb RunAs -PassThru -Wait
             $moduleExitCode = $process.ExitCode
         } else {
-            & pwsh.exe -NoProfile -File $modulePath
+            & pwsh.exe @moduleArguments
             $moduleExitCode = $LASTEXITCODE
         }
 
         $scriptResults.Add($moduleName, $moduleExitCode)
         if ($moduleExitCode -eq 3010) {
             Write-WarningMessage "Module '$moduleName' enabled Windows features that require a restart. Restart Windows, then re-run setup to continue."
+            Write-ModuleLogLocation -ModuleLogFile $moduleLogFile
             Stop-Logging
             Exit 3010
         }
@@ -221,11 +244,13 @@ foreach ($module in $modulesToRun) {
             Write-Info "Module '$moduleName' completed successfully."
         } else {
             Write-ErrorMessage "Module '$moduleName' exited with code: $moduleExitCode. Halting setup."
+            Write-ModuleLogLocation -ModuleLogFile $moduleLogFile
             Stop-Logging
             Exit 1 # Stop the entire setup if a module fails
         }
     } catch {
         Write-ErrorMessage "Failed to execute module '$moduleName': $_"
+        Write-ModuleLogLocation -ModuleLogFile $moduleLogFile
         Stop-Logging
         Exit 1
     }
