@@ -95,6 +95,19 @@ Describe 'Setup configuration resolution' {
                 throw 'All requested features in InstallState 1 must satisfy the non-elevated preflight.'
             }
         }
+        It 'matches requested feature names case-insensitively' {
+            Mock Get-CimInstance {
+                @(
+                    [pscustomobject]@{ Name = 'VirtualMachinePlatform'; InstallState = 1 }
+                    [pscustomobject]@{ Name = 'Microsoft-Hyper-V-All'; InstallState = 1 }
+                )
+            }
+
+            $enabled = Test-DotfilesWindowsFeaturesEnabled -FeatureName @('virtualmachineplatform', 'microsoft-hyper-v-all')
+            if (-not $enabled) {
+                throw 'Requested feature names should match Win32_OptionalFeature names without case sensitivity.'
+            }
+        }
         It 'returns false when any requested feature is not enabled or cannot be identified exactly' {
             Mock Get-CimInstance {
                 @(

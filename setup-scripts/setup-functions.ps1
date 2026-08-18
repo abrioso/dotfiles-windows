@@ -396,7 +396,7 @@ function Test-DotfilesWindowsFeaturesEnabled {
     }
 
     foreach ($requestedFeature in $FeatureName) {
-        $matches = @($featureStates | Where-Object { $_.Name -ceq $requestedFeature })
+        $matches = @($featureStates | Where-Object { $_.Name -ieq $requestedFeature })
         if ($matches.Count -ne 1 -or [uint32]$matches[0].InstallState -ne 1) {
             return $false
         }
