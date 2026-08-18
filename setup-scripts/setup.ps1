@@ -210,9 +210,20 @@ foreach ($module in $modulesToRun) {
 
     Write-Info "Running module: $moduleName"
     try {
+        $moduleLogFile = $null
+        if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
+            $requestedFeatures = @(Resolve-DotfilesWindowsFeature `
+                -ConfigPath (Join-Path $moduleConfigDirectory 'windows-features.json') `
+                -BootstrapPath (Join-Path $moduleConfigDirectory 'dotfiles-bootstrap-variables.json'))
+            if (Test-DotfilesWindowsFeaturesEnabled -FeatureName $requestedFeatures) {
+                Write-Info 'All requested Windows features are already enabled. Skipping elevation.'
+                $scriptResults.Add($moduleName, 0)
+                continue
+            }
+        }
+
         $moduleArguments = @('-NoProfile', '-File', $modulePath)
         $scriptArg = "-NoProfile -File `"$modulePath`""
-        $moduleLogFile = $null
         if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
             $moduleLogName = "{0}-{1}-{2}.txt" -f $moduleName, (Get-Date -Format 'yyyyMMdd-HHmmssfff'), [System.Guid]::NewGuid().ToString('N').Substring(0, 8)
             $moduleLogFile = Join-Path $moduleLogDirectory $moduleLogName

@@ -142,6 +142,8 @@ An explicit empty array skips Windows optional feature configuration. If the pro
 
 The shared `wsl` feature group targets WSL 2 only and enables `VirtualMachinePlatform`. The modern `Microsoft.WSL` runtime and Ubuntu distribution are installed separately through Winget; the legacy `Microsoft-Windows-Subsystem-Linux` component used for WSL 1 is not enabled on clean installations. After package installation, `Configure-WSL2.ps1` sets version 2 as the default and converts an existing `Ubuntu` registration to WSL 2.
 
+Before requesting elevation, setup performs a read-only `Win32_OptionalFeature` CIM preflight. If every requested feature is present exactly once with `InstallState = 1` (`Enabled`), the administrative module is skipped. Any disabled, absent, unknown, duplicate, missing, or unqueryable state falls back to the elevated module, which revalidates the selection with DISM before making changes.
+
 If enabling a selected Windows feature requires a reboot, setup exits with Windows code `3010` before installing packages or applying settings. Restart Windows and run setup again; the feature module skips features that are already enabled and setup continues with the remaining modules.
 
 Local configuration files are intentionally preserved once created. When upgrading an existing checkout, reconcile `windows-features.json`, `winget-packages.json`, `dotfiles-bootstrap-variables.json`, and `setup-modules.json` with their updated `.example` templates before testing this flow. The setup does not automatically disable an already enabled `Microsoft-Windows-Subsystem-Linux` component because another local distro may still depend on WSL 1; verify all distros with `wsl --list --verbose` before disabling that legacy feature manually.
