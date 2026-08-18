@@ -132,6 +132,21 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
+        It 'uses Windows PowerShell 5.1 for the DISM feature module in both launch paths' {
+            $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+
+            if ($setup -notmatch 'WindowsPowerShell\\v1\.0\\powershell\.exe') {
+                throw 'Configure-WindowsFeatures must use the in-box Windows PowerShell host for DISM cmdlets.'
+            }
+            if ($setup -notmatch 'Start-Process\s+-FilePath\s+\$moduleHost' -or $setup -notmatch '&\s+\$moduleHost\s+@moduleArguments') {
+                throw 'Elevated and already-elevated module launches must use the selected module host.'
+            }
+            if ($setup -notmatch "else\s*\{\s*'pwsh\.exe'\s*\}") {
+                throw 'Modules other than Configure-WindowsFeatures must remain on PowerShell 7.'
+            }
+        }
+
         It 'writes an independent transcript for the elevated Windows feature module' {
             $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsFeatures.ps1'
             $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
@@ -147,8 +162,8 @@ Describe 'Bootstrap reliability contracts' {
             if ($setup -notmatch 'Write-ModuleLogLocation\s+-ModuleLogFile\s+\$moduleLogFile' -or $setup -notmatch 'Test-Path\s+-LiteralPath\s+\$ModuleLogFile\s+-PathType\s+Leaf') {
                 throw 'Setup must report only a concrete module log file that actually exists.'
             }
-            if ($setup -notmatch '\$moduleArguments\s*\+=\s*@\(''-LogFilePath'',\s*\$moduleLogFile\)' -or $setup -notmatch '&\s+pwsh\.exe\s+@moduleArguments') {
-                throw 'Already-elevated and newly elevated module launches must receive the same explicit log path.'
+            if ($setup -notmatch '\$moduleArguments\s*\+=\s*@\(''-LogFilePath'',\s*\$moduleLogFile\)' -or $setup -notmatch '&\s+\$moduleHost\s+@moduleArguments') {
+                throw 'Already-elevated and newly elevated module launches must receive the same explicit log path and selected host.'
             }
             if ($setup -notmatch '\$logFile\s*=\s*Start-Logging\s+-LogFilePath\s+\$logFile\s+-PassThru') {
                 throw 'The parent setup summary must retain the actual transcript path after fallback.'
