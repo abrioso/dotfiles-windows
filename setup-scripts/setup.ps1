@@ -211,6 +211,17 @@ foreach ($module in $modulesToRun) {
     Write-Info "Running module: $moduleName"
     try {
         $moduleLogFile = $null
+        if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
+            $requestedFeatures = @(Resolve-DotfilesWindowsFeature `
+                -ConfigPath (Join-Path $moduleConfigDirectory 'windows-features.json') `
+                -BootstrapPath (Join-Path $moduleConfigDirectory 'dotfiles-bootstrap-variables.json'))
+            if (Test-DotfilesWindowsFeaturesEnabled -FeatureName $requestedFeatures) {
+                Write-Info 'All requested Windows features are already enabled. Skipping elevation.'
+                $scriptResults.Add($moduleName, 0)
+                continue
+            }
+        }
+
         $moduleHost = if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
             Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
         } else {

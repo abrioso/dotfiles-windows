@@ -144,6 +144,8 @@ The shared `wsl` feature group targets WSL 2 only and enables `VirtualMachinePla
 
 `Configure-WindowsFeatures.ps1` runs under the in-box Windows PowerShell 5.1 host even when the main setup is running in PowerShell 7. This avoids the known `Class not registered` failure in DISM PowerShell cmdlets hosted by MSIX/WindowsApps builds of PowerShell 7; all other setup modules continue to use PowerShell 7.
 
+Before requesting elevation, setup performs a read-only `Win32_OptionalFeature` CIM preflight. If every requested feature is present exactly once with `InstallState = 1` (`Enabled`), the administrative module is skipped. Any disabled, absent, unknown, duplicate, missing, or unqueryable state falls back to the elevated module, which revalidates the selection with DISM before making changes.
+
 If enabling a selected Windows feature requires a reboot, setup exits with Windows code `3010` before installing packages or applying settings. Restart Windows and run setup again; the feature module skips features that are already enabled and setup continues with the remaining modules.
 
 Local configuration files are intentionally preserved once created. When upgrading an existing checkout, reconcile `windows-features.json`, `winget-packages.json`, `dotfiles-bootstrap-variables.json`, and `setup-modules.json` with their updated `.example` templates before testing this flow. The setup does not automatically disable an already enabled `Microsoft-Windows-Subsystem-Linux` component because another local distro may still depend on WSL 1; verify all distros with `wsl --list --verbose` before disabling that legacy feature manually.
