@@ -222,6 +222,15 @@ foreach ($module in $modulesToRun) {
             }
         }
 
+        $moduleHost = if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
+            Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        } else {
+            'pwsh.exe'
+        }
+        if ($moduleName -eq 'Configure-WindowsFeatures.ps1' -and -not (Test-Path -LiteralPath $moduleHost -PathType Leaf)) {
+            throw "Windows PowerShell 5.1 was not found at '$moduleHost'."
+        }
+
         $moduleArguments = @('-NoProfile', '-File', $modulePath)
         $scriptArg = "-NoProfile -File `"$modulePath`""
         if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
@@ -237,10 +246,10 @@ foreach ($module in $modulesToRun) {
 
         if ($requiresAdmin -and -not $isAdmin) {
             Write-WarningMessage "Module '$moduleName' requires elevated privileges. Relaunching this module as administrator..."
-            $process = Start-Process -FilePath "pwsh.exe" -ArgumentList $scriptArg -WorkingDirectory $dotfilesDirectory -Verb RunAs -PassThru -Wait
+            $process = Start-Process -FilePath $moduleHost -ArgumentList $scriptArg -WorkingDirectory $dotfilesDirectory -Verb RunAs -PassThru -Wait
             $moduleExitCode = $process.ExitCode
         } else {
-            & pwsh.exe @moduleArguments
+            & $moduleHost @moduleArguments
             $moduleExitCode = $LASTEXITCODE
         }
 

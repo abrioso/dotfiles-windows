@@ -136,7 +136,7 @@ Describe 'Setup configuration resolution' {
             $setupPath = Join-Path $PSScriptRoot '../setup-scripts/setup.ps1'
             $setup = Get-Content -LiteralPath $setupPath -Raw
             $preflightIndex = $setup.IndexOf('Test-DotfilesWindowsFeaturesEnabled')
-            $elevationIndex = $setup.IndexOf('Start-Process -FilePath "pwsh.exe"')
+            $elevationIndex = $setup.IndexOf('Start-Process -FilePath $moduleHost')
 
             if ($preflightIndex -lt 0 -or $elevationIndex -lt 0 -or $preflightIndex -gt $elevationIndex) {
                 throw 'Windows feature state must be checked before setup requests elevation.'

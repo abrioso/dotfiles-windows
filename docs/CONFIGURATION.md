@@ -142,6 +142,8 @@ An explicit empty array skips Windows optional feature configuration. If the pro
 
 The shared `wsl` feature group targets WSL 2 only and enables `VirtualMachinePlatform`. The modern `Microsoft.WSL` runtime and Ubuntu distribution are installed separately through Winget; the legacy `Microsoft-Windows-Subsystem-Linux` component used for WSL 1 is not enabled on clean installations. After package installation, `Configure-WSL2.ps1` sets version 2 as the default and converts an existing `Ubuntu` registration to WSL 2.
 
+`Configure-WindowsFeatures.ps1` runs under the in-box Windows PowerShell 5.1 host even when the main setup is running in PowerShell 7. This avoids the known `Class not registered` failure in DISM PowerShell cmdlets hosted by MSIX/WindowsApps builds of PowerShell 7; all other setup modules continue to use PowerShell 7.
+
 Before requesting elevation, setup performs a read-only `Win32_OptionalFeature` CIM preflight. If every requested feature is present exactly once with `InstallState = 1` (`Enabled`), the administrative module is skipped. Any disabled, absent, unknown, duplicate, missing, or unqueryable state falls back to the elevated module, which revalidates the selection with DISM before making changes.
 
 If enabling a selected Windows feature requires a reboot, setup exits with Windows code `3010` before installing packages or applying settings. Restart Windows and run setup again; the feature module skips features that are already enabled and setup continues with the remaining modules.
