@@ -44,7 +44,8 @@ Describe 'Dotfiles update helpers' {
                     'git-variables.json.example',
                     'setup-modules.json.example',
                     'windows-features.json.example',
-                    'winget-packages.json.example'
+                    'winget-packages.json.example',
+                    'windows-terminal-settings.json.example'
                 ) | ForEach-Object {
                     Set-Content -LiteralPath (Join-Path $root $_) -Value '{}' -Encoding UTF8
                 }
@@ -54,7 +55,8 @@ Describe 'Dotfiles update helpers' {
                     'git-variables.json',
                     'setup-modules.json',
                     'windows-features.json',
-                    'winget-packages.json'
+                    'winget-packages.json',
+                    'windows-terminal-settings.json'
                 )
                 $allowed = @($allowedNames | ForEach-Object { Join-Path $root "$_.example" })
                 Set-Content -LiteralPath (Join-Path $root 'injected.json.example') -Value '{}' -Encoding UTF8
@@ -64,7 +66,7 @@ Describe 'Dotfiles update helpers' {
                 $names = @($templates.Name)
                 $recommended = @($templates | Where-Object Recommended | ForEach-Object Name)
 
-                if (($names -join ',') -ne 'dotfiles-bootstrap-variables.json,env-variables.json,git-variables.json,setup-modules.json,windows-features.json,winget-packages.json') {
+                if (($names -join ',') -ne 'dotfiles-bootstrap-variables.json,env-variables.json,git-variables.json,setup-modules.json,windows-features.json,winget-packages.json,windows-terminal-settings.json') {
                     throw "Unexpected template discovery order: '$($names -join ',')'."
                 }
                 if (($recommended -join ',') -ne 'setup-modules.json,windows-features.json,winget-packages.json') {

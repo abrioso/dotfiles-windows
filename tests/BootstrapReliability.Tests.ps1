@@ -44,14 +44,13 @@ Describe 'Bootstrap reliability contracts' {
 
     Context 'Windows Terminal configuration' {
         It 'does not contain machine-specific user paths or WSL distribution IDs' {
-            $settingsPath = Join-Path $script:repositoryRoot 'windows-terminal-settings/settings.json'
+            $settingsPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/windows-terminal-settings.json.example'
             $settings = Get-Content -LiteralPath $settingsPath -Raw
-
             if ($settings -match '(?i)C:\\\\Users\\\\') {
-                throw 'Windows Terminal settings must not contain a machine-specific user path.'
+                throw 'Windows Terminal baseline settings must not contain a machine-specific user path.'
             }
             if ($settings -match '(?i)--distribution-id') {
-                throw 'Windows Terminal settings must let Windows Terminal discover WSL distributions dynamically.'
+                throw 'Windows Terminal baseline settings must let Windows Terminal discover WSL distributions dynamically.'
             }
         }
 

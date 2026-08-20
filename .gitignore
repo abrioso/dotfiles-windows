@@ -13,5 +13,9 @@ tests/*.results.json
 dotfiles-configurations/*.json
 !dotfiles-configurations/*.json.example
 
+# Windows Terminal settings are created from the base template and kept machine-local
+windows-terminal-settings/
+!windows-terminal-settings/README.md
+
 # Private PowerShell profile extension
 powershell-profiles/extra.ps1
