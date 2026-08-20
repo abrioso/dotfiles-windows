@@ -1,16 +1,14 @@
 # Windows Terminal settings
 
-This directory is intentionally kept minimal in version control.
+This directory contains documentation for Windows Terminal settings.
 
-What is tracked:
-- `README.md` (this file)
+The setup module `Install-WindowsTerminalSettings.ps1` derives the local `settings.json`
+from the tracked baseline template in `dotfiles-configurations/windows-terminal-settings.json.example`
+and places the local file in `dotfiles-configurations/windows-terminal-settings.json`, where it
+is ignored by the existing `.gitignore` rule for machine-local JSON files.
 
-What is not tracked:
-- `settings.json` — per-machine Windows Terminal configuration.
+The module then creates a symbolic link from the Windows Terminal LocalState directory to that
+local file so the terminal loads the configuration from its conventional location.
 
-The tracked baseline is stored as a JSON template in `dotfiles-configurations/windows-terminal-settings.json.example`.
-The setup module `Install-WindowsTerminalSettings.ps1` derives the local `settings.json` from that template and
-creates a symbolic link from the Windows Terminal LocalState directory to the local file.
-
-Do not commit local changes to `settings.json`. Add machine-specific profiles (WSL, Ubuntu, custom paths, GUIDs)
-only to the local copy in this directory or in the Windows Terminal UI.
+Do not commit local changes to `settings.json`. Add machine-specific profiles (WSL, Ubuntu, custom
+paths, GUIDs) only to the local copy in `dotfiles-configurations/` or through the Windows Terminal UI.

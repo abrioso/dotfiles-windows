@@ -161,7 +161,9 @@ Downloads and installs the CaskaydiaCove Nerd Font for the current user.
 
 ### `Install-WindowsTerminalSettings.ps1`
 
-Deploys the tracked Windows Terminal `settings.json` into the Terminal package state by creating a symlink to the repo-managed file.
+Deploys the baseline Windows Terminal `settings.json` into the Terminal package state by copying the template from
+`dotfiles-configurations/windows-terminal-settings.json.example` to `dotfiles-configurations/windows-terminal-settings.json`
+and creating a symlink to the local file. The local file is git-ignored and preserved across runs.
 
 ### `Apply-GitConfig.ps1`
 

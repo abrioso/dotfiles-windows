@@ -6,7 +6,8 @@
 .DESCRIPTION
     This script uses the baseline template in dotfiles-configurations/windows-terminal-settings.json.example
     as the starting point for the local settings.json. It keeps the local settings.json out of version
-    control by placing it in windows-terminal-settings/ and ignoring that path in .gitignore.
+    control by placing it in dotfiles-configurations/, where it is ignored by the existing .gitignore rule
+    for machine-local JSON files.
 
     If the local settings.json does not exist, it is created from the template. If it already exists,
     it is left untouched so machine-specific changes (for example WSL or Ubuntu profiles) are preserved.
