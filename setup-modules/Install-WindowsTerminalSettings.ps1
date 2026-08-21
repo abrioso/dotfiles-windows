@@ -101,7 +101,7 @@ if (-not (Test-Path -LiteralPath $wtLocalStatePath)) {
 if (-not (Test-Path -LiteralPath $settingsSourceFile)) {
     try {
         Write-Info "Creating local Windows Terminal settings from baseline template: $settingsSourceFile"
-        Copy-Item -LiteralPath $templateFile -Destination $settingsSourceFile -Force
+        Copy-Item -LiteralPath $templateFile -Destination $settingsSourceFile -Force -ErrorAction Stop
     }
     catch {
         Write-ErrorMessage "Failed to create local settings.json: $($_.Exception.Message)"

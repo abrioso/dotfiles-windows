@@ -66,7 +66,7 @@ Describe 'Dotfiles update helpers' {
                 $names = @($templates.Name)
                 $recommended = @($templates | Where-Object Recommended | ForEach-Object Name)
 
-                if (($names -join ',') -ne 'dotfiles-bootstrap-variables.json,env-variables.json,git-variables.json,setup-modules.json,windows-features.json,winget-packages.json,windows-terminal-settings.json') {
+                if (($names -join ',') -ne 'dotfiles-bootstrap-variables.json,env-variables.json,git-variables.json,setup-modules.json,windows-features.json,windows-terminal-settings.json,winget-packages.json') {
                     throw "Unexpected template discovery order: '$($names -join ',')'."
                 }
                 if (($recommended -join ',') -ne 'setup-modules.json,windows-features.json,winget-packages.json') {

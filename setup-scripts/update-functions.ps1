@@ -149,6 +149,7 @@ function Get-DotfilesConfigurationTemplate {
                     Scope        = $scope
                 }
             }
+        }
 }
 
 function Assert-DotfilesConfigurationTemplate {
