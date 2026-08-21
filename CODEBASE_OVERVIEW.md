@@ -8,7 +8,7 @@ This repository contains scripts and configuration files for automating the setu
 - `dotfiles-configurations/` – JSON templates for bootstrap variables, package groups, Windows feature groups, environment variables, Git config and setup module selection.
 - `powershell-scripts/` – Reusable PowerShell functions and utilities.
 - `powershell-profiles/` – Example profile scripts that configure modules, functions and aliases at startup.
-- `windows-terminal-settings/` – Sample `settings.json` for Windows Terminal.
+- `windows-terminal-settings/` – Documentation for Windows Terminal settings; the actual `settings.json` is generated from a template and stored in `dotfiles-configurations/` where it is git-ignored.
 
 ## Usage
 

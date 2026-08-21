@@ -134,6 +134,7 @@ function Get-DotfilesConfigurationTemplate {
         ForEach-Object {
             $targetName = $_.Name.Substring(0, $_.Name.Length - '.example'.Length)
             $templatePath = Get-DotfilesCanonicalPath -Path $_.FullName
+            $targetPath = Join-Path $ConfigDirectory $targetName
             $comparison = Get-DotfilesPathComparison
             $isAllowed = @($AllowedTemplatePath | Where-Object { $templatePath.Equals((Get-DotfilesCanonicalPath -Path $_), $comparison) }).Count -gt 0
             if ($isAllowed) {
@@ -143,7 +144,7 @@ function Get-DotfilesConfigurationTemplate {
                 [pscustomobject]@{
                     Name         = $targetName
                     TemplatePath = $_.FullName
-                    TargetPath   = Join-Path $ConfigDirectory $targetName
+                    TargetPath   = $targetPath
                     Recommended  = $isRecommended
                     Scope        = $scope
                 }
