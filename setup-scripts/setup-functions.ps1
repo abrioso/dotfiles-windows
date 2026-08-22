@@ -418,12 +418,11 @@ function Test-DotfilesProfileSymlinksCorrect {
 
     $profileFiles = @(Get-ChildItem -Path $ProfilesSourceDirectory -Filter '*.ps1' -ErrorAction SilentlyContinue)
     if ($profileFiles.Count -eq 0) {
-        Write-WarningMessage "No .ps1 profile files found in: $ProfilesSourceDirectory"
-        return $true
+        return $false
     }
 
+    $profileDirectory = Split-Path -Parent $PROFILE
     foreach ($profileFile in $profileFiles) {
-        $profileDirectory = Split-Path -Parent $PROFILE
         $symlinkPath = Join-Path $profileDirectory $profileFile.Name
 
         if (-not (Test-Path -LiteralPath $symlinkPath)) {
