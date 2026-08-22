@@ -29,6 +29,9 @@
                 "script": "Set-EnvironmentVariables.ps1"
             },
             {
+                "script": "Set-UserHomeAlias.ps1"
+            },
+            {
                 "script": "Install-WindowsTerminalSettings.ps1",
                 "requiresAdmin": true,
                 "requiresPackageGroups": [

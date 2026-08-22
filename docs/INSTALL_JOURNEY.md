@@ -122,10 +122,10 @@ Using the current example defaults on `develop`, the resulting module order is:
 2. `Install-WingetPackages.ps1`
 3. `Configure-WSL2.ps1`
 4. `Set-EnvironmentVariables.ps1`
-5. `Install-WindowsTerminalSettings.ps1`
-6. `Apply-GitConfig.ps1`
-7. `Create-PowerShellProfileSymlink.ps1`
-8. `Install-OmpConfig.ps1`
+5. `Set-UserHomeAlias.ps1`
+6. `Install-WindowsTerminalSettings.ps1`
+7. `Apply-GitConfig.ps1`
+8. `Create-PowerShellProfileSymlink.ps1`
 9. `Install-NerdFont.ps1`
 
 ## 13. Modules run one by one
@@ -154,6 +154,10 @@ Runs only when the `wsl` package group is selected. It sets WSL 2 as the default
 ### `Set-EnvironmentVariables.ps1`
 
 Applies environment variables from the local environment configuration file.
+
+### `Set-UserHomeAlias.ps1`
+
+On machines where the profile directory contains non-ASCII characters (common on Entra ID joined devices, where the folder is created from the account displayName), creates an ASCII-only junction at `C:\Users\<upn-prefix>` pointing at the real profile directory and sets the user-scope `HOME` variable to the alias. Skips everything when the profile path is already ASCII-only. `USERPROFILE` is never modified.
 
 ### `Install-NerdFont.ps1`
 
