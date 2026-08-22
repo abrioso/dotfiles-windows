@@ -123,10 +123,10 @@ Using the current example defaults on `develop`, the resulting module order is:
 3. `Configure-WSL2.ps1`
 4. `Set-EnvironmentVariables.ps1`
 5. `Install-WindowsTerminalSettings.ps1`
-6. `Apply-GitConfig.ps1`
-7. `Create-PowerShellProfileSymlink.ps1`
-8. `Install-OmpConfig.ps1`
-9. `Install-NerdFont.ps1`
+7. `Install-NerdFont.ps1`
+8. `Apply-GitConfig.ps1`
+9. `Create-PowerShellProfileSymlink.ps1`
+10. `Install-OmpConfig.ps1`
 
 ## 13. Modules run one by one
 

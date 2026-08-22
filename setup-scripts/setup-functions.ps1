@@ -405,6 +405,44 @@ function Test-DotfilesWindowsFeaturesEnabled {
     return $true
 }
 
+function Test-DotfilesProfileSymlinksCorrect {
+    # Returns $true when every .ps1 file in the repo's powershell-profiles directory
+    # already exists as a symlink pointing at its source file. Used by setup.ps1 to
+    # skip relaunching Create-PowerShellProfileSymlink.ps1 elevated when nothing
+    # needs to change. Returns $false on any uncertainty so setup still runs the module.
+    param([Parameter(Mandatory)][string]$ProfilesSourceDirectory)
+
+    if (-not (Test-Path -LiteralPath $ProfilesSourceDirectory -PathType Container)) {
+        return $false
+    }
+
+    $profileFiles = @(Get-ChildItem -Path $ProfilesSourceDirectory -Filter '*.ps1' -ErrorAction SilentlyContinue)
+    if ($profileFiles.Count -eq 0) {
+        Write-WarningMessage "No .ps1 profile files found in: $ProfilesSourceDirectory"
+        return $true
+    }
+
+    foreach ($profileFile in $profileFiles) {
+        $profileDirectory = Split-Path -Parent $PROFILE
+        $symlinkPath = Join-Path $profileDirectory $profileFile.Name
+
+        if (-not (Test-Path -LiteralPath $symlinkPath)) {
+            return $false
+        }
+
+        $existingItem = Get-Item -LiteralPath $symlinkPath -Force -ErrorAction SilentlyContinue
+        if (-not $existingItem -or -not ($existingItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            return $false
+        }
+
+        if ($existingItem.Target -ne $profileFile.FullName) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
 function Get-DotfilesSetupPlan {
     param (
         [Parameter(Mandatory)]

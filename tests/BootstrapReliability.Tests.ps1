@@ -68,13 +68,13 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
-        It 'installs the required Nerd Font as part of the pwsh settings' {
+        It 'installs the required Nerd Font as part of the base settings' {
             $configPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/setup-modules.json.example'
             $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-            $pwshScripts = @($config.settings.pwsh.script)
+            $baseScripts = @($config.settings.base.script)
 
-            if ($pwshScripts -notcontains 'Install-NerdFont.ps1') {
-                throw 'The pwsh settings must install the Nerd Font.'
+            if ($baseScripts -notcontains 'Install-NerdFont.ps1') {
+                throw 'The base settings must install the Nerd Font.'
             }
         }
 

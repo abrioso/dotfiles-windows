@@ -29,6 +29,12 @@
                 "script": "Set-EnvironmentVariables.ps1"
             },
             {
+                "script": "Install-NerdFont.ps1",
+                "requiresPackageGroups": [
+                    "base"
+                ]
+            },
+            {
                 "script": "Install-WindowsTerminalSettings.ps1",
                 "requiresAdmin": true,
                 "requiresPackageGroups": [
@@ -51,9 +57,6 @@
                 "requiresPackageGroups": [
                     "pwsh"
                 ]
-            },
-            {
-                "script": "Install-NerdFont.ps1"
             }
         ]
     }
