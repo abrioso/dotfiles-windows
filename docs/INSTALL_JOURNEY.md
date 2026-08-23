@@ -172,6 +172,13 @@ Generates the Windows Terminal `settings.json` directly in the Terminal package 
 Windows Terminal owns it afterwards and machine-specific edits stay local without touching versioned
 files. An existing settings.json is never overwritten; delete it to re-adopt the baseline. Does not require elevation.
 
+> **Migration note (existing machines):** If your local `dotfiles-configurations/setup-modules.json`
+> still carries `"requiresAdmin": true` for `Install-WindowsTerminalSettings.ps1` from the old
+> symlink-based setup, remove that property. With the property present, `setup.ps1` relaunches the
+> module as Administrator even though no elevation is needed, which contradicts the no-elevation
+> design. Open your local `setup-modules.json` and delete the `"requiresAdmin": true` line from
+> the `Install-WindowsTerminalSettings.ps1` entry.
+
 ### `Apply-GitConfig.ps1`
 
 Applies the configured global Git settings such as username, email, editor, and aliases.

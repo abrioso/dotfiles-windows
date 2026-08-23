@@ -76,6 +76,12 @@ if (-not (Test-Path -LiteralPath $wtLocalStatePath)) {
 
 if (Test-Path -LiteralPath $targetFile) {
     # Never overwrite: Terminal-owned settings may hold machine-specific profiles.
+    # Guard against a damaged install where a directory named settings.json exists.
+    if (-not (Test-Path -LiteralPath $targetFile -PathType Leaf)) {
+        Write-ErrorMessage "'settings.json' exists but is not a regular file (e.g. a directory). Remove it manually and re-run setup: $targetFile"
+        Stop-Logging
+        Exit 1
+    }
     Write-Info "'settings.json' already exists. Preserving machine-specific configuration: $targetFile"
     Stop-Logging
     Exit 0
