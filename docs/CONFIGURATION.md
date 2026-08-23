@@ -205,4 +205,4 @@ During setup:
 8. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
 9. Setup modules consume the local `*.json` files and setup stops if a configured module is missing or fails.
 
-The `pwsh` setting installs the CaskaydiaCove Nerd Font used by the tracked Windows Terminal configuration. The current default plan applies the Terminal settings first and installs the font later in the same run; the final configuration is complete once all selected modules finish. Oh My Posh themes use non-elevated hard links when source and target are on the same volume, with a regular copy fallback across volumes.
+The `pwsh` setting deploys Oh My Posh themes using non-elevated hard links when source and target are on the same volume, with a regular copy fallback across volumes. The CaskaydiaCove Nerd Font is installed by the `base` settings group, since it is required for terminal rendering regardless of the Oh My Posh selection.

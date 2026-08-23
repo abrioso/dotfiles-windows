@@ -66,6 +66,7 @@ The package module itself runs as the current user. Winget or an application ins
 | `Microsoft.Edge` | `machine` | Yes when installation is required; Edge is normally already provisioned by Windows. |
 | `Microsoft.Office` | `machine` | Yes when installation is required. |
 | `Microsoft.PowerBI` | `machine` | Yes when installation is required; the upstream installer is machine-only. |
+| `Microsoft.Teams` | `machine` | Yes when installation is required; the new Teams installer supports machine-wide deployment. |
 | `Mozilla.Firefox` | `machine` | Yes when installation is required; the upstream installer is machine-scoped. |
 | `Microsoft.PowerShell` | `user` | Normally no; Winget can select the per-user MSIX package. |
 | `Microsoft.VisualStudioCode` | `user` | Normally no; selects the user installer. |
