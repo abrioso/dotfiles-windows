@@ -52,8 +52,10 @@
         ],
         "pwsh": [
             {
-                "script": "Create-PowerShellProfileSymlink.ps1",
-                "requiresAdmin": true
+                "script": "Install-LocalPowerShellProfiles.ps1",
+                "requiresPackageGroups": [
+                    "pwsh"
+                ]
             },
             {
                 "script": "Install-OmpConfig.ps1",

@@ -222,15 +222,6 @@ foreach ($module in $modulesToRun) {
             }
         }
 
-        if ($moduleName -eq 'Create-PowerShellProfileSymlink.ps1') {
-            $profilesSource = Join-Path $dotfilesDirectory 'powershell-profiles'
-            if (Test-DotfilesProfileSymlinksCorrect -ProfilesSourceDirectory $profilesSource) {
-                Write-Info 'All PowerShell profile symlinks are already correct. Skipping elevation.'
-                $scriptResults.Add($moduleName, 0)
-                continue
-            }
-        }
-
         $moduleHost = if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
             Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
         } else {

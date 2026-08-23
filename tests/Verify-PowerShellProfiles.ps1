@@ -1,29 +1,37 @@
 #!/usr/bin/env pwsh
-# Quick verifier for PowerShell profile symlinks and active profile
+# Quick verifier for the per-machine PowerShell profile deployment
 
 $fail = $false
 
 $expectedOneDrive = Join-Path $env:USERPROFILE 'OneDrive - ISEG\Documents\PowerShell'
-$checks = @(
-    @{ Name = 'Microsoft.PowerShell_profile.ps1'; Path = Join-Path $expectedOneDrive 'Microsoft.PowerShell_profile.ps1' },
-    @{ Name = 'Microsoft.VSCode_profile.ps1'; Path = Join-Path $expectedOneDrive 'Microsoft.VSCode_profile.ps1' }
-)
+$localStore = Join-Path $env:LOCALAPPDATA 'dotfiles\powershell-profiles'
+$profileNames = @('Microsoft.PowerShell_profile.ps1', 'Microsoft.VSCode_profile.ps1')
 
-Write-Host "Checking PowerShell profile symlinks..."
+Write-Host "Checking local profile store at $localStore..."
 
-foreach ($c in $checks) {
-    $p = $c.Path
+foreach ($name in $profileNames) {
+    $p = Join-Path $localStore $name
     if (Test-Path -LiteralPath $p) {
-        Write-Host "[OK] $($c.Name) exists at $p"
-        try {
-            $preview = Get-Content -LiteralPath $p -ErrorAction Stop -Raw -Encoding UTF8 -TotalCount 5
-            Write-Host "  Preview (first lines):"
-            ($preview -split "`n") | Select-Object -First 5 | ForEach-Object { Write-Host "    $_" }
-        } catch {
-            Write-Host "  [WARN] Unable to read content: $_"
+        Write-Host "[OK] $name exists at $p"
+    } else {
+        Write-Host "[MISSING] $name not found in local store ($p)"
+        $fail = $true
+    }
+}
+
+Write-Host "`nChecking stubs in (possibly OneDrive-synced) profile directory..."
+
+foreach ($name in $profileNames) {
+    $stub = Join-Path $expectedOneDrive $name
+    if (Test-Path -LiteralPath $stub) {
+        $firstLine = Get-Content -LiteralPath $stub -TotalCount 1 -ErrorAction SilentlyContinue
+        if ($firstLine -like '*dotfiles-managed stub*') {
+            Write-Host "[OK] $stub is a dotfiles-managed stub"
+        } else {
+            Write-Host "[WARN] $stub exists but is not a dotfiles-managed stub (user-authored?)"
         }
     } else {
-        Write-Host "[MISSING] $($c.Name) not found at $p"
+        Write-Host "[MISSING] Stub not found at $stub"
         $fail = $true
     }
 }
@@ -53,32 +61,23 @@ if ($fail) {
 
 # Build JSON report
 $report = [PSCustomObject]@{
-    timestamp = (Get-Date).ToString('o')
-    checks = @()
+    timestamp   = (Get-Date).ToString('o')
+    localStore  = $localStore
+    checks      = @()
     activeProfile = $null
-    allPassed = -not $fail
+    allPassed   = -not $fail
 }
 
-foreach ($c in $checks) {
-    $p = $c.Path
-    $exists = Test-Path -LiteralPath $p
-    $readable = $false
-    $preview = @()
-    if ($exists) {
-        try {
-            $lines = Get-Content -LiteralPath $p -ErrorAction Stop -Encoding UTF8
-            $readable = $true
-            $preview = $lines | Select-Object -First 5
-        } catch {
-            $readable = $false
-        }
-    }
+foreach ($name in $profileNames) {
+    $localCopy = Join-Path $localStore $name
+    $stub = Join-Path $expectedOneDrive $name
     $report.checks += [PSCustomObject]@{
-        name = $c.Name
-        path = $p
-        exists = $exists
-        readable = $readable
-        preview = $preview
+        name          = $name
+        localCopy     = $localCopy
+        localExists   = Test-Path -LiteralPath $localCopy
+        stub          = $stub
+        stubExists    = Test-Path -LiteralPath $stub
+        firstLine     = Get-Content -LiteralPath $stub -TotalCount 1 -ErrorAction SilentlyContinue
     }
 }
 
