@@ -74,6 +74,18 @@ For an explicit unattended update, name every local JSON that may be replaced:
 
 In non-interactive mode the repository is updated only when `-UpdateRepository` is present, and no JSON is replaced unless named with `-TemplateName`.
 
+### Regenerating Windows Terminal settings
+
+Windows Terminal `settings.json` is generated directly into the Terminal package LocalState by `setup.ps1`; there is no local copy in `dotfiles-configurations/`. When you refresh `windows-terminal-settings.json.example` through the updater, it first shows a diff between the updated template and the live file. If you then accept regeneration, the live `settings.json` is **moved into the backup directory** (not deleted) so machine-specific content — WSL or other dynamic profiles, custom fragments — can be recovered; the next `setup.ps1` run regenerates the file from the updated baseline. In non-interactive mode nothing is moved unless `-RegenerateTerminalSettings` is passed:
+
+```pwsh
+.\setup-scripts\update.ps1 `
+    -NonInteractive `
+    -SkipRepositoryUpdate `
+    -TemplateName windows-terminal-settings.json `
+    -RegenerateTerminalSettings
+```
+
 ## Repository endpoint types
 
 `dotfiles-bootstrap-variables.json` supports these endpoint types:
