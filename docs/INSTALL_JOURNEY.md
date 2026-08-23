@@ -166,9 +166,11 @@ Downloads and installs the CaskaydiaCove Nerd Font for the current user.
 
 ### `Install-WindowsTerminalSettings.ps1`
 
-Deploys the baseline Windows Terminal `settings.json` into the Terminal package state by copying the template from
-`dotfiles-configurations/windows-terminal-settings.json.example` to `dotfiles-configurations/windows-terminal-settings.json`
-and creating a symlink to the local file. The local file is git-ignored and preserved across runs.
+Generates the Windows Terminal `settings.json` directly in the Terminal package state
+(`%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState`) from the template in
+`dotfiles-configurations/windows-terminal-settings.json.example`. The file is generated, not linked:
+Windows Terminal owns it afterwards and machine-specific edits stay local without touching versioned
+files. An existing settings.json is never overwritten; delete it to re-adopt the baseline. Does not require elevation.
 
 ### `Apply-GitConfig.ps1`
 
@@ -195,7 +197,7 @@ After a successful run, the user ends up with:
 - selected Windows features enabled
 - global Git settings applied
 - repo-managed PowerShell profiles linked into place
-- repo-managed Windows Terminal settings linked into place
+- repo-managed Windows Terminal baseline generated into the Terminal package state
 - Oh My Posh themes deployed
 - the Nerd Font installed for terminal rendering
 

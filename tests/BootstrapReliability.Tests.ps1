@@ -54,14 +54,14 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
-        It 'elevates only settings that still require symbolic-link privileges' {
+        It 'requires elevation only where genuinely needed' {
             $configPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/setup-modules.json.example'
             $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
             $terminalModule = @($config.settings.base | Where-Object { $_.script -eq 'Install-WindowsTerminalSettings.ps1' })[0]
             $ompModule = @($config.settings.pwsh | Where-Object { $_.script -eq 'Install-OmpConfig.ps1' })[0]
 
-            if (-not $terminalModule.requiresAdmin) {
-                throw 'Windows Terminal settings must remain elevated while they use a symbolic link.'
+            if ($terminalModule.requiresAdmin) {
+                throw 'Windows Terminal settings are generated in place under LOCALAPPDATA and must not require elevation.'
             }
             if ($ompModule.requiresAdmin) {
                 throw 'Oh My Posh theme deployment must not require elevation.'
