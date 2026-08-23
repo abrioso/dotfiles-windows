@@ -68,7 +68,7 @@
         },
         {
             "id": "Microsoft.Teams",
-            "scope": "user"
+            "scope": "machine"
         }
     ],
     "PowerBI": [
