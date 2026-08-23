@@ -29,6 +29,9 @@
                 "script": "Set-EnvironmentVariables.ps1"
             },
             {
+                "script": "Set-UserHomeAlias.ps1"
+            },
+            {
                 "script": "Install-NerdFont.ps1",
                 "requiresPackageGroups": [
                     "base"
