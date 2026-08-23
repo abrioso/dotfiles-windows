@@ -76,7 +76,7 @@ In non-interactive mode the repository is updated only when `-UpdateRepository` 
 
 ### Regenerating Windows Terminal settings
 
-Windows Terminal `settings.json` is generated directly into the Terminal package LocalState by `setup.ps1`; there is no local copy in `dotfiles-configurations/`. When you refresh `windows-terminal-settings.json.example` through the updater, it offers to delete the generated `settings.json` so the next `setup.ps1` run regenerates it from the updated baseline. Machine-specific edits (WSL profiles, per-machine fonts) are lost when you accept. In non-interactive mode nothing is deleted unless `-RegenerateTerminalSettings` is passed:
+Windows Terminal `settings.json` is generated directly into the Terminal package LocalState by `setup.ps1`; there is no local copy in `dotfiles-configurations/`. When you refresh `windows-terminal-settings.json.example` through the updater, it first shows a diff between the updated template and the live file. If you then accept regeneration, the live `settings.json` is **moved into the backup directory** (not deleted) so machine-specific content — WSL or other dynamic profiles, custom fragments — can be recovered; the next `setup.ps1` run regenerates the file from the updated baseline. In non-interactive mode nothing is moved unless `-RegenerateTerminalSettings` is passed:
 
 ```pwsh
 .\setup-scripts\update.ps1 `
