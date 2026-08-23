@@ -104,6 +104,7 @@ try {
             Write-Host "Package '$packageId' not found. Installing${scopeDescription}..."
             $installArguments = @(
                 'install', '--id', $packageId, '--exact',
+                '--source', 'winget',
                 '--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity'
             )
             if ($packageScope) {
