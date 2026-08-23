@@ -94,7 +94,7 @@ try {
         Write-Host "Processing package: $packageId"
 
         # Winget returns a non-zero exit code when no exact installed package is found.
-        & winget list --id $packageId --exact --accept-source-agreements --disable-interactivity | Out-Null
+        & winget list --id $packageId --exact --source winget --accept-source-agreements --disable-interactivity | Out-Null
         $isInstalled = $LASTEXITCODE -eq 0
 
         if ($isInstalled) {
