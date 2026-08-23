@@ -19,7 +19,7 @@ The three main interactions do **not** all use the Git-free entry point:
 The Git-free archive is a bootstrap transport, not the persistent checkout. Re-running it creates
 fresh local JSON from the archive templates and currently copies those files into the persistent
 clone with replacement semantics. Do not use it for post-reboot continuation when preserving the
-first run's local choices matters. Test repeated Git-free invocation separately as described below.
+first run's local choices matter. Test repeated Git-free invocation separately as described below.
 
 ## Evidence to capture
 
@@ -166,7 +166,12 @@ git status --short
 Test this separately from the clean-install snapshot. Start with an installation and local JSON
 created by the current `main` branch, including the previous profile and Terminal layout.
 
-1. Move the checkout to `develop` or the release branch using the documented updater path.
+1. In `dotfiles-configurations\dotfiles-configuration.json`, set `GITHUB_DOTFILES_BRANCH` to
+   `develop` or the release branch. Then, from inside the persistent clone, run:
+   ```
+   git fetch origin
+   git checkout <branch>
+   ```
 2. Run `setup-scripts\update.ps1` and select only the shared catalogs initially:
    `setup-modules.json`, `windows-features.json`, and `winget-packages.json`.
 3. Review the new local JSON before running setup.

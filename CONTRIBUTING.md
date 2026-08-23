@@ -51,9 +51,9 @@ This project uses **gitflow**. See [docs/GITFLOW.md](docs/GITFLOW.md) for the fu
 
 ## Release Process
 
-1. Complete [the release acceptance matrix](docs/RELEASE_TESTING.md) on `develop`.
-2. Create `release/vYYYY.MM.N` from an up-to-date `origin/develop`.
-3. Apply only release stabilization changes and open a PR into `main`.
+1. Create `release/vYYYY.MM.N` from an up-to-date `origin/develop`.
+2. Apply only release stabilization changes and open a PR into `main`.
+3. Complete [the release acceptance matrix](docs/RELEASE_TESTING.md) against the release branch commit.
 4. Merge the production PR with a merge commit.
 5. If the release branch has release-only commits, merge the same branch into `develop` through
    a second PR; do not merge `main` wholesale back into `develop`.
