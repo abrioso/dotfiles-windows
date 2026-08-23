@@ -57,6 +57,7 @@ This folder contains the modular scripts that perform the actual configuration t
 -   `Configure-WSL2.ps1`: Runs after Winget when the `wsl` group is selected, sets WSL 2 as the default, and applies WSL 2 to an existing Ubuntu registration.
 -   `Set-EnvironmentVariables.ps1`: Reads local `env-variables.json` and configures environment variables.
 -   `Set-UserHomeAlias.ps1`: Creates an ASCII-only junction alias for the user profile directory (for Entra ID displayName paths with accents) and points the user-scope `HOME` variable at it; no-op when the profile path is already ASCII-only.
+-   `Install-LocalPowerShellProfiles.ps1`: Copies repo profiles to `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced) and writes a marker stub into the profile directory that dot-sources the local copy, so profiles stay per-machine even when Documents is OneDrive-synced.
 -   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config.
 
 #### `dotfiles-configurations`
@@ -72,11 +73,11 @@ This folder contains tracked `*.json.example` templates and local gitignored `*.
 
 ### PowerShell Profile
 
-The setup creates a symbolic link to manage your PowerShell profile, allowing you to keep your profile configuration in this repository. The profile is composed of several files located in the `powershell-profiles` directory.
+The setup deploys per-machine PowerShell profiles: the real profile files live in `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced), and a small marker stub in the profile directory dot-sources them. This keeps your profile configuration tracked in this repository while staying personal to each machine, even when Documents is synchronised by OneDrive. The profile is composed of several files located in the `powershell-profiles` directory.
 
 ### Private files and Secrets
 
-For any private settings, such as API tokens or Git credentials that you don't want to commit to the repository, you can create a `extra.ps1` file within the `powershell-profiles` directory. If this file exists, it will be automatically sourced when your PowerShell profile loads. This file is included in `.gitignore` so it won't be tracked by Git.
+For any private settings, such as API tokens or Git credentials that you don't want to commit to the repository, create an `extra.ps1` file within the `powershell-profiles` directory and source it explicitly from your profile (for example from a machine-local copy under `%LOCALAPPDATA%\dotfiles\powershell-profiles`). Files in that directory are copied to the local store by `Install-LocalPowerShellProfiles.ps1`, so anything you keep there stays per-machine. The `extra.ps1` name is included in `.gitignore` so it won't be tracked by Git.
 
 Example `extra.ps1`:
 

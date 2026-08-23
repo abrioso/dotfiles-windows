@@ -126,7 +126,7 @@ Using the current example defaults on `develop`, the resulting module order is:
 6. `Install-NerdFont.ps1`
 7. `Install-WindowsTerminalSettings.ps1`
 8. `Apply-GitConfig.ps1`
-9. `Create-PowerShellProfileSymlink.ps1`
+9. `Install-LocalPowerShellProfiles.ps1`
 10. `Install-OmpConfig.ps1`
 
 ## 13. Modules run one by one
@@ -174,9 +174,13 @@ and creating a symlink to the local file. The local file is git-ignored and pres
 
 Applies the configured global Git settings such as username, email, editor, and aliases.
 
-### `Create-PowerShellProfileSymlink.ps1`
+### `Install-LocalPowerShellProfiles.ps1`
 
-Links the PowerShell profile files in the repository into the user profile directory so PowerShell loads the repo-managed profiles.
+Deploys per-machine PowerShell profiles. The real profile files are copied into
+`%LOCALAPPDATA%\dotfiles\powershell-profiles`, which is never OneDrive-synced, and a small
+marker stub is written into the (possibly OneDrive-synced) profile directory that dot-sources
+the local copy. User-authored files without the dotfiles marker are left untouched, and any
+symlink left by previous setup versions is safely replaced. Does not require elevation.
 
 ### `Install-OmpConfig.ps1`
 
