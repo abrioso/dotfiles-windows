@@ -23,6 +23,7 @@ param(
     [string]$ConfigDirectory,
     [string]$BackupDirectory,
     [string[]]$TemplateName = @(),
+    [switch]$RegenerateTerminalSettings,
     [switch]$Tui,
     [switch]$NonInteractive,
     [switch]$UpdateRepository,
@@ -305,3 +306,36 @@ foreach ($result in $results) {
     }
 }
 Write-Host 'Review the resulting local JSON files before running setup.ps1.' -ForegroundColor Cyan
+
+# Windows Terminal settings are generated directly into the Terminal package LocalState
+# (no local dotfiles-configurations copy since the generate-not-link change). When the
+# baseline template was refreshed, offer to remove the generated file so the next
+# setup.ps1 run regenerates it from the new defaults. Never automatic without consent.
+$terminalTemplateSelected = @($selectedTemplates | Where-Object Name -eq 'windows-terminal-settings.json').Count -gt 0
+$wtLocalStateSettings = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
+
+$shouldRegenerateTerminalSettings = $false
+if ($terminalTemplateSelected) {
+    if (-not (Test-Path -LiteralPath $wtLocalStateSettings)) {
+        Write-Host "No generated Windows Terminal settings.json found; setup.ps1 will create it from the updated template." -ForegroundColor Cyan
+    }
+    elseif ($RegenerateTerminalSettings) {
+        $shouldRegenerateTerminalSettings = $true
+    }
+    elseif ($NonInteractive) {
+        Write-Host "Windows Terminal settings.json was left untouched. Re-run with -RegenerateTerminalSettings to regenerate it at next setup." -ForegroundColor DarkYellow
+    }
+    else {
+        $shouldRegenerateTerminalSettings = Read-UpdateConfirmation -Prompt "Delete the generated Windows Terminal settings.json so the next setup.ps1 regenerates it from the updated template? Machine-specific edits (WSL profiles, fonts) will be lost" -Default $false
+    }
+
+    if ($shouldRegenerateTerminalSettings) {
+        try {
+            Remove-Item -LiteralPath $wtLocalStateSettings -Force -ErrorAction Stop
+            Write-Host "Deleted '$wtLocalStateSettings'. Run setup.ps1 to regenerate from the updated baseline." -ForegroundColor Green
+        }
+        catch {
+            Write-Warning "Could not delete '$wtLocalStateSettings': $_"
+        }
+    }
+}
