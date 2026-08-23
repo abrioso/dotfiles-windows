@@ -312,7 +312,6 @@ Write-Host 'Review the resulting local JSON files before running setup.ps1.' -Fo
 # baseline template was refreshed, offer to remove the generated file so the next
 # setup.ps1 run regenerates it from the new defaults. Never automatic without consent.
 $terminalTemplateSelected = @($selectedTemplates | Where-Object Name -eq 'windows-terminal-settings.json').Count -gt 0
-$wtLocalStateSettings = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
 
 function Show-DotfilesTerminalSettingsDiff {
     param(
@@ -348,14 +347,19 @@ function Show-DotfilesTerminalSettingsDiff {
 
 $shouldRegenerateTerminalSettings = $false
 if ($terminalTemplateSelected) {
-    if (-not (Test-Path -LiteralPath $wtLocalStateSettings)) {
+    $wtLocalStateSettings = if ($env:LOCALAPPDATA) {
+        Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
+    } else { $null }
+
+    if (-not $wtLocalStateSettings -or -not (Test-Path -LiteralPath $wtLocalStateSettings)) {
         Write-Host "No generated Windows Terminal settings.json found; setup.ps1 will create it from the updated template." -ForegroundColor Cyan
     }
     else {
+        $terminalTemplate = $selectedTemplates | Where-Object Name -eq 'windows-terminal-settings.json' | Select-Object -First 1
         Write-Host ''
         Write-Host 'Comparing updated Windows Terminal template with the live settings.json:' -ForegroundColor Cyan
         try {
-            Show-DotfilesTerminalSettingsDiff -TemplatePath $template.TemplatePath -LivePath $wtLocalStateSettings
+            Show-DotfilesTerminalSettingsDiff -TemplatePath $terminalTemplate.TemplatePath -LivePath $wtLocalStateSettings
         } catch {
             Write-Host "  (diff preview failed: $_)" -ForegroundColor DarkYellow
         }
@@ -367,7 +371,7 @@ if ($terminalTemplateSelected) {
             Write-Host "Windows Terminal settings.json was left untouched. Re-run with -RegenerateTerminalSettings to regenerate it at next setup." -ForegroundColor DarkYellow
         }
         else {
-            $shouldRegenerateTerminalSettings = Read-UpdateConfirmation -Prompt "Back up the live Windows Terminal settings.json and remove it so the next setup.ps1 regenerates from the updated template? Machine-specific edits (WSL profiles, fonts) leave the live file but remain in the backup" -Default $false
+            $shouldRegenerateTerminalSettings = Read-UpdateConfirmation -Prompt "Back up the live Windows Terminal settings.json and remove it so the next setup.ps1 regenerates from the updated template? Machine-specific edits (WSL profiles, fonts) will be removed from the live file but preserved in the backup" -Default $false
         }
 
         if ($shouldRegenerateTerminalSettings) {
