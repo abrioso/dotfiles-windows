@@ -39,7 +39,6 @@
             },
             {
                 "script": "Install-WindowsTerminalSettings.ps1",
-                "requiresAdmin": true,
                 "requiresPackageGroups": [
                     "base"
                 ]
