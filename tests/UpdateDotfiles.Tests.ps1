@@ -180,7 +180,14 @@ Describe 'Dotfiles update helpers' {
                 Invoke-UpdateTestGit -WorkingDirectory $seed push origin main
                 $config = Join-Path $checkout 'dotfiles-configurations'
 
-                & "$PSScriptRoot/../setup-scripts/update.ps1" -NonInteractive -UpdateRepository -RepositoryRoot $checkout -ConfigDirectory $config -BackupDirectory (Join-Path $root 'backups')
+                $windowsPowerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+                $updateScript = "$PSScriptRoot/../setup-scripts/update.ps1"
+                & $windowsPowerShell -NoProfile -ExecutionPolicy Bypass -File $updateScript `
+                    -NonInteractive -UpdateRepository -RepositoryRoot $checkout `
+                    -ConfigDirectory $config -BackupDirectory (Join-Path $root 'backups')
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Expected update.ps1 to succeed under Windows PowerShell 5.1, got exit code $LASTEXITCODE."
+                }
 
                 $version = (Get-Content -LiteralPath (Join-Path $checkout 'version.txt') -Raw).Trim()
                 if ($version -ne 'two') {
