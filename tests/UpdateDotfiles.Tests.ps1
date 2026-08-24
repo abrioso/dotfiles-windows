@@ -198,6 +198,31 @@ Describe 'Dotfiles update helpers' {
                 Remove-Item -LiteralPath $root -Recurse -Force
             }
         }
+
+        It 'fails when Git fetch returns a non-zero exit code under Windows PowerShell 5.1' {
+            $root = New-UpdateTestDirectory
+            try {
+                $repository = Join-Path $root 'repository'
+                $config = Join-Path $repository 'dotfiles-configurations'
+                New-Item -ItemType Directory -Path $config -Force | Out-Null
+                Set-Content -LiteralPath (Join-Path $config 'setup-modules.json.example') -Value '{}' -Encoding UTF8
+                Initialize-UpdateTestRepository -RepositoryRoot $repository
+                Invoke-UpdateTestGit -WorkingDirectory $repository remote add origin (Join-Path $root 'missing-remote.git')
+
+                $windowsPowerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+                $updateScript = "$PSScriptRoot/../setup-scripts/update.ps1"
+                & $windowsPowerShell -NoProfile -ExecutionPolicy Bypass -File $updateScript `
+                    -NonInteractive -UpdateRepository -RepositoryRoot $repository `
+                    -ConfigDirectory $config -BackupDirectory (Join-Path $root 'backups')
+
+                if ($LASTEXITCODE -eq 0) {
+                    throw 'Expected update.ps1 to fail when Git fetch returns a non-zero exit code.'
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
     }
 
     Context 'update.ps1 non-interactive selection' {
