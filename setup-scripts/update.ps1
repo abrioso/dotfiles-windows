@@ -49,6 +49,32 @@ function Read-UpdateConfirmation {
     return @('y', 'yes') -contains $answer.Trim().ToLowerInvariant()
 }
 
+function Invoke-GitWithCapturedOutput {
+    param(
+        [Parameter(Mandatory)][string]$GitExecutable,
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+
+    # Windows PowerShell 5.1 promotes native stderr to NativeCommandError when the caller uses
+    # ErrorActionPreference=Stop. Git writes normal fetch/pull progress to stderr even on success,
+    # so capture both streams under Continue and decide success only from the native exit code.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $rawOutput = @(& $GitExecutable -C $RepositoryRoot @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    [pscustomobject]@{
+        Output = @($rawOutput | ForEach-Object { [string]$_ })
+        ExitCode = $exitCode
+    }
+}
+
 function Invoke-RepositoryFastForwardUpdate {
     param([Parameter(Mandatory)][string]$RepositoryRoot)
 
@@ -73,18 +99,18 @@ function Invoke-RepositoryFastForwardUpdate {
     $branch = [string]$branchOutput[0]
 
     Write-Host "Fetching origin/$branch..." -ForegroundColor Cyan
-    $fetchOutput = @(& $gitExecutable -C $RepositoryRoot fetch origin $branch 2>&1)
-    $fetchExitCode = $LASTEXITCODE
-    $fetchOutput | Out-Host
-    if ($fetchExitCode -ne 0) {
+    $fetchResult = Invoke-GitWithCapturedOutput -GitExecutable $gitExecutable `
+        -RepositoryRoot $RepositoryRoot -Arguments @('fetch', 'origin', $branch)
+    $fetchResult.Output | ForEach-Object { Write-Host $_ }
+    if ($fetchResult.ExitCode -ne 0) {
         throw "Failed to fetch origin/$branch."
     }
 
     Write-Host "Fast-forwarding branch '$branch'..." -ForegroundColor Cyan
-    $pullOutput = @(& $gitExecutable -C $RepositoryRoot pull --ff-only origin $branch 2>&1)
-    $pullExitCode = $LASTEXITCODE
-    $pullOutput | Out-Host
-    if ($pullExitCode -ne 0) {
+    $pullResult = Invoke-GitWithCapturedOutput -GitExecutable $gitExecutable `
+        -RepositoryRoot $RepositoryRoot -Arguments @('pull', '--ff-only', 'origin', $branch)
+    $pullResult.Output | ForEach-Object { Write-Host $_ }
+    if ($pullResult.ExitCode -ne 0) {
         throw "Failed to fast-forward branch '$branch'. Local history was not rewritten."
     }
 }
