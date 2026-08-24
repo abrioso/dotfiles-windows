@@ -88,7 +88,7 @@
         },
         {
             "id": "Microsoft.Azd",
-            "scope": "user"
+            "installerType": "wix"
         },
         {
             "id": "Microsoft.AzureCLI",
@@ -110,7 +110,7 @@
     "wsl": [
         {
             "id": "Microsoft.WSL",
-            "scope": "user"
+            "installerType": "wix"
         },
         {
             "id": "Canonical.Ubuntu",

@@ -7,7 +7,7 @@ This repository manages Windows application packages via `winget` (Windows Packa
 - Shared package defaults live in `dotfiles-configurations/winget-packages.json.example`
 - The configuration TUI copies that template to local `dotfiles-configurations/winget-packages.json`
 - The `Install-WingetPackages.ps1` module reads the local JSON and installs the groups selected by `INSTALL_PACKAGES`
-- Shared defaults use object entries with explicit `id` and `scope`; string entries remain supported for local configuration compatibility
+- Shared defaults use object entries with an `id` plus applicable `scope` and `installerType` constraints; string entries remain supported for local configuration compatibility
 - Setting modules can declare `requiresPackageGroups` in `setup-modules.json`; the TUI adds these groups automatically and setup validates them
 
 ## Package ordering and dependencies
@@ -25,11 +25,31 @@ Example with an explicit per-user scope:
 }
 ```
 
+Example selecting a WiX installer while deliberately omitting scope:
+
+```json
+{
+  "id": "Microsoft.WSL",
+  "installerType": "wix"
+}
+```
+
 ## Scope policy
 
-Scopes must match an applicable installer in the upstream Winget manifest. The shared defaults request `machine` scope for Docker Desktop, gsudo, Azure CLI, Edge, Office, Power BI Desktop and Firefox. These packages either publish only machine installers or intentionally require machine-wide integration.
+Scopes must match an applicable installer in the upstream Winget manifest. A missing upstream
+`Scope` is not evidence for either `user` or `machine`: forcing either value can make Winget reject
+every installer with `0x8A150010` (`No applicable installer`). In that case the local entry omits
+scope and may use `installerType` to select a deterministic upstream installer.
+
+The shared defaults request `machine` scope for Docker Desktop, gsudo, Azure CLI, Edge, Office,
+Power BI Desktop and Firefox. These packages either publish only machine installers or
+intentionally require machine-wide integration.
 
 Packages that publish explicit user installers remain `user` scoped. Some MSIX, AppX and portable installers omit `Scope` in the upstream manifest; their existing `user` selection is retained where the installer format supports per-user deployment. When a package offers both a machine installer and a scope-neutral portable or MSIX alternative, changing its scope can change which installer type Winget selects.
+
+`Microsoft.Azd` and `Microsoft.WSL` deliberately omit scope because their current upstream WiX
+installers do not declare one. Both select `installerType: wix`; WSL's WiX installer requests the
+required UAC elevation itself while the package module continues running as the current user.
 
 `Microsoft.AppInstaller` is intentionally not part of the package pool: Winget is already a prerequisite for running the package module, so installing App Installer through Winget itself would be circular.
 
@@ -66,6 +86,7 @@ affecting bootstrap installs.
 | `Docker.DockerDesktop` | `machine` | Yes when installation is required. |
 | `gerardog.gsudo` | `machine` | Yes when installation is required; gsudo installs system integration. |
 | `Git.Git` | `user` | Normally no. Git also publishes a machine installer, but bootstrap deliberately selects the user installer. |
+| `Microsoft.Azd` | omitted; WiX pinned | No UAC was required in the clean-machine validation; its upstream WiX installer has no declared scope. |
 | `Microsoft.AzureCLI` | `machine` | Yes when installation is required. |
 | `Microsoft.Edge` | `machine` | Yes when installation is required; Edge is normally already provisioned by Windows. |
 | `Microsoft.Office` | `machine` | Yes when installation is required. |
@@ -75,5 +96,6 @@ affecting bootstrap installs.
 | `Microsoft.PowerShell` | `user` | Normally no; Winget can select the per-user MSIX package. |
 | `Microsoft.VisualStudioCode` | `user` | Normally no; selects the user installer. |
 | `Microsoft.WindowsTerminal` | `user` | Normally no; installs as an MSIX package for the user. |
+| `Microsoft.WSL` | omitted; WiX pinned | Yes when installation is required; the WiX installer presents UAC. |
 
 Git and PowerShell are also bootstrap prerequisites. If missing, setup installs them explicitly with `user` scope before processing package groups. An existing installation in either scope is reused.

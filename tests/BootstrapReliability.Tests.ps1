@@ -456,10 +456,10 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
-        It 'defines valid package entries with consistent scopes' {
+        It 'defines valid package entries with consistent metadata' {
             $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
             $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
-            $declaredScopes = [System.Collections.Generic.Dictionary[string, string]]::new(
+            $declaredMetadata = [System.Collections.Generic.Dictionary[string, object]]::new(
                 [System.StringComparer]::OrdinalIgnoreCase
             )
 
@@ -471,6 +471,10 @@ Describe 'Bootstrap reliability contracts' {
                 foreach ($packageEntry in $group.Value) {
                     $packageId = if ($packageEntry -is [string]) { $packageEntry } else { [string]$packageEntry.id }
                     $packageScope = if ($packageEntry -is [string]) { $null } else { [string]$packageEntry.scope }
+                    $packageInstallerType = if ($packageEntry -is [string]) { $null } else { [string]$packageEntry.installerType }
+
+                    if ([string]::IsNullOrWhiteSpace($packageScope)) { $packageScope = $null }
+                    if ([string]::IsNullOrWhiteSpace($packageInstallerType)) { $packageInstallerType = $null }
 
                     if ([string]::IsNullOrWhiteSpace($packageId)) {
                         throw "Package group '$($group.Name)' contains an entry without an id."
@@ -481,13 +485,20 @@ Describe 'Bootstrap reliability contracts' {
                     if ($packageScope -and $packageScope -notin @('user', 'machine')) {
                         throw "Package '$packageId' has unsupported scope '$packageScope'."
                     }
+                    if ($packageInstallerType -and $packageInstallerType -notin @('wix')) {
+                        throw "Package '$packageId' has unsupported installer type '$packageInstallerType'."
+                    }
 
-                    if ($declaredScopes.ContainsKey($packageId)) {
-                        if ($declaredScopes[$packageId] -ne $packageScope) {
-                            throw "Package '$packageId' has conflicting scopes across package groups."
+                    if ($declaredMetadata.ContainsKey($packageId)) {
+                        $existingMetadata = $declaredMetadata[$packageId]
+                        if ($existingMetadata.Scope -ne $packageScope -or $existingMetadata.InstallerType -ne $packageInstallerType) {
+                            throw "Package '$packageId' has conflicting metadata across package groups."
                         }
                     } else {
-                        $declaredScopes[$packageId] = $packageScope
+                        $declaredMetadata[$packageId] = [pscustomobject]@{
+                            Scope = $packageScope
+                            InstallerType = $packageInstallerType
+                        }
                     }
                 }
             }
