@@ -62,6 +62,10 @@ try {
             $packageScope = if ($packageEntry -is [string]) { $null } else { [string]$packageEntry.scope }
             $packageInstallerType = if ($packageEntry -is [string]) { $null } else { [string]$packageEntry.installerType }
 
+            if ([string]::IsNullOrWhiteSpace($packageId)) {
+                continue
+            }
+
             if ([string]::IsNullOrWhiteSpace($packageScope)) { $packageScope = $null }
             if ([string]::IsNullOrWhiteSpace($packageInstallerType)) { $packageInstallerType = $null }
 
@@ -72,14 +76,10 @@ try {
                 throw "Package '$packageId' has unsupported installer type '$packageInstallerType'. Expected 'wix'."
             }
 
-            if ([string]::IsNullOrWhiteSpace($packageId)) {
-                continue
-            }
-
             if ($seenPackages.ContainsKey($packageId)) {
                 $existingMetadata = $seenPackages[$packageId]
                 if ($existingMetadata.Scope -ne $packageScope -or $existingMetadata.InstallerType -ne $packageInstallerType) {
-                    throw "Package '$packageId' is declared with conflicting scope or installer-type metadata. Resolve the conflict before re-running."
+                    throw "Package '$packageId' is declared with conflicting metadata: existing (scope='$($existingMetadata.Scope)', installerType='$($existingMetadata.InstallerType)') vs new (scope='$packageScope', installerType='$packageInstallerType'). Resolve the conflict before re-running."
                 }
                 continue
             }
