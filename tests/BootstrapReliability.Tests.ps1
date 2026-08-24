@@ -278,7 +278,7 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
-        It 'passes declarative package scopes to Winget installs' {
+        It 'passes declarative package metadata to Winget installs' {
             $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Install-WingetPackages.ps1'
             $module = Get-Content -LiteralPath $modulePath -Raw
 
@@ -287,6 +287,12 @@ Describe 'Bootstrap reliability contracts' {
             }
             if ($module -notmatch '@\(''--scope'', \$packageScope\)') {
                 throw 'Configured package scopes must be passed to Winget.'
+            }
+            if ($module -notmatch '\$packageEntry\.installerType') {
+                throw 'Winget package objects must expose their configured installer type.'
+            }
+            if ($module -notmatch '@\(''--installer-type'', \$packageInstallerType\)') {
+                throw 'Configured package installer types must be passed to Winget.'
             }
         }
 
@@ -399,26 +405,40 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
-        It 'uses explicit upstream-compatible scopes for the default package pool' {
+        It 'uses upstream-compatible scope and installer-type constraints for the default package pool' {
             $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
             $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
-            $packageScopes = @{}
+            $packageMetadata = @{}
+            $scopeNeutralWixPackages = @('Microsoft.Azd', 'Microsoft.WSL')
 
             foreach ($group in $packages.PSObject.Properties) {
                 foreach ($packageEntry in $group.Value) {
                     if ($packageEntry -is [string]) {
-                        throw "Package '$packageEntry' must declare an explicit scope."
+                        throw "Package '$packageEntry' must use an object entry with explicit metadata."
                     }
                     $packageScope = [string]$packageEntry.scope
-                    if ([string]::IsNullOrWhiteSpace($packageScope)) {
+                    $packageInstallerType = [string]$packageEntry.installerType
+                    if ([string]::IsNullOrWhiteSpace($packageScope) -and $packageEntry.id -notin $scopeNeutralWixPackages) {
                         throw "Package '$($packageEntry.id)' must declare an explicit scope."
                     }
-                    $packageScopes[$packageEntry.id] = $packageScope
+                    $packageMetadata[$packageEntry.id] = [pscustomobject]@{
+                        Scope = $packageScope
+                        InstallerType = $packageInstallerType
+                    }
                 }
             }
 
-            if ($packageScopes.ContainsKey('Microsoft.AppInstaller')) {
+            if ($packageMetadata.ContainsKey('Microsoft.AppInstaller')) {
                 throw 'Microsoft.AppInstaller must not be installed through Winget itself.'
+            }
+
+            foreach ($packageId in $scopeNeutralWixPackages) {
+                if (-not [string]::IsNullOrWhiteSpace($packageMetadata[$packageId].Scope)) {
+                    throw "Package '$packageId' must omit scope because its upstream WiX installer does not declare one."
+                }
+                if ($packageMetadata[$packageId].InstallerType -ne 'wix') {
+                    throw "Package '$packageId' must select the upstream WiX installer explicitly."
+                }
             }
 
             foreach ($packageId in @(
@@ -430,7 +450,7 @@ Describe 'Bootstrap reliability contracts' {
                 'Microsoft.PowerBI',
                 'Mozilla.Firefox'
             )) {
-                if ($packageScopes[$packageId] -ne 'machine') {
+                if ($packageMetadata[$packageId].Scope -ne 'machine') {
                     throw "Package '$packageId' must use machine scope."
                 }
             }
