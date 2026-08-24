@@ -289,6 +289,21 @@ Describe 'Bootstrap reliability contracts' {
                 throw 'Configured package scopes must be passed to Winget.'
             }
         }
+
+        It 'pins bootstrap and package installs to the Winget community source' {
+            $functionsPath = Join-Path $script:repositoryRoot 'setup-scripts/setup-functions.ps1'
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Install-WingetPackages.ps1'
+            $functions = Get-Content -LiteralPath $functionsPath -Raw
+            $module = Get-Content -LiteralPath $modulePath -Raw
+
+            $bootstrapSourcePins = [regex]::Matches($functions, "'--source', 'winget'")
+            if ($bootstrapSourcePins.Count -lt 2) {
+                throw 'PowerShell and Git bootstrap installs must both select the Winget community source explicitly.'
+            }
+            if ($module -notmatch "'--source', 'winget'") {
+                throw 'Declarative package installs must select the Winget community source explicitly.'
+            }
+        }
     }
 
     Context 'Default configuration consistency' {

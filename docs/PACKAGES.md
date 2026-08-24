@@ -55,7 +55,11 @@ Packages that publish explicit user installers remain `user` scoped. Some MSIX, 
 
 ## Selected package scopes and elevation
 
-The package module itself runs as the current user. Winget or an application installer may request UAC only when the selected installer requires machine-wide changes.
+The package module itself runs as the current user. Winget or an application installer may request
+UAC only when the selected installer requires machine-wide changes. Package installs explicitly
+select the `winget` community source because the shared catalog contains Winget package IDs rather
+than Microsoft Store product IDs; this also avoids first-run `msstore` source initialization
+affecting bootstrap installs.
 
 | Package | Requested scope | Expected elevation |
 | --- | --- | --- |

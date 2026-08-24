@@ -114,7 +114,8 @@ function Install-DotfilesPrerequisites {
             Write-Info "PowerShell is not installed. Installing PowerShell..."
             $wingetArguments = @(
                 'install', '--id', 'Microsoft.PowerShell', '--exact', '--force',
-                '--scope', 'user', '--accept-source-agreements', '--accept-package-agreements',
+                '--source', 'winget', '--scope', 'user',
+                '--accept-source-agreements', '--accept-package-agreements',
                 '--disable-interactivity'
             )
             & winget @wingetArguments
@@ -141,7 +142,8 @@ function Install-DotfilesPrerequisites {
         Write-Info "Git not found. Installing Git..."
         $wingetArguments = @(
             'install', '--id', 'Git.Git', '--exact', '--force',
-            '--scope', 'user', '--accept-source-agreements', '--accept-package-agreements',
+            '--source', 'winget', '--scope', 'user',
+            '--accept-source-agreements', '--accept-package-agreements',
             '--disable-interactivity'
         )
         & winget @wingetArguments
