@@ -117,6 +117,11 @@ Examples:
 
 `INSTALL_PACKAGES` in `dotfiles-bootstrap-variables.json` controls which package groups are installed from `winget-packages.json`.
 
+Package object entries contain an `id` and may constrain `scope` (`user` or `machine`) and
+`installerType` (currently `wix`). Omit scope when the selected upstream manifest does not declare
+one; forcing a scope is an installer-selection constraint and can result in `No applicable
+installer`. Duplicate package IDs across selected groups must use identical metadata.
+
 ```json
 {
   "INSTALL_PACKAGES": [

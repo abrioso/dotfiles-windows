@@ -46,9 +46,9 @@ try {
     $installAllGroups = (-not $groupsSpecified) -and (-not $bootstrapHasInstallPackages) -and ($Groups.Count -eq 0)
 
     # Collect package specifications from selected groups. String entries remain supported
-    # for local configuration compatibility; object entries can declare an install scope.
+    # for local configuration compatibility; object entries can constrain scope and installer type.
     $packageSpecs = [System.Collections.Generic.List[object]]::new()
-    $seenPackages = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $seenPackages = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
     foreach ($property in $config.PSObject.Properties) {
         $includeGroup = $installAllGroups -or ($Groups -contains $property.Name)
@@ -60,28 +60,37 @@ try {
         foreach ($packageEntry in $property.Value) {
             $packageId = if ($packageEntry -is [string]) { $packageEntry } else { [string]$packageEntry.id }
             $packageScope = if ($packageEntry -is [string]) { $null } else { [string]$packageEntry.scope }
-
-            if (-not [string]::IsNullOrWhiteSpace($packageScope) -and $packageScope -notin @('user', 'machine')) {
-                throw "Package '$packageId' has unsupported scope '$packageScope'. Expected 'user' or 'machine'."
-            }
+            $packageInstallerType = if ($packageEntry -is [string]) { $null } else { [string]$packageEntry.installerType }
 
             if ([string]::IsNullOrWhiteSpace($packageId)) {
                 continue
             }
 
+            if ([string]::IsNullOrWhiteSpace($packageScope)) { $packageScope = $null }
+            if ([string]::IsNullOrWhiteSpace($packageInstallerType)) { $packageInstallerType = $null }
+
+            if (-not [string]::IsNullOrWhiteSpace($packageScope) -and $packageScope -notin @('user', 'machine')) {
+                throw "Package '$packageId' has unsupported scope '$packageScope'. Expected 'user' or 'machine'."
+            }
+            if ($packageInstallerType -and $packageInstallerType -notin @('wix')) {
+                throw "Package '$packageId' has unsupported installer type '$packageInstallerType'. Expected 'wix'."
+            }
+
             if ($seenPackages.ContainsKey($packageId)) {
-                $existingScope = $seenPackages[$packageId]
-                if ($existingScope -ne $packageScope) {
-                    throw "Package '$packageId' is declared with conflicting scopes '$existingScope' and '$packageScope'. Resolve the conflict before re-running."
+                $existingMetadata = $seenPackages[$packageId]
+                if ($existingMetadata.Scope -ne $packageScope -or $existingMetadata.InstallerType -ne $packageInstallerType) {
+                    throw "Package '$packageId' is declared with conflicting metadata: existing (scope='$($existingMetadata.Scope)', installerType='$($existingMetadata.InstallerType)') vs new (scope='$packageScope', installerType='$packageInstallerType'). Resolve the conflict before re-running."
                 }
                 continue
             }
 
-            $seenPackages[$packageId] = $packageScope
-            $packageSpecs.Add([pscustomobject]@{
+            $packageSpec = [pscustomobject]@{
                 Id = $packageId
                 Scope = $packageScope
-            })
+                InstallerType = $packageInstallerType
+            }
+            $seenPackages[$packageId] = $packageSpec
+            $packageSpecs.Add($packageSpec)
         }
     }
 
@@ -91,6 +100,7 @@ try {
     foreach ($packageSpec in $packageSpecs) {
         $packageId = $packageSpec.Id
         $packageScope = $packageSpec.Scope
+        $packageInstallerType = $packageSpec.InstallerType
         Write-Host "Processing package: $packageId"
 
         # Winget returns a non-zero exit code when no exact installed package is found.
@@ -101,7 +111,8 @@ try {
             Write-Host "Package '$packageId' is already installed. Skipping."
         } else {
             $scopeDescription = if ($packageScope) { " with '$packageScope' scope" } else { '' }
-            Write-Host "Package '$packageId' not found. Installing${scopeDescription}..."
+            $installerTypeDescription = if ($packageInstallerType) { " using '$packageInstallerType' installer type" } else { '' }
+            Write-Host "Package '$packageId' not found. Installing${scopeDescription}${installerTypeDescription}..."
             $installArguments = @(
                 'install', '--id', $packageId, '--exact',
                 '--source', 'winget',
@@ -109,6 +120,9 @@ try {
             )
             if ($packageScope) {
                 $installArguments += @('--scope', $packageScope)
+            }
+            if ($packageInstallerType) {
+                $installArguments += @('--installer-type', $packageInstallerType)
             }
             & winget @installArguments
 
