@@ -226,6 +226,83 @@ Describe 'Bootstrap reliability contracts' {
                 throw 'Installed package detection must use the Winget exit code.'
             }
         }
+
+        It 'elevates only missing machine-scoped Winget install mutations' {
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Install-WingetPackages.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+
+            $trustedResolutionIndex = $module.IndexOf("ExportedCommands['Get-AppxPackage']")
+            $installedCheckIndex = $module.IndexOf('if ($isInstalled)')
+            $machineScopeIndex = $module.IndexOf("if (`$packageScope -eq 'machine')")
+            $elevatedInstallIndex = $module.IndexOf('Microsoft.PowerShell.Management\Start-Process')
+
+            if ($trustedResolutionIndex -lt 0 -or $module -notmatch 'Microsoft\.DesktopAppInstaller') {
+                throw 'Winget must be resolved from the registered Windows App Installer package.'
+            }
+            if ($module -notmatch "GetFolderPath\(\[Environment\+SpecialFolder\]::Windows\)" -or
+                $module -notmatch "WindowsPowerShell\\v1\.0\\Modules\\Appx\\Appx\.psd1" -or
+                $module -notmatch "Import-Module.+-PassThru") {
+                throw 'Get-AppxPackage must come from the explicitly imported in-box Appx module.'
+            }
+            if ($module -notmatch "GetFolderPath\(\[Environment\+SpecialFolder\]::ProgramFiles\)" -or $module -notmatch 'GetFullPath') {
+                throw 'The resolved Winget executable must be constrained to the canonical Program Files WindowsApps root.'
+            }
+            if ($module -match '\$env:ProgramFiles') {
+                throw 'The trusted WindowsApps root must not depend on caller-controlled environment variables.'
+            }
+            if ($module -match 'Get-Command\s+(?:-Name\s+)?[''"]?winget') {
+                throw 'The elevated Winget executable must not be selected from the caller-controlled PATH.'
+            }
+            if ($installedCheckIndex -lt 0 -or $machineScopeIndex -lt $installedCheckIndex -or $elevatedInstallIndex -lt $machineScopeIndex) {
+                throw 'Installed-package checks must happen before machine-scoped elevation.'
+            }
+            if ($module -notmatch 'Microsoft\.PowerShell\.Management\\Start-Process\s+-FilePath\s+\$wingetPath\s+-ArgumentList\s+\$installArguments\s+-Verb\s+RunAs\s+-Wait\s+-PassThru') {
+                throw 'Missing machine-scoped installs must invoke the resolved Winget executable through an elevated process and wait for its result.'
+            }
+            if ($module -notmatch '\$installExitCode\s*=\s*if \(\$null -ne \$installProcess -and \$null -ne \$installProcess\.ExitCode\) \{ \$installProcess\.ExitCode \} else \{ 1 \}') {
+                throw 'Elevated Winget installs must capture the child process exit code or coalesce failures to a non-zero result.'
+            }
+            if ($module -notmatch 'else\s*\{\s*&\s+\$wingetPath\s+@installArguments\s*\$installExitCode\s*=\s*\$LASTEXITCODE') {
+                throw 'User-scoped and unscoped installs must invoke Winget directly and capture its exit code.'
+            }
+            if ($module -match '&\s+winget\b') {
+                throw 'Winget invocations must use the explicitly resolved executable path.'
+            }
+            if ($module -notmatch '\$packageIdentifierPattern\s*=' -or
+                $module -notmatch '\$packageId\.Length\s+-gt\s+128' -or
+                $module -notmatch '\$packageId\s+-notmatch\s+\$packageIdentifierPattern') {
+                throw 'Package IDs must be validated against the Winget PackageIdentifier grammar before crossing the elevated ArgumentList boundary.'
+            }
+        }
+
+        It 'rejects package identifiers that could split elevated Winget arguments' {
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Install-WingetPackages.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+            $patternMatch = [regex]::Match($module, '\$packageIdentifierPattern\s*=\s*''([^'']+)''', [Text.RegularExpressions.RegexOptions]::CultureInvariant)
+            if (-not $patternMatch.Success) {
+                throw 'Could not read the production Winget PackageIdentifier pattern.'
+            }
+            $packageIdentifierPattern = $patternMatch.Groups[1].Value
+
+            foreach ($invalidId in @(
+                'gerardog.gsudo --scope user',
+                "gerardog.gsudo`t--source msstore",
+                "gerardog.gsudo`n--scope user",
+                'gerardog."gsudo"',
+                'singleSegment',
+                'Publisher..Package'
+            )) {
+                if ($invalidId.Length -le 128 -and $invalidId -match $packageIdentifierPattern) {
+                    throw "Unsafe package ID unexpectedly passed validation: $invalidId"
+                }
+            }
+
+            foreach ($validId in @('gerardog.gsudo', 'Microsoft.PowerShell', 'Python.Python.3.13')) {
+                if ($validId.Length -gt 128 -or $validId -notmatch $packageIdentifierPattern) {
+                    throw "Valid package ID unexpectedly failed validation: $validId"
+                }
+            }
+        }
     }
 
     Context 'Git-free branch selection' {

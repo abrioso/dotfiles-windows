@@ -15,8 +15,39 @@ param (
 )
 
 try {
-    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        throw "Winget is required to install configured packages."
+    $windowsRoot = [Environment]::GetFolderPath([Environment+SpecialFolder]::Windows)
+    $programFilesRoot = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
+    if ([string]::IsNullOrWhiteSpace($windowsRoot) -or [string]::IsNullOrWhiteSpace($programFilesRoot)) {
+        throw "Windows App Installer is required to install configured packages."
+    }
+
+    $appxModulePath = Join-Path $windowsRoot 'System32\WindowsPowerShell\v1.0\Modules\Appx\Appx.psd1'
+    if (-not (Test-Path -LiteralPath $appxModulePath -PathType Leaf)) {
+        throw "The in-box Appx module was not found: $appxModulePath"
+    }
+    $appxModule = @(Microsoft.PowerShell.Core\Import-Module -Name $appxModulePath -Force -PassThru -ErrorAction Stop)[0]
+    $getAppxPackageCommand = $appxModule.ExportedCommands['Get-AppxPackage']
+    if (-not $getAppxPackageCommand) {
+        throw "The in-box Appx module does not export Get-AppxPackage."
+    }
+
+    $appInstaller = @(& $getAppxPackageCommand -Name 'Microsoft.DesktopAppInstaller' -ErrorAction SilentlyContinue |
+        Sort-Object -Property Version -Descending)[0]
+    if (-not $appInstaller -or [string]::IsNullOrWhiteSpace([string]$appInstaller.InstallLocation)) {
+        throw "The registered Microsoft.DesktopAppInstaller package could not be located."
+    }
+
+    $windowsAppsRoot = [IO.Path]::GetFullPath((Join-Path $programFilesRoot 'WindowsApps')).TrimEnd('\')
+    $installLocation = [IO.Path]::GetFullPath([string]$appInstaller.InstallLocation).TrimEnd('\')
+    $trustedRootPrefix = $windowsAppsRoot + [IO.Path]::DirectorySeparatorChar
+    if (-not $installLocation.StartsWith($trustedRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Windows App Installer resolved outside the trusted WindowsApps directory: $installLocation"
+    }
+
+    $wingetPath = [IO.Path]::GetFullPath((Join-Path $installLocation 'winget.exe'))
+    if (-not $wingetPath.StartsWith(($installLocation + [IO.Path]::DirectorySeparatorChar), [StringComparison]::OrdinalIgnoreCase) -or
+        -not (Test-Path -LiteralPath $wingetPath -PathType Leaf)) {
+        throw "The trusted Windows App Installer executable was not found: $wingetPath"
     }
 
     Write-Host "Reading package configuration from $ConfigPath..."
@@ -47,6 +78,9 @@ try {
 
     # Collect package specifications from selected groups. String entries remain supported
     # for local configuration compatibility; object entries can constrain scope and installer type.
+    # This is the PackageIdentifier grammar from the Winget manifest 1.12 schema. Enforcing it
+    # also ensures Start-Process cannot split an elevated --id value into additional arguments.
+    $packageIdentifierPattern = '^[^\.\s\\/:*?"<>|\x01-\x1f]{1,32}(\.[^\.\s\\/:*?"<>|\x01-\x1f]{1,32}){1,7}$'
     $packageSpecs = [System.Collections.Generic.List[object]]::new()
     $seenPackages = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
@@ -64,6 +98,9 @@ try {
 
             if ([string]::IsNullOrWhiteSpace($packageId)) {
                 continue
+            }
+            if ($packageId.Length -gt 128 -or $packageId -notmatch $packageIdentifierPattern) {
+                throw "Package ID '$packageId' is not a valid Winget PackageIdentifier."
             }
 
             if ([string]::IsNullOrWhiteSpace($packageScope)) { $packageScope = $null }
@@ -104,7 +141,7 @@ try {
         Write-Host "Processing package: $packageId"
 
         # Winget returns a non-zero exit code when no exact installed package is found.
-        & winget list --id $packageId --exact --source winget --accept-source-agreements --disable-interactivity | Out-Null
+        & $wingetPath list --id $packageId --exact --source winget --accept-source-agreements --disable-interactivity | Out-Null
         $isInstalled = $LASTEXITCODE -eq 0
 
         if ($isInstalled) {
@@ -124,10 +161,16 @@ try {
             if ($packageInstallerType) {
                 $installArguments += @('--installer-type', $packageInstallerType)
             }
-            & winget @installArguments
+            if ($packageScope -eq 'machine') {
+                $installProcess = Microsoft.PowerShell.Management\Start-Process -FilePath $wingetPath -ArgumentList $installArguments -Verb RunAs -Wait -PassThru
+                $installExitCode = if ($null -ne $installProcess -and $null -ne $installProcess.ExitCode) { $installProcess.ExitCode } else { 1 }
+            } else {
+                & $wingetPath @installArguments
+                $installExitCode = $LASTEXITCODE
+            }
 
-            if ($LASTEXITCODE -ne 0) {
-                Write-Warning "Failed to install package '$packageId'. Winget exited with code $LASTEXITCODE."
+            if ($installExitCode -ne 0) {
+                Write-Warning "Failed to install package '$packageId'. Winget exited with code $installExitCode."
                 $failedPackages.Add($packageId)
             } else {
                 Write-Host "Successfully installed package '$packageId'."
