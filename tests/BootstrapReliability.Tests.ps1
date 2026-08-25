@@ -259,8 +259,8 @@ Describe 'Bootstrap reliability contracts' {
             if ($module -notmatch 'Microsoft\.PowerShell\.Management\\Start-Process\s+-FilePath\s+\$wingetPath\s+-ArgumentList\s+\$installArguments\s+-Verb\s+RunAs\s+-Wait\s+-PassThru') {
                 throw 'Missing machine-scoped installs must invoke the resolved Winget executable through an elevated process and wait for its result.'
             }
-            if ($module -notmatch '\$installExitCode\s*=\s*\$installProcess\.ExitCode') {
-                throw 'Elevated Winget installs must capture the child process exit code.'
+            if ($module -notmatch '\$installExitCode\s*=\s*if \(\$null -ne \$installProcess -and \$null -ne \$installProcess\.ExitCode\) \{ \$installProcess\.ExitCode \} else \{ 1 \}') {
+                throw 'Elevated Winget installs must capture the child process exit code or coalesce failures to a non-zero result.'
             }
             if ($module -notmatch 'else\s*\{\s*&\s+\$wingetPath\s+@installArguments\s*\$installExitCode\s*=\s*\$LASTEXITCODE') {
                 throw 'User-scoped and unscoped installs must invoke Winget directly and capture its exit code.'

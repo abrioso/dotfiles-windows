@@ -163,7 +163,7 @@ try {
             }
             if ($packageScope -eq 'machine') {
                 $installProcess = Microsoft.PowerShell.Management\Start-Process -FilePath $wingetPath -ArgumentList $installArguments -Verb RunAs -Wait -PassThru
-                $installExitCode = $installProcess.ExitCode
+                $installExitCode = if ($null -ne $installProcess -and $null -ne $installProcess.ExitCode) { $installProcess.ExitCode } else { 1 }
             } else {
                 & $wingetPath @installArguments
                 $installExitCode = $LASTEXITCODE
