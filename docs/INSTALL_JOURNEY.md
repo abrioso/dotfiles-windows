@@ -158,7 +158,7 @@ Applies environment variables from the local environment configuration file.
 
 ### `Set-UserHomeAlias.ps1`
 
-On machines where the profile directory contains non-ASCII characters (common on Entra ID joined devices, where the folder is created from the account displayName), creates an ASCII-only junction at `C:\Users\<upn-prefix>` pointing at the real profile directory and sets the user-scope `HOME` variable to the alias. Skips everything when the profile path is already ASCII-only. `USERPROFILE` is never modified.
+On machines where the profile directory contains non-ASCII characters (common on Entra ID joined devices, where the folder is created from the account displayName), creates an ASCII-only junction at `C:\Users\<upn-prefix>` pointing at the real profile directory and sets the user-scope `HOME` variable to the alias. The UPN is obtained from the in-box `whoami.exe /upn` when available, then from a valid UPN-shaped Windows identity, with a validated `USERNAME` leaf as the final fallback. Unsafe or non-ASCII alias leaves are rejected. Skips everything when the profile path is already ASCII-only. `USERPROFILE` is never modified.
 
 ### `Install-NerdFont.ps1`
 

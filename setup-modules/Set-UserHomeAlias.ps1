@@ -36,27 +36,23 @@ try {
         Exit 1
     }
 
-    # Derive the alias name from the UPN prefix (e.g. akbrioso@contoso.com -> akbrioso).
-    # Falls back to the current process user name when no UPN is available.
-    $upn = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $aliasName = if ($upn -match '^[^@\\]+@([^@\\]+)$') {
-        ($upn -split '@')[0]
-    } else {
-        $env:USERNAME
-    }
-
-    if (-not $aliasName) {
-        Write-ErrorMessage "Could not determine a user name for the home alias."
-        Stop-Logging
-        Exit 1
-    }
-
     # Nothing to do when the real profile path is already ASCII-clean.
     $isAscii = ($userProfile.ToCharArray() | Where-Object { [int]$_ -gt 127 }).Count -eq 0
     if ($isAscii) {
         Write-Info "Profile path '$userProfile' is already ASCII-only. No home alias needed."
         Stop-Logging
         Exit 0
+    }
+
+    # Prefer whoami.exe /upn because WindowsIdentity.Name is commonly domain-qualified
+    # on Entra/domain joined machines rather than being a UPN.
+    $windowsIdentityName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $aliasName = Resolve-DotfilesUserHomeAliasName -WindowsIdentityName $windowsIdentityName -UserName $env:USERNAME
+
+    if (-not $aliasName) {
+        Write-ErrorMessage "Could not determine a user name for the home alias."
+        Stop-Logging
+        Exit 1
     }
 
     $aliasRoot = Split-Path -Parent $userProfile

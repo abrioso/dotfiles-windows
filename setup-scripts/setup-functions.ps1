@@ -164,6 +164,90 @@ function Install-DotfilesPrerequisites {
     return $true
 }
 
+function ConvertFrom-DotfilesWhoAmIUpnResult {
+    param (
+        [AllowNull()]
+        $Output,
+        [int]$ExitCode
+    )
+
+    if ($ExitCode -ne 0) {
+        return $null
+    }
+
+    $outputRecords = @($Output)
+    if ($outputRecords.Count -ne 1) {
+        return $null
+    }
+
+    $upn = ([string]$outputRecords[0]).Trim()
+    if ($upn.Contains([char]13) -or $upn.Contains([char]10) -or $upn -notmatch '^[^@\\]+@[^@\\]+$') {
+        return $null
+    }
+
+    return $upn
+}
+
+function Get-DotfilesSignedInUserUpn {
+    $whoAmI = Get-Command -Name 'whoami.exe' -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $whoAmI) {
+        return $null
+    }
+
+    $output = & $whoAmI.Source /upn 2>$null
+    return ConvertFrom-DotfilesWhoAmIUpnResult -Output $output -ExitCode $LASTEXITCODE
+}
+
+function Test-DotfilesUserHomeAliasLeaf {
+    param (
+        [AllowNull()]
+        [string]$Name
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        return $false
+    }
+
+    if ($Name -match '[^\x20-\x7E]' -or $Name -match '\s' -or $Name -match '[<>:"/\\|?*]') {
+        return $false
+    }
+
+    if ($Name -match '^\.+$' -or $Name -match '[. ]$') {
+        return $false
+    }
+
+    if ($Name -match '^(CON|PRN|AUX|NUL|CLOCK\$|CONIN\$|CONOUT\$|COM[0-9]|LPT[0-9])([. ]|$)') {
+        return $false
+    }
+
+    return $true
+}
+
+function Resolve-DotfilesUserHomeAliasName {
+    param (
+        [AllowNull()]
+        [string]$WindowsIdentityName,
+        [AllowNull()]
+        [string]$UserName
+    )
+
+    $upn = Get-DotfilesSignedInUserUpn
+    if ($upn -match '^([^@\\]+)@[^@\\]+$' -and (Test-DotfilesUserHomeAliasLeaf -Name $Matches[1])) {
+        return $Matches[1]
+    }
+
+    if ($WindowsIdentityName -match '^([^@\\]+)@[^@\\]+$' -and (Test-DotfilesUserHomeAliasLeaf -Name $Matches[1])) {
+        return $Matches[1]
+    }
+
+    if (Test-DotfilesUserHomeAliasLeaf -Name $UserName) {
+        return $UserName
+    }
+
+    return $null
+}
+
 # Function to return the current user
 function Get-CurrentUser {
     try {
