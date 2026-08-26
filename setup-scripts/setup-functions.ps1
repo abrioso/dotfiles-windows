@@ -224,6 +224,141 @@ function Test-DotfilesUserHomeAliasLeaf {
     return $true
 }
 
+function Get-DotfilesUserHomeAliasPreflight {
+    param (
+        [Parameter(Mandatory)]
+        [string]$UserProfile,
+        [AllowNull()]
+        [string]$AliasName,
+        [AllowNull()]
+        [string]$CurrentHome
+    )
+
+    $hasNonAsciiCharacter = @($UserProfile.ToCharArray() | Where-Object { [int]$_ -gt 127 }).Count -gt 0
+    if (-not $hasNonAsciiCharacter) {
+        return [pscustomobject]@{
+            Action = 'Skip'
+            AliasPath = $null
+            Message = "Profile path '$UserProfile' is already ASCII-only."
+        }
+    }
+
+    if (-not (Test-DotfilesUserHomeAliasLeaf -Name $AliasName)) {
+        return [pscustomobject]@{
+            Action = 'Fail'
+            AliasPath = $null
+            Message = 'Could not determine a safe user name for the home alias.'
+        }
+    }
+
+    $aliasRoot = Split-Path -Path $UserProfile -Parent
+    try {
+        $aliasPath = Join-Path -Path $aliasRoot -ChildPath $AliasName -ErrorAction Stop
+    }
+    catch [System.Management.Automation.DriveNotFoundException] {
+        $combinedAliasPath = [IO.Path]::Combine($aliasRoot, $AliasName)
+        if ($combinedAliasPath.StartsWith('\\') -or $combinedAliasPath.StartsWith('//')) {
+            $aliasPath = '\\' + $combinedAliasPath.TrimStart('\', '/').Replace('/', '\')
+        }
+        else {
+            $aliasPath = $combinedAliasPath.Replace('/', '\')
+        }
+    }
+    try {
+        # Unlike Test-Path, Get-Item -Force can expose a dangling reparse-point entry.
+        # Recheck the concrete entry here and again in the child before any mutation.
+        $existingItem = Get-Item -LiteralPath $aliasPath -Force -ErrorAction Stop
+    }
+    catch [System.Management.Automation.ItemNotFoundException] {
+        return [pscustomobject]@{
+            Action = 'Elevate'
+            AliasPath = $aliasPath
+            Message = "The home alias junction '$aliasPath' must be created."
+        }
+    }
+    catch {
+        return [pscustomobject]@{
+            Action = 'Fail'
+            AliasPath = $aliasPath
+            Message = "Cannot inspect home alias path '$aliasPath': $($_.Exception.Message)"
+        }
+    }
+
+    $targets = @($existingItem.Target)
+    $isReparsePoint = [bool]($existingItem.Attributes -band [IO.FileAttributes]::ReparsePoint)
+    if (-not $isReparsePoint) {
+        return [pscustomobject]@{
+            Action = 'Fail'
+            AliasPath = $aliasPath
+            Message = "'$aliasPath' already exists as a regular path."
+        }
+    }
+
+    $isCorrectJunction = $existingItem.LinkType -eq 'Junction' -and
+        $targets.Count -eq 1 -and
+        ([string]$targets[0] -ieq $UserProfile)
+    if (-not $isCorrectJunction) {
+        $observedLinkType = if ([string]::IsNullOrEmpty([string]$existingItem.LinkType)) { '<none>' } else { [string]$existingItem.LinkType }
+        $observedTarget = if ($targets.Count -eq 0) { '<none>' } else { ($targets | ForEach-Object { "'$([string]$_)'" }) -join ', ' }
+        return [pscustomobject]@{
+            Action = 'Fail'
+            AliasPath = $aliasPath
+            Message = "'$aliasPath' exists but has LinkType '$observedLinkType' and Target $observedTarget; expected a junction targeting '$UserProfile'."
+        }
+    }
+
+    if ($CurrentHome -ieq $aliasPath) {
+        return [pscustomobject]@{
+            Action = 'Skip'
+            AliasPath = $aliasPath
+            Message = 'The home alias junction and user HOME are already correct.'
+        }
+    }
+
+    return [pscustomobject]@{
+        Action = 'RunNonElevated'
+        AliasPath = $aliasPath
+        Message = 'The home alias junction is correct; only user HOME needs an update.'
+    }
+}
+
+function Get-DotfilesUserHomeAliasJunctionPreflight {
+    param (
+        [Parameter(Mandatory)]
+        [string]$UserProfile,
+        [Parameter(Mandatory)]
+        [string]$AliasPath
+    )
+
+    $aliasName = Split-Path -Path $AliasPath -Leaf
+    $aliasRoot = Split-Path -Path $UserProfile -Parent
+    try {
+        $expectedAliasPath = Join-Path -Path $aliasRoot -ChildPath $aliasName -ErrorAction Stop
+    }
+    catch [System.Management.Automation.DriveNotFoundException] {
+        $combinedAliasPath = [IO.Path]::Combine($aliasRoot, $aliasName)
+        if ($combinedAliasPath.StartsWith('\\') -or $combinedAliasPath.StartsWith('//')) {
+            $expectedAliasPath = '\\' + $combinedAliasPath.TrimStart('\', '/').Replace('/', '\')
+        }
+        else {
+            $expectedAliasPath = $combinedAliasPath.Replace('/', '\')
+        }
+    }
+
+    if (-not [string]::Equals($expectedAliasPath, $AliasPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return [pscustomobject]@{
+            Action = 'Fail'
+            AliasPath = $AliasPath
+            Message = "Supplied alias path '$AliasPath' does not match expected alias path '$expectedAliasPath'."
+        }
+    }
+
+    return Get-DotfilesUserHomeAliasPreflight `
+        -UserProfile $UserProfile `
+        -AliasName $aliasName `
+        -CurrentHome $AliasPath
+}
+
 function Resolve-DotfilesUserHomeAliasName {
     param (
         [AllowNull()]

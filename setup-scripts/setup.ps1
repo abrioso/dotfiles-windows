@@ -199,7 +199,7 @@ function Write-ModuleLogLocation {
     }
 }
 
-foreach ($module in $modulesToRun) {
+:moduleLoop foreach ($module in $modulesToRun) {
     $moduleName = $module.Script
     $modulePath = Join-Path $moduleScriptsPath $moduleName
     if (-not (Test-Path -LiteralPath $modulePath)) {
@@ -211,6 +211,7 @@ foreach ($module in $modulesToRun) {
     Write-Info "Running module: $moduleName"
     try {
         $moduleLogFile = $null
+        $requiresAdmin = $module.RequiresAdmin
         if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
             $requestedFeatures = @(Resolve-DotfilesWindowsFeature `
                 -ConfigPath (Join-Path $moduleConfigDirectory 'windows-features.json') `
@@ -219,6 +220,54 @@ foreach ($module in $modulesToRun) {
                 Write-Info 'All requested Windows features are already enabled. Skipping elevation.'
                 $scriptResults.Add($moduleName, 0)
                 continue
+            }
+        }
+        elseif ($moduleName -eq 'Set-UserHomeAlias.ps1') {
+            $userProfile = [System.Environment]::GetEnvironmentVariable('USERPROFILE', 'Process')
+            if ([string]::IsNullOrWhiteSpace($userProfile)) {
+                throw 'USERPROFILE is not set; cannot preflight the home alias.'
+            }
+
+            $aliasName = $null
+            $hasNonAsciiCharacter = @($userProfile.ToCharArray() | Where-Object { [int]$_ -gt 127 }).Count -gt 0
+            if ($hasNonAsciiCharacter) {
+                $windowsIdentityName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+                $aliasName = Resolve-DotfilesUserHomeAliasName -WindowsIdentityName $windowsIdentityName -UserName $env:USERNAME
+            }
+            $currentHome = [System.Environment]::GetEnvironmentVariable('HOME', 'User')
+            $homeAliasPreflight = Get-DotfilesUserHomeAliasPreflight `
+                -UserProfile $userProfile `
+                -AliasName $aliasName `
+                -CurrentHome $currentHome
+
+            switch ($homeAliasPreflight.Action) {
+                'Skip' {
+                    Write-Info $homeAliasPreflight.Message
+                    $scriptResults.Add($moduleName, 0)
+                    continue moduleLoop
+                }
+                'RunNonElevated' {
+                    Write-Info $homeAliasPreflight.Message
+                    $requiresAdmin = $false
+                    if ($currentHome) {
+                        Write-WarningMessage "Updating existing HOME from '$currentHome' to '$($homeAliasPreflight.AliasPath)'."
+                    }
+                    [System.Environment]::SetEnvironmentVariable('HOME', $homeAliasPreflight.AliasPath, 'User')
+                    Write-Info "HOME set to '$($homeAliasPreflight.AliasPath)' in the User scope."
+                    $scriptResults.Add($moduleName, 0)
+                    continue moduleLoop
+                }
+                'Elevate' {
+                    Write-Info $homeAliasPreflight.Message
+                    # Older gitignored setup-modules.json files may not carry requiresAdmin yet.
+                    $requiresAdmin = $true
+                }
+                'Fail' {
+                    throw $homeAliasPreflight.Message
+                }
+                default {
+                    throw "Unknown home alias preflight action '$($homeAliasPreflight.Action)'."
+                }
             }
         }
 
@@ -233,13 +282,16 @@ foreach ($module in $modulesToRun) {
 
         $moduleArguments = @('-NoProfile', '-File', $modulePath)
         $scriptArg = "-NoProfile -File `"$modulePath`""
-        if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
+        if ($moduleName -in @('Configure-WindowsFeatures.ps1', 'Set-UserHomeAlias.ps1')) {
             $moduleLogName = "{0}-{1}-{2}.txt" -f $moduleName, (Get-Date -Format 'yyyyMMdd-HHmmssfff'), [System.Guid]::NewGuid().ToString('N').Substring(0, 8)
             $moduleLogFile = Join-Path $moduleLogDirectory $moduleLogName
             $moduleArguments += @('-LogFilePath', $moduleLogFile)
             $scriptArg += " -LogFilePath `"$moduleLogFile`""
         }
-        $requiresAdmin = $module.RequiresAdmin
+        if ($moduleName -eq 'Set-UserHomeAlias.ps1') {
+            $moduleArguments += @('-UserProfile', $userProfile, '-AliasPath', $homeAliasPreflight.AliasPath)
+            $scriptArg += " -UserProfile `"$userProfile`" -AliasPath `"$($homeAliasPreflight.AliasPath)`""
+        }
 
         # Check if running as administrator
         $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -261,6 +313,13 @@ foreach ($module in $modulesToRun) {
             Exit 3010
         }
         if ($moduleExitCode -eq 0) {
+            if ($moduleName -eq 'Set-UserHomeAlias.ps1') {
+                if ($currentHome) {
+                    Write-WarningMessage "Updating existing HOME from '$currentHome' to '$($homeAliasPreflight.AliasPath)'."
+                }
+                [System.Environment]::SetEnvironmentVariable('HOME', $homeAliasPreflight.AliasPath, 'User')
+                Write-Info "HOME set to '$($homeAliasPreflight.AliasPath)' in the User scope."
+            }
             Write-Info "Module '$moduleName' completed successfully."
         } else {
             Write-ErrorMessage "Module '$moduleName' exited with code: $moduleExitCode. Halting setup."
