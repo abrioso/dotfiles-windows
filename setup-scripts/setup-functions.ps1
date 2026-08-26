@@ -251,8 +251,13 @@ function Get-DotfilesUserHomeAliasPreflight {
         }
     }
 
-    $aliasRoot = $UserProfile -replace '[\\/][^\\/]+$', ''
-    $aliasPath = $aliasRoot + '\' + $AliasName
+    $aliasRoot = Split-Path -Path $UserProfile -Parent
+    try {
+        $aliasPath = Join-Path -Path $aliasRoot -ChildPath $AliasName -ErrorAction Stop
+    }
+    catch [System.Management.Automation.DriveNotFoundException] {
+        $aliasPath = ([IO.Path]::Combine($aliasRoot, $AliasName)) -replace '[\\/]', '\'
+    }
     try {
         # Unlike Test-Path, Get-Item -Force can expose a dangling reparse-point entry.
         # Recheck the concrete entry here and again in the child before any mutation.
@@ -275,15 +280,25 @@ function Get-DotfilesUserHomeAliasPreflight {
 
     $targets = @($existingItem.Target)
     $isReparsePoint = [bool]($existingItem.Attributes -band [IO.FileAttributes]::ReparsePoint)
+    if (-not $isReparsePoint) {
+        return [pscustomobject]@{
+            Action = 'Fail'
+            AliasPath = $aliasPath
+            Message = "'$aliasPath' already exists as a regular path."
+        }
+    }
+
     $isCorrectJunction = $isReparsePoint -and
         $existingItem.LinkType -eq 'Junction' -and
         $targets.Count -eq 1 -and
         ([string]$targets[0] -ieq $UserProfile)
     if (-not $isCorrectJunction) {
+        $observedLinkType = if ([string]::IsNullOrEmpty([string]$existingItem.LinkType)) { '<none>' } else { [string]$existingItem.LinkType }
+        $observedTarget = if ($targets.Count -eq 0) { '<none>' } else { ($targets | ForEach-Object { [string]$_ }) -join "', '" }
         return [pscustomobject]@{
             Action = 'Fail'
             AliasPath = $aliasPath
-            Message = "'$aliasPath' exists but is not a junction targeting '$UserProfile'."
+            Message = "'$aliasPath' exists but has LinkType '$observedLinkType' and Target '$observedTarget'; expected a junction targeting '$UserProfile'."
         }
     }
 
