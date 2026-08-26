@@ -109,22 +109,24 @@ Describe 'User home alias resolution' {
         Test-DotfilesUserHomeAliasLeaf -Name $InvalidName | Should -BeFalse
     }
 
-    It 'checks for an ASCII-only profile before resolving an alias name' {
-        $modulePath = Join-Path $PSScriptRoot '../setup-modules/Set-UserHomeAlias.ps1'
-        $moduleText = Get-Content -LiteralPath $modulePath -Raw
-        $asciiCheckIndex = $moduleText.IndexOf('$isAscii =')
-        $resolverIndex = $moduleText.IndexOf('Resolve-DotfilesUserHomeAliasName')
+    It 'checks the parent profile before resolving an alias name' {
+        $setupPath = Join-Path $PSScriptRoot '../setup-scripts/setup.ps1'
+        $setupText = Get-Content -LiteralPath $setupPath -Raw
+        $profileReadIndex = $setupText.IndexOf("GetEnvironmentVariable('USERPROFILE', 'Process')")
+        $asciiCheckIndex = $setupText.IndexOf('$hasNonAsciiCharacter =', $profileReadIndex)
+        $resolverIndex = $setupText.IndexOf('Resolve-DotfilesUserHomeAliasName', $asciiCheckIndex)
 
-        $asciiCheckIndex | Should -BeGreaterOrEqual 0
+        $profileReadIndex | Should -BeGreaterOrEqual 0
+        $asciiCheckIndex | Should -BeGreaterThan $profileReadIndex
         $resolverIndex | Should -BeGreaterThan $asciiCheckIndex
     }
 
-    It 'routes the module alias derivation through the tested resolver' {
-        $modulePath = Join-Path $PSScriptRoot '../setup-modules/Set-UserHomeAlias.ps1'
-        $moduleText = Get-Content -LiteralPath $modulePath -Raw
+    It 'routes parent alias derivation through the tested resolver' {
+        $setupPath = Join-Path $PSScriptRoot '../setup-scripts/setup.ps1'
+        $setupText = Get-Content -LiteralPath $setupPath -Raw
         $expectedCall = 'Resolve-DotfilesUserHomeAliasName -WindowsIdentityName $windowsIdentityName -UserName $env:USERNAME'
 
-        $moduleText | Should -Match ([regex]::Escape($expectedCall))
+        $setupText | Should -Match ([regex]::Escape($expectedCall))
     }
 
     Context 'conditional elevation preflight' {
@@ -232,6 +234,76 @@ Describe 'User home alias resolution' {
             $result.Action | Should -BeExactly 'Fail'
         }
 
+        It 'requests child creation when the explicit expected alias is still missing' {
+            Mock Get-Item { throw [System.Management.Automation.ItemNotFoundException]::new('missing') }
+
+            $result = Get-DotfilesUserHomeAliasJunctionPreflight `
+                -UserProfile 'C:\Users\AndréKakooBrioso' `
+                -AliasPath 'C:\Users\akbrioso'
+
+            $result.Action | Should -BeExactly 'Elevate'
+        }
+
+        It 'lets the child no-op successfully when the explicit alias became the correct junction' {
+            Mock Get-Item {
+                [pscustomobject]@{
+                    Attributes = [IO.FileAttributes]::Directory -bor [IO.FileAttributes]::ReparsePoint
+                    LinkType = 'Junction'
+                    Target = 'C:\Users\AndréKakooBrioso'
+                }
+            }
+
+            $result = Get-DotfilesUserHomeAliasJunctionPreflight `
+                -UserProfile 'C:\Users\AndréKakooBrioso' `
+                -AliasPath 'C:\Users\akbrioso'
+
+            $result.Action | Should -BeExactly 'Skip'
+        }
+
+        It 'fails child revalidation for a collision, wrong target, or inspection error' -ForEach @(
+            @{
+                Probe = {
+                    [pscustomobject]@{
+                        Attributes = [IO.FileAttributes]::Directory
+                        LinkType = $null
+                        Target = $null
+                    }
+                }
+            }
+            @{
+                Probe = {
+                    [pscustomobject]@{
+                        Attributes = [IO.FileAttributes]::Directory -bor [IO.FileAttributes]::ReparsePoint
+                        LinkType = 'Junction'
+                        Target = 'C:\Users\DifferentUser'
+                    }
+                }
+            }
+            @{
+                Probe = { throw [System.UnauthorizedAccessException]::new('denied') }
+            }
+        ) {
+            Mock Get-Item $Probe
+
+            $result = Get-DotfilesUserHomeAliasJunctionPreflight `
+                -UserProfile 'C:\Users\AndréKakooBrioso' `
+                -AliasPath 'C:\Users\akbrioso'
+
+            $result.Action | Should -BeExactly 'Fail'
+        }
+
+        It 'fails child preflight when the supplied alias is not the profile sibling recomputed from its leaf' {
+            Mock Get-Item { throw 'A mismatched alias must fail before probing.' }
+
+            $result = Get-DotfilesUserHomeAliasJunctionPreflight `
+                -UserProfile 'C:\Users\AndréKakooBrioso' `
+                -AliasPath 'D:\Elsewhere\akbrioso'
+
+            $result.Action | Should -BeExactly 'Fail'
+            $result.Message | Should -Match 'does not match expected alias path'
+            Should -Invoke Get-Item -Times 0 -Exactly
+        }
+
     }
 
     Context 'setup orchestration contract' {
@@ -267,6 +339,36 @@ Describe 'User home alias resolution' {
             $setup | Should -Match "Set-UserHomeAlias\.ps1'[\s\S]*?NewGuid"
             $setup | Should -Match "Set-UserHomeAlias\.ps1'[\s\S]*?'-LogFilePath',\s*\`$moduleLogFile"
             $setup | Should -Match 'Write-ModuleLogLocation\s+-ModuleLogFile\s+\$moduleLogFile'
+        }
+
+        It 'isolates the elevated junction child from the alternate administrator identity and user environment' {
+            $modulePath = Join-Path $PSScriptRoot '../setup-modules/Set-UserHomeAlias.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+
+            $module | Should -Match '(?s)param\s*\(.*\[Parameter\(Mandatory\)\]\s*\[string\]\$UserProfile.*\[Parameter\(Mandatory\)\]\s*\[string\]\$AliasPath'
+            $module | Should -Not -Match "GetEnvironmentVariable\('USERPROFILE'"
+            $module | Should -Not -Match "GetEnvironmentVariable\('HOME'"
+            $module | Should -Not -Match 'SetEnvironmentVariable'
+            $module | Should -Not -Match 'WindowsIdentity|Resolve-DotfilesUserHomeAliasName|USERNAME'
+        }
+
+        It 'makes the parent own HOME updates and passes explicit quoted paths only to an elevated junction child' {
+            $setupPath = Join-Path $PSScriptRoot '../setup-scripts/setup.ps1'
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+
+            $setup | Should -Match "(?s)'RunNonElevated'\s*\{.*SetEnvironmentVariable\('HOME',\s*\`$homeAliasPreflight.AliasPath,\s*'User'\).*continue\s+moduleLoop"
+            $setup | Should -Match "(?s)'Elevate'\s*\{.*\`$requiresAdmin\s*=\s*\`$true"
+            $setup | Should -Match "\`$moduleArguments\s*\+=\s*@\('-UserProfile',\s*\`$userProfile,\s*'-AliasPath',\s*\`$homeAliasPreflight.AliasPath\)"
+            $setup | Should -Match '-UserProfile\s+`"\$userProfile`"\s+-AliasPath\s+`"\$\(\$homeAliasPreflight.AliasPath\)`"'
+            $setup | Should -Match "(?s)if\s*\(\`$moduleExitCode\s+-eq\s+0\).*SetEnvironmentVariable\('HOME',\s*\`$homeAliasPreflight.AliasPath,\s*'User'\)"
+        }
+
+        It 'makes the elevated child revalidate explicit paths and create only for Elevate' {
+            $modulePath = Join-Path $PSScriptRoot '../setup-modules/Set-UserHomeAlias.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+
+            $module | Should -Match 'Get-DotfilesUserHomeAliasJunctionPreflight\s+`?\s*-UserProfile\s+\$UserProfile\s+`?\s*-AliasPath\s+\$AliasPath'
+            $module | Should -Match "(?s)switch\s*\(\`$preflight.Action\).*'Elevate'\s*\{.*New-Item.*'Skip'\s*\{.*'Fail'\s*\{.*throw"
         }
     }
 }

@@ -322,6 +322,43 @@ function Get-DotfilesUserHomeAliasPreflight {
     }
 }
 
+function Get-DotfilesUserHomeAliasJunctionPreflight {
+    param (
+        [Parameter(Mandatory)]
+        [string]$UserProfile,
+        [Parameter(Mandatory)]
+        [string]$AliasPath
+    )
+
+    $aliasName = Split-Path -Path $AliasPath -Leaf
+    $aliasRoot = Split-Path -Path $UserProfile -Parent
+    try {
+        $expectedAliasPath = Join-Path -Path $aliasRoot -ChildPath $aliasName -ErrorAction Stop
+    }
+    catch [System.Management.Automation.DriveNotFoundException] {
+        $combinedAliasPath = [IO.Path]::Combine($aliasRoot, $aliasName)
+        if ($combinedAliasPath.StartsWith('\\') -or $combinedAliasPath.StartsWith('//')) {
+            $expectedAliasPath = '\\' + $combinedAliasPath.TrimStart('\', '/').Replace('/', '\')
+        }
+        else {
+            $expectedAliasPath = $combinedAliasPath.Replace('/', '\')
+        }
+    }
+
+    if (-not [string]::Equals($expectedAliasPath, $AliasPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return [pscustomobject]@{
+            Action = 'Fail'
+            AliasPath = $AliasPath
+            Message = "Supplied alias path '$AliasPath' does not match expected alias path '$expectedAliasPath'."
+        }
+    }
+
+    return Get-DotfilesUserHomeAliasPreflight `
+        -UserProfile $UserProfile `
+        -AliasName $aliasName `
+        -CurrentHome $AliasPath
+}
+
 function Resolve-DotfilesUserHomeAliasName {
     param (
         [AllowNull()]

@@ -249,6 +249,13 @@ function Write-ModuleLogLocation {
                 'RunNonElevated' {
                     Write-Info $homeAliasPreflight.Message
                     $requiresAdmin = $false
+                    if ($currentHome) {
+                        Write-WarningMessage "Updating existing HOME from '$currentHome' to '$($homeAliasPreflight.AliasPath)'."
+                    }
+                    [System.Environment]::SetEnvironmentVariable('HOME', $homeAliasPreflight.AliasPath, 'User')
+                    Write-Info "HOME set to '$($homeAliasPreflight.AliasPath)' in the User scope."
+                    $scriptResults.Add($moduleName, 0)
+                    continue moduleLoop
                 }
                 'Elevate' {
                     Write-Info $homeAliasPreflight.Message
@@ -281,6 +288,10 @@ function Write-ModuleLogLocation {
             $moduleArguments += @('-LogFilePath', $moduleLogFile)
             $scriptArg += " -LogFilePath `"$moduleLogFile`""
         }
+        if ($moduleName -eq 'Set-UserHomeAlias.ps1') {
+            $moduleArguments += @('-UserProfile', $userProfile, '-AliasPath', $homeAliasPreflight.AliasPath)
+            $scriptArg += " -UserProfile `"$userProfile`" -AliasPath `"$($homeAliasPreflight.AliasPath)`""
+        }
 
         # Check if running as administrator
         $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -302,6 +313,13 @@ function Write-ModuleLogLocation {
             Exit 3010
         }
         if ($moduleExitCode -eq 0) {
+            if ($moduleName -eq 'Set-UserHomeAlias.ps1') {
+                if ($currentHome) {
+                    Write-WarningMessage "Updating existing HOME from '$currentHome' to '$($homeAliasPreflight.AliasPath)'."
+                }
+                [System.Environment]::SetEnvironmentVariable('HOME', $homeAliasPreflight.AliasPath, 'User')
+                Write-Info "HOME set to '$($homeAliasPreflight.AliasPath)' in the User scope."
+            }
             Write-Info "Module '$moduleName' completed successfully."
         } else {
             Write-ErrorMessage "Module '$moduleName' exited with code: $moduleExitCode. Halting setup."
