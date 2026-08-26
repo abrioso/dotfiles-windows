@@ -256,7 +256,13 @@ function Get-DotfilesUserHomeAliasPreflight {
         $aliasPath = Join-Path -Path $aliasRoot -ChildPath $AliasName -ErrorAction Stop
     }
     catch [System.Management.Automation.DriveNotFoundException] {
-        $aliasPath = ([IO.Path]::Combine($aliasRoot, $AliasName)) -replace '[\\/]', '\'
+        $combinedAliasPath = [IO.Path]::Combine($aliasRoot, $AliasName)
+        if ($combinedAliasPath.StartsWith('\\') -or $combinedAliasPath.StartsWith('//')) {
+            $aliasPath = '\\' + $combinedAliasPath.TrimStart('\', '/').Replace('/', '\')
+        }
+        else {
+            $aliasPath = $combinedAliasPath.Replace('/', '\')
+        }
     }
     try {
         # Unlike Test-Path, Get-Item -Force can expose a dangling reparse-point entry.
@@ -288,17 +294,16 @@ function Get-DotfilesUserHomeAliasPreflight {
         }
     }
 
-    $isCorrectJunction = $isReparsePoint -and
-        $existingItem.LinkType -eq 'Junction' -and
+    $isCorrectJunction = $existingItem.LinkType -eq 'Junction' -and
         $targets.Count -eq 1 -and
         ([string]$targets[0] -ieq $UserProfile)
     if (-not $isCorrectJunction) {
         $observedLinkType = if ([string]::IsNullOrEmpty([string]$existingItem.LinkType)) { '<none>' } else { [string]$existingItem.LinkType }
-        $observedTarget = if ($targets.Count -eq 0) { '<none>' } else { ($targets | ForEach-Object { [string]$_ }) -join "', '" }
+        $observedTarget = if ($targets.Count -eq 0) { '<none>' } else { ($targets | ForEach-Object { "'$([string]$_)'" }) -join ', ' }
         return [pscustomobject]@{
             Action = 'Fail'
             AliasPath = $aliasPath
-            Message = "'$aliasPath' exists but has LinkType '$observedLinkType' and Target '$observedTarget'; expected a junction targeting '$UserProfile'."
+            Message = "'$aliasPath' exists but has LinkType '$observedLinkType' and Target $observedTarget; expected a junction targeting '$UserProfile'."
         }
     }
 
