@@ -224,6 +224,84 @@ function Test-DotfilesUserHomeAliasLeaf {
     return $true
 }
 
+function Get-DotfilesUserHomeAliasPreflight {
+    param (
+        [Parameter(Mandatory)]
+        [string]$UserProfile,
+        [AllowNull()]
+        [string]$AliasName,
+        [AllowNull()]
+        [string]$CurrentHome
+    )
+
+    $hasNonAsciiCharacter = @($UserProfile.ToCharArray() | Where-Object { [int]$_ -gt 127 }).Count -gt 0
+    if (-not $hasNonAsciiCharacter) {
+        return [pscustomobject]@{
+            Action = 'Skip'
+            AliasPath = $null
+            Message = "Profile path '$UserProfile' is already ASCII-only."
+        }
+    }
+
+    if (-not (Test-DotfilesUserHomeAliasLeaf -Name $AliasName)) {
+        return [pscustomobject]@{
+            Action = 'Fail'
+            AliasPath = $null
+            Message = 'Could not determine a safe user name for the home alias.'
+        }
+    }
+
+    $aliasRoot = $UserProfile -replace '[\\/][^\\/]+$', ''
+    $aliasPath = $aliasRoot + '\' + $AliasName
+    try {
+        # Unlike Test-Path, Get-Item -Force can expose a dangling reparse-point entry.
+        # Recheck the concrete entry here and again in the child before any mutation.
+        $existingItem = Get-Item -LiteralPath $aliasPath -Force -ErrorAction Stop
+    }
+    catch [System.Management.Automation.ItemNotFoundException] {
+        return [pscustomobject]@{
+            Action = 'Elevate'
+            AliasPath = $aliasPath
+            Message = "The home alias junction '$aliasPath' must be created."
+        }
+    }
+    catch {
+        return [pscustomobject]@{
+            Action = 'Fail'
+            AliasPath = $aliasPath
+            Message = "Cannot inspect home alias path '$aliasPath': $($_.Exception.Message)"
+        }
+    }
+
+    $targets = @($existingItem.Target)
+    $isReparsePoint = [bool]($existingItem.Attributes -band [IO.FileAttributes]::ReparsePoint)
+    $isCorrectJunction = $isReparsePoint -and
+        $existingItem.LinkType -eq 'Junction' -and
+        $targets.Count -eq 1 -and
+        ([string]$targets[0] -ieq $UserProfile)
+    if (-not $isCorrectJunction) {
+        return [pscustomobject]@{
+            Action = 'Fail'
+            AliasPath = $aliasPath
+            Message = "'$aliasPath' exists but is not a junction targeting '$UserProfile'."
+        }
+    }
+
+    if ($CurrentHome -ieq $aliasPath) {
+        return [pscustomobject]@{
+            Action = 'Skip'
+            AliasPath = $aliasPath
+            Message = 'The home alias junction and user HOME are already correct.'
+        }
+    }
+
+    return [pscustomobject]@{
+        Action = 'RunNonElevated'
+        AliasPath = $aliasPath
+        Message = 'The home alias junction is correct; only user HOME needs an update.'
+    }
+}
+
 function Resolve-DotfilesUserHomeAliasName {
     param (
         [AllowNull()]
