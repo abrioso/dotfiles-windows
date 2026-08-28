@@ -39,16 +39,24 @@ function Start-Logging {
         [Parameter(Mandatory)]
         [string]$LogFilePath,
         [switch]$PassThru,
-        [switch]$RequireRequestedPath
+        [switch]$RequireRequestedPath,
+        [switch]$Append
     )
 
     $actualLogFilePath = $LogFilePath
+    $transcriptParameters = @{
+        ErrorAction = 'Stop'
+        Path = $actualLogFilePath
+    }
+    if ($Append) {
+        $transcriptParameters.Append = $true
+    }
     try {
         $logDir = Split-Path -Parent $actualLogFilePath
         if (-not (Test-Path -LiteralPath $logDir -PathType Container)) {
             New-Item -Path $logDir -ItemType Directory -ErrorAction Stop | Out-Null
         }
-        Start-Transcript -Path $actualLogFilePath -ErrorAction Stop | Out-Null
+        Start-Transcript @transcriptParameters | Out-Null
     }
     catch {
         if ($RequireRequestedPath) {
@@ -59,7 +67,8 @@ function Start-Logging {
         $fallbackName = "{0}-{1}.txt" -f [System.IO.Path]::GetFileNameWithoutExtension($LogFilePath), [System.Guid]::NewGuid().ToString('N')
         $actualLogFilePath = Join-Path $env:TEMP $fallbackName
         try {
-            Start-Transcript -Path $actualLogFilePath -ErrorAction Stop | Out-Null
+            $transcriptParameters.Path = $actualLogFilePath
+            Start-Transcript @transcriptParameters | Out-Null
             Write-WarningMessage "Logging to temporary location: $actualLogFilePath"
         }
         catch {
@@ -74,10 +83,62 @@ function Start-Logging {
  
 function Stop-Logging {
     try {
-        Stop-Transcript -ErrorAction Stop
+        Stop-Transcript -ErrorAction Stop | Out-Null
     }
     catch {
         Write-WarningMessage "Cannot stop transcript: $($_.Exception.Message)"
+    }
+}
+
+function Complete-DotfilesSetupLogging {
+    param (
+        [Parameter(Mandatory)]
+        [string]$LogFilePath,
+        [AllowNull()]
+        [string]$DotfilesDirectory
+    )
+
+    Stop-Logging
+
+    $durableLogPath = $LogFilePath
+    $cloneLogPath = $null
+    try {
+        if (-not [string]::IsNullOrWhiteSpace($DotfilesDirectory) -and
+            (Test-Path -LiteralPath $DotfilesDirectory -PathType Container) -and
+            (Test-Path -LiteralPath (Join-Path $DotfilesDirectory '.git'))) {
+            $durableLogDirectory = Join-Path $DotfilesDirectory 'logs'
+            if (-not (Test-Path -LiteralPath $durableLogDirectory -PathType Container)) {
+                New-Item -ItemType Directory -Path $durableLogDirectory -Force -ErrorAction Stop | Out-Null
+            }
+
+            $cloneLogPath = Join-Path $durableLogDirectory (Split-Path -Leaf $LogFilePath)
+            if (-not [string]::Equals(
+                [System.IO.Path]::GetFullPath($LogFilePath),
+                [System.IO.Path]::GetFullPath($cloneLogPath),
+                [System.StringComparison]::OrdinalIgnoreCase)) {
+                Move-Item -LiteralPath $LogFilePath -Destination $cloneLogPath -ErrorAction Stop
+            }
+            $durableLogPath = $cloneLogPath
+        }
+    }
+    catch {
+        Write-WarningMessage "Cannot retain setup transcript in persistent clone logs: $($_.Exception.Message)"
+        if (Test-Path -LiteralPath $LogFilePath -PathType Leaf) {
+            $durableLogPath = $LogFilePath
+        }
+        elseif (-not [string]::IsNullOrWhiteSpace($cloneLogPath) -and
+            (Test-Path -LiteralPath $cloneLogPath -PathType Leaf)) {
+            $durableLogPath = $cloneLogPath
+        }
+        else {
+            $durableLogPath = $null
+            Write-WarningMessage "Setup transcript was not found at the source or destination after the move failure."
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($durableLogPath)) {
+        Write-Info "Main setup log: $durableLogPath"
+        return $durableLogPath
     }
 }
 

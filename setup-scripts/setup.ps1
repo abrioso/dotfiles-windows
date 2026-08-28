@@ -14,6 +14,8 @@ To make this work, you need to set your execution policy to unrestricted (or at 
 [CmdletBinding()]
 param (
     [string]$BootstrapBranch,
+    [string]$LogFilePath,
+    [switch]$AppendLog,
     [switch]$NonInteractive
 )
 
@@ -26,10 +28,18 @@ $dotfileRootDir = Split-Path -Parent $PSScriptRoot
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
 $logDir = Join-Path $dotfileRootDir "logs"
 $scriptName = Split-Path -Leaf $PSCommandPath
-$logFile = "$logDir/$scriptName-$dateTime.txt"
+$logFile = if ([string]::IsNullOrWhiteSpace($LogFilePath)) {
+    "$logDir/$scriptName-$dateTime.txt"
+} else {
+    $LogFilePath
+}
 
 # Start logging
-$logFile = Start-Logging -LogFilePath $logFile -PassThru
+$logFile = Start-Logging -LogFilePath $logFile -PassThru -Append:$AppendLog
+$dotfilesDirectory = $null
+$finalizeLogging = $true
+
+try {
 
 # Check execution policy at script start
 $currentPolicy = Get-ExecutionPolicy
@@ -44,7 +54,6 @@ $prerequisitesInstalled = Install-DotfilesPrerequisites
 
 if (-not $prerequisitesInstalled) {
     Write-ErrorMessage "Failed to install prerequisites. Exiting script."
-    Stop-Logging
     Exit 1
 } else {
     Write-Info "Prerequisites installed successfully."
@@ -66,7 +75,6 @@ if ($PSVersionTable.PSEdition -ne "Core") {
     $pwshCommand = Get-Command pwsh -ErrorAction SilentlyContinue
     if (-not $pwshCommand) {
         Write-ErrorMessage "PowerShell 7 is installed but pwsh could not be resolved for bootstrap relaunch."
-        Stop-Logging
         Exit 1
     }
 
@@ -74,6 +82,7 @@ if ($PSVersionTable.PSEdition -ne "Core") {
     if (-not [string]::IsNullOrWhiteSpace($BootstrapBranch)) {
         $pwshArguments += @("-BootstrapBranch", $BootstrapBranch)
     }
+    $pwshArguments += @("-LogFilePath", $logFile, "-AppendLog")
     if ($NonInteractive) {
         $pwshArguments += "-NonInteractive"
     }
@@ -81,7 +90,9 @@ if ($PSVersionTable.PSEdition -ne "Core") {
     Write-Info "Relaunching bootstrap in PowerShell 7..."
     Stop-Logging
     & $pwshCommand.Source @pwshArguments
-    Exit $LASTEXITCODE
+    $childExitCode = $LASTEXITCODE
+    $finalizeLogging = $false
+    Exit $childExitCode
 }
 
 # Apply the dotfiles bootstrap variables
@@ -89,7 +100,6 @@ Write-Info "Applying dotfiles bootstrap variables..."
 $DotfilesVariables = Get-DotfilesBootstrapVariables -NonInteractive:$NonInteractive
 if (-not $DotfilesVariables) {
     Write-WarningMessage "No dotfiles bootstrap variables found."
-    Stop-Transcript
     Exit 1
 }
 
@@ -99,7 +109,6 @@ $missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
 
 if ($missingVars) {
     Write-ErrorMessage "Missing required configuration variables: $($missingVars -join ', ')"
-    Stop-Logging
     Exit 1
 }
 
@@ -131,7 +140,6 @@ if (-not (Test-Path -LiteralPath $dotfilesDirectory)) {
     $cloneOutput = git clone $dotfilesRepositoryURL $dotfilesDirectory 2>&1
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $dotfilesDirectory)) {
         Write-ErrorMessage "Failed to clone the dotfiles repository:`n$cloneOutput"
-        Stop-Logging
         Exit 1
     }
 } else {
@@ -146,21 +154,18 @@ if ($DotfilesVariables.GITHUB_DOTFILES_BRANCH) {
     git fetch origin $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         Write-ErrorMessage "Failed to fetch branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)' from origin."
-        Stop-Logging
         Exit 1
     }
 
     git checkout $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         Write-ErrorMessage "Failed to checkout branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'."
-        Stop-Logging
         Exit 1
     }
 
     git pull --ff-only origin $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         Write-ErrorMessage "Failed to pull latest changes for branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'."
-        Stop-Logging
         Exit 1
     }
 }
@@ -180,7 +185,6 @@ $modulesToRun = Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables -Con
 
 if (-not (Test-Path -LiteralPath $moduleScriptsPath)) {
     Write-ErrorMessage "The 'setup-modules' directory was not found at '$moduleScriptsPath'."
-    Stop-Logging
     Exit 1
 }
 
@@ -204,7 +208,6 @@ function Write-ModuleLogLocation {
     $modulePath = Join-Path $moduleScriptsPath $moduleName
     if (-not (Test-Path -LiteralPath $modulePath)) {
         Write-ErrorMessage "Module script not found: $moduleName."
-        Stop-Logging
         Exit 1
     }
 
@@ -314,7 +317,6 @@ function Write-ModuleLogLocation {
         if ($moduleExitCode -eq 3010) {
             Write-WarningMessage "Module '$moduleName' enabled Windows features that require a restart. Restart Windows, then re-run setup to continue."
             Write-ModuleLogLocation -ModuleLogFile $moduleLogFile
-            Stop-Logging
             Exit 3010
         }
         if ($moduleExitCode -eq 0) {
@@ -330,13 +332,11 @@ function Write-ModuleLogLocation {
         } else {
             Write-ErrorMessage "Module '$moduleName' exited with code: $moduleExitCode. Halting setup."
             Write-ModuleLogLocation -ModuleLogFile $moduleLogFile
-            Stop-Logging
             Exit 1 # Stop the entire setup if a module fails
         }
     } catch {
         Write-ErrorMessage "Failed to execute module '$moduleName': $_"
         Write-ModuleLogLocation -ModuleLogFile $moduleLogFile
-        Stop-Logging
         Exit 1
     }
 }
@@ -352,8 +352,10 @@ foreach ($module in $scriptResults.Keys) {
     $status = if ($scriptResults[$module] -eq 0) { "Success" } else { "Failed" }
     Write-Info " - $module : $status (Exit Code: $($scriptResults[$module]))"
 }
-Write-Info "Log File: $logFile"
 Write-Info "========================================================"
 
-# stop logging
-Stop-Logging
+} finally {
+    if ($finalizeLogging) {
+        $logFile = Complete-DotfilesSetupLogging -LogFilePath $logFile -DotfilesDirectory $dotfilesDirectory
+    }
+}

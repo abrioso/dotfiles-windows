@@ -38,6 +38,66 @@ Add-Content -LiteralPath $invocationFile -Value 'invoked'
         }
     }
 
+    It 'passes a unique LOCALAPPDATA fallback transcript path to each Git-free setup invocation' {
+        $archiveSource = Join-Path $TestDrive 'logging-archive-source'
+        $archiveRoot = Join-Path $archiveSource 'dotfiles-windows-main'
+        $setupDirectory = Join-Path $archiveRoot 'setup-scripts'
+        New-Item -ItemType Directory -Path $setupDirectory -Force | Out-Null
+        @'
+param([string]$LogFilePath)
+Add-Content -LiteralPath (Join-Path $env:TEMP 'setup-log-paths.txt') -Value $LogFilePath
+& (Join-Path $PSHOME 'pwsh') -NoProfile -Command 'exit 0'
+'@ | Set-Content -LiteralPath (Join-Path $setupDirectory 'setup.ps1')
+
+        $archivePath = Join-Path $TestDrive 'logging.zip'
+        Compress-Archive -Path $archiveRoot -DestinationPath $archivePath
+        $installerTemp = Join-Path $TestDrive 'logging-installer-temp'
+        $localAppData = Join-Path $TestDrive 'local-app-data'
+        New-Item -ItemType Directory -Path $installerTemp, $localAppData | Out-Null
+        $previousTemp = $env:TEMP
+        $previousLocalAppData = $env:LOCALAPPDATA
+        $env:TEMP = $installerTemp
+        $env:LOCALAPPDATA = $localAppData
+
+        Mock Start-Sleep { }
+        Mock Invoke-WebRequest { Copy-Item -LiteralPath $archivePath -Destination $OutFile -Force }
+
+        try {
+            & $script:installerPath -EndpointType custom-archive -ArchiveUrl 'https://example.invalid/logging.zip' -NonInteractive
+            & $script:installerPath -EndpointType custom-archive -ArchiveUrl 'https://example.invalid/logging.zip' -NonInteractive
+
+            $logPaths = @(Get-Content -LiteralPath (Join-Path $installerTemp 'setup-log-paths.txt'))
+            $logPaths.Count | Should -Be 2
+            $logPaths[0] | Should -Not -Be $logPaths[1]
+            foreach ($logPath in $logPaths) {
+                Split-Path -Parent $logPath | Should -Be (Join-Path $localAppData 'dotfiles/logs')
+                Split-Path -Leaf $logPath | Should -Match '^setup-[0-9]{8}-[0-9]{9}-[0-9a-f]{32}\.txt$'
+            }
+        }
+        finally {
+            $env:TEMP = $previousTemp
+            $env:LOCALAPPDATA = $previousLocalAppData
+        }
+    }
+
+    It 'propagates the fallback actual path with append and retains parent finalization if child launch throws' {
+        $setup = Get-Content -LiteralPath (Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1') -Raw
+
+        $setup | Should -Match 'param\s*\([\s\S]*\[string\]\$LogFilePath[\s\S]*\[switch\]\$AppendLog'
+        $setup | Should -Match 'Start-Logging\s+-LogFilePath\s+\$logFile\s+-PassThru\s+-Append:\$AppendLog'
+        $setup | Should -Match '\$pwshArguments\s*\+=\s*@\("-LogFilePath",\s*\$logFile,\s*"-AppendLog"\)'
+        $setup | Should -Not -Match '\$pwshArguments\s*\+=\s*@\("-LogFilePath",\s*\$LogFilePath\)'
+
+        $stopIndex = $setup.IndexOf('Stop-Logging', $setup.IndexOf('Relaunching bootstrap'))
+        $childRelaunchIndex = $setup.IndexOf('& $pwshCommand.Source @pwshArguments')
+        $skipParentFinalizerIndex = $setup.IndexOf('$finalizeLogging = $false')
+        if ($stopIndex -lt 0 -or $childRelaunchIndex -lt $stopIndex -or $skipParentFinalizerIndex -lt $childRelaunchIndex) {
+            throw 'The parent must retain finalizer ownership until the PowerShell 7 invocation returns, then defer durable reporting to the child.'
+        }
+        $setup | Should -Not -Match 'Write-Info\s+"Log File:\s*\$logFile"'
+        $setup | Should -Match 'finally\s*\{\s*if \(\$finalizeLogging\)\s*\{[\s\S]*Complete-DotfilesSetupLogging'
+    }
+
     It 'isolates archives for overlapping installer invocations' {
         $firstArchiveSource = Join-Path $TestDrive 'first-archive-source'
         $firstArchiveRoot = Join-Path $firstArchiveSource 'first-vendor-root'
@@ -130,6 +190,42 @@ Set-Content -LiteralPath (Join-Path $env:TEMP 'github-setup-ran.txt') -Value 'in
         finally {
             $env:TEMP = $previousTemp
         }
+    }
+
+    It 'keeps cleanup nonterminating under WarningPreference Stop so setup status remains primary' {
+        $tokens = $null
+        $parseErrors = $null
+        $installerAst = [System.Management.Automation.Language.Parser]::ParseFile($script:installerPath, [ref]$tokens, [ref]$parseErrors)
+        $parseErrors.Count | Should -Be 0
+
+        $cleanupTry = @($installerAst.FindAll({
+            param($node)
+            $node -is [System.Management.Automation.Language.TryStatementAst] -and
+                $node.Finally -and
+                $node.Finally.Extent.Text -match '\[System\.IO\.Directory\]::Delete\(\$invocationDirectory, \$true\)'
+        }, $true))
+        $cleanupTry.Count | Should -Be 1
+        $cleanupTry[0].Finally.Extent.Text | Should -Match 'try\s*\{[\s\S]*\[System\.IO\.Directory\]::Delete'
+        $cleanupTry[0].Finally.Extent.Text | Should -Match 'catch\s*\{[\s\S]*Write-Warning[\s\S]*-WarningAction\s+Continue'
+
+        $cleanupWarning = @($cleanupTry[0].Finally.FindAll({
+            param($node)
+            $node -is [System.Management.Automation.Language.CommandAst] -and
+                $node.GetCommandName() -eq 'Write-Warning'
+        }, $true))
+        $cleanupWarning.Count | Should -Be 1
+        $previousWarningPreference = $WarningPreference
+        $WarningPreference = 'Stop'
+        $invocationDirectory = Join-Path $TestDrive 'simulated-cleanup-directory'
+        try {
+            { & ([scriptblock]::Create($cleanupWarning[0].Extent.Text)) } | Should -Not -Throw
+        }
+        finally {
+            $WarningPreference = $previousWarningPreference
+        }
+
+        $installer = Get-Content -LiteralPath $script:installerPath -Raw
+        $installer.IndexOf('exit $setupExitCode') | Should -BeGreaterThan $cleanupTry[0].Finally.Extent.EndOffset
     }
 
     It 'removes only its isolated extraction directory when extraction fails' {
