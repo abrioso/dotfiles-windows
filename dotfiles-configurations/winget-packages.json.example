@@ -1,0 +1,142 @@
+{
+    "base": [
+        {
+            "id": "Git.Git",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.PowerShell",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.VisualStudioCode",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.WindowsTerminal",
+            "scope": "user"
+        }
+    ],
+    "poweruser": [
+        {
+            "id": "gerardog.gsudo",
+            "scope": "machine"
+        },
+        {
+            "id": "Git.Git",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.PowerShell",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.PowerToys",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.VisualStudioCode",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.WindowsTerminal",
+            "scope": "user"
+        }
+    ],
+    "browsers": [
+        {
+            "id": "Google.Chrome.EXE",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.Edge",
+            "scope": "machine"
+        },
+        {
+            "id": "Mozilla.Firefox",
+            "scope": "machine"
+        }
+    ],
+    "productivity": [
+        {
+            "id": "Microsoft.Office",
+            "scope": "machine"
+        },
+        {
+            "id": "Microsoft.OneDrive",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.Teams",
+            "scope": "machine"
+        }
+    ],
+    "PowerBI": [
+        {
+            "id": "Microsoft.PowerBI",
+            "scope": "machine"
+        }
+    ],
+    "development": [
+        {
+            "id": "Git.Git",
+            "scope": "user"
+        },
+        {
+            "id": "GitHub.cli",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.Azd",
+            "installerType": "wix"
+        },
+        {
+            "id": "Microsoft.AzureCLI",
+            "scope": "machine"
+        },
+        {
+            "id": "Microsoft.PowerShell",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.VisualStudioCode",
+            "scope": "user"
+        },
+        {
+            "id": "Python.Python.3.13",
+            "scope": "user"
+        }
+    ],
+    "wsl": [
+        {
+            "id": "Microsoft.WSL",
+            "installerType": "wix"
+        },
+        {
+            "id": "Canonical.Ubuntu",
+            "scope": "user"
+        }
+    ],
+    "docker": [
+        {
+            "id": "Docker.DockerDesktop",
+            "scope": "machine"
+        }
+    ],
+    "multimedia": [
+        {
+            "id": "OBSProject.OBSStudio",
+            "scope": "user"
+        },
+        {
+            "id": "VideoLAN.VLC",
+            "scope": "user"
+        }
+    ],
+    "pwsh": [
+        {
+            "id": "JanDeDobbeleer.OhMyPosh",
+            "scope": "user"
+        }
+    ]
+}

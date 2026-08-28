@@ -3,6 +3,7 @@
 # Explicit EOL rules
 # Keep JSON, Markdown and shell scripts with LF in working tree
 *.json text eol=lf
+*.json.example text eol=lf
 *.md text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
@@ -13,8 +14,9 @@
 *.psm1 text eol=crlf
 *.psd1 text eol=crlf
 
-# Windows Terminal settings: keep LF (commonly edited across platforms)
-windows-terminal-settings/settings.json text eol=lf
+# Windows Terminal settings live in dotfiles-configurations/ as a
+# gitignored local file generated from windows-terminal-settings.json.example;
+# no tracked path needs an explicit EOL rule for it.
 
 # Ensure attributes file itself uses LF in repo
 .gitattributes text eol=lf

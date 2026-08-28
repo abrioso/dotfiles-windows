@@ -1,0 +1,417 @@
+<#
+.SYNOPSIS
+    Safely updates the dotfiles checkout and selected local JSON configuration files.
+.DESCRIPTION
+    Optionally fast-forwards the current repository branch, then discovers every tracked
+    *.json.example template. The user chooses which templates replace the corresponding local
+    *.json files, which are ignored by Git. Existing local files are backed up before atomic
+    replacement.
+
+    This script does not run setup modules, install packages, enable Windows features, or apply
+    settings. Shared catalogs are recommended by default; files containing user or machine
+    variables remain opt-in.
+.EXAMPLE
+    .\setup-scripts\update.ps1
+.EXAMPLE
+    .\setup-scripts\update.ps1 -Tui
+.EXAMPLE
+    .\setup-scripts\update.ps1 -NonInteractive -UpdateRepository -TemplateName winget-packages.json,windows-features.json
+#>
+[CmdletBinding()]
+param(
+    [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot),
+    [string]$ConfigDirectory,
+    [string]$BackupDirectory,
+    [string[]]$TemplateName = @(),
+    [switch]$RegenerateTerminalSettings,
+    [switch]$Tui,
+    [switch]$NonInteractive,
+    [switch]$UpdateRepository,
+    [switch]$SkipRepositoryUpdate
+)
+
+$ErrorActionPreference = 'Stop'
+$dotfilesRoot = $RepositoryRoot
+if ([string]::IsNullOrWhiteSpace($ConfigDirectory)) {
+    $ConfigDirectory = Join-Path $dotfilesRoot 'dotfiles-configurations'
+}
+. "$PSScriptRoot\update-functions.ps1"
+
+function Read-UpdateConfirmation {
+    param(
+        [Parameter(Mandatory)][string]$Prompt,
+        [bool]$Default = $false
+    )
+
+    $suffix = if ($Default) { '[Y/n]' } else { '[y/N]' }
+    $answer = Read-Host "$Prompt $suffix"
+    if ([string]::IsNullOrWhiteSpace($answer)) { return $Default }
+    return @('y', 'yes') -contains $answer.Trim().ToLowerInvariant()
+}
+
+function Invoke-GitWithCapturedOutput {
+    param(
+        [Parameter(Mandatory)][string]$GitExecutable,
+        [Parameter(Mandatory)][string]$RepositoryRoot,
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+
+    # Windows PowerShell 5.1 promotes native stderr to NativeCommandError when the caller uses
+    # ErrorActionPreference=Stop. Git writes normal fetch/pull progress to stderr even on success,
+    # so capture both streams under Continue and decide success only from the native exit code.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $rawOutput = @(& $GitExecutable -C $RepositoryRoot @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    [pscustomobject]@{
+        Output = @($rawOutput | ForEach-Object { [string]$_ })
+        ExitCode = $exitCode
+    }
+}
+
+function Invoke-RepositoryFastForwardUpdate {
+    param([Parameter(Mandatory)][string]$RepositoryRoot)
+
+    $gitCommand = @(Get-Command git -CommandType Application -ErrorAction SilentlyContinue)[0]
+    if (-not $gitCommand) {
+        throw 'Git is required to update the dotfiles repository.'
+    }
+    $gitExecutable = $gitCommand.Source
+
+    $statusOutput = @(& $gitExecutable -C $RepositoryRoot status --porcelain --untracked-files=no 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not inspect the dotfiles repository:`n$($statusOutput -join "`n")"
+    }
+    if ($statusOutput.Count -gt 0) {
+        throw 'Tracked changes are present. Commit or discard them before updating the dotfiles repository.'
+    }
+
+    $branchOutput = @(& $gitExecutable -C $RepositoryRoot rev-parse --abbrev-ref HEAD 2>&1)
+    if ($LASTEXITCODE -ne 0 -or $branchOutput.Count -ne 1 -or $branchOutput[0] -eq 'HEAD') {
+        throw 'The dotfiles repository must be on a local branch before it can be updated.'
+    }
+    $branch = [string]$branchOutput[0]
+
+    Write-Host "Fetching origin/$branch..." -ForegroundColor Cyan
+    $fetchResult = Invoke-GitWithCapturedOutput -GitExecutable $gitExecutable `
+        -RepositoryRoot $RepositoryRoot -Arguments @('fetch', 'origin', $branch)
+    $fetchResult.Output | ForEach-Object { Write-Host $_ }
+    if ($fetchResult.ExitCode -ne 0) {
+        throw "Failed to fetch origin/$branch."
+    }
+
+    Write-Host "Fast-forwarding branch '$branch'..." -ForegroundColor Cyan
+    $pullResult = Invoke-GitWithCapturedOutput -GitExecutable $gitExecutable `
+        -RepositoryRoot $RepositoryRoot -Arguments @('pull', '--ff-only', 'origin', $branch)
+    $pullResult.Output | ForEach-Object { Write-Host $_ }
+    if ($pullResult.ExitCode -ne 0) {
+        throw "Failed to fast-forward branch '$branch'. Local history was not rewritten."
+    }
+}
+
+function Get-TrackedConfigurationTemplatePath {
+    param([Parameter(Mandatory)][string]$RepositoryRoot)
+
+    $gitCommand = @(Get-Command git -CommandType Application -ErrorAction SilentlyContinue)[0]
+    if (-not $gitCommand) {
+        throw 'Git is required to verify tracked configuration templates.'
+    }
+    $gitExecutable = $gitCommand.Source
+
+    & $gitExecutable -C $RepositoryRoot diff --quiet -- ':(top,glob)dotfiles-configurations/*.json.example'
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Tracked JSON templates contain unstaged changes. Commit or discard them before using the updater.'
+    }
+    & $gitExecutable -C $RepositoryRoot diff --cached --quiet -- ':(top,glob)dotfiles-configurations/*.json.example'
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Tracked JSON templates contain staged changes. Commit or discard them before using the updater.'
+    }
+
+    $trackedPaths = @(& $gitExecutable -C $RepositoryRoot ls-files -- ':(top,glob)dotfiles-configurations/*.json.example' 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to enumerate tracked JSON templates:`n$($trackedPaths -join "`n")"
+    }
+
+    $configRoot = Get-DotfilesCanonicalPath -Path (Join-Path $RepositoryRoot 'dotfiles-configurations')
+    $paths = @($trackedPaths | ForEach-Object {
+        $trackedPath = [string]$_
+        $fullPath = Get-DotfilesCanonicalPath -Path (Join-Path $RepositoryRoot $trackedPath)
+        $parentPath = Get-DotfilesCanonicalPath -Path (Split-Path -Parent $fullPath)
+        if (-not $parentPath.Equals($configRoot, (Get-DotfilesPathComparison))) {
+            throw "Tracked JSON template is outside the top-level configuration directory: $trackedPath"
+        }
+
+        $headHash = @(& $gitExecutable -C $RepositoryRoot rev-parse "HEAD:$trackedPath" 2>&1)
+        if ($LASTEXITCODE -ne 0 -or $headHash.Count -ne 1) {
+            throw "Failed to resolve the committed Git object for template '$trackedPath'."
+        }
+        $indexHash = @(& $gitExecutable -C $RepositoryRoot rev-parse ":$trackedPath" 2>&1)
+        if ($LASTEXITCODE -ne 0 -or $indexHash.Count -ne 1) {
+            throw "Failed to resolve the indexed Git object for template '$trackedPath'."
+        }
+        $workingHash = @(& $gitExecutable -C $RepositoryRoot hash-object "--path=$trackedPath" $fullPath 2>&1)
+        if ($LASTEXITCODE -ne 0 -or $workingHash.Count -ne 1) {
+            throw "Failed to hash working template '$trackedPath'."
+        }
+        if ($headHash[0] -ne $indexHash[0] -or $headHash[0] -ne $workingHash[0]) {
+            throw "Tracked JSON template differs from its committed Git object: $trackedPath"
+        }
+        $fullPath
+    })
+    if ($paths.Count -eq 0) {
+        throw 'No tracked *.json.example templates were found.'
+    }
+    return $paths
+}
+
+function Select-TemplateWithTui {
+    param([Parameter(Mandatory)][object[]]$Templates)
+
+    Write-Host ''
+    Write-Host '=== JSON template selection ===' -ForegroundColor Cyan
+    Write-Host 'Recommended shared catalogs are marked with *. Personalized variables are opt-in.'
+    for ($index = 0; $index -lt $Templates.Count; $index++) {
+        $marker = if ($Templates[$index].Recommended) { '*' } else { ' ' }
+        Write-Host ("  {0,2}) [{1}] {2,-38} {3}" -f ($index + 1), $marker, $Templates[$index].Name, $Templates[$index].Scope)
+    }
+
+    $answer = Read-Host "Select comma-separated numbers, 'recommended', 'all', or 'none'"
+    if ([string]::IsNullOrWhiteSpace($answer) -or $answer.Trim().ToLowerInvariant() -eq 'recommended') {
+        return @($Templates | Where-Object Recommended)
+    }
+    if ($answer.Trim().ToLowerInvariant() -eq 'all') { return @($Templates) }
+    if ($answer.Trim().ToLowerInvariant() -eq 'none') { return @() }
+
+    $selected = [System.Collections.Generic.List[object]]::new()
+    foreach ($part in ($answer -split ',')) {
+        $number = 0
+        if (-not [int]::TryParse($part.Trim(), [ref]$number) -or $number -lt 1 -or $number -gt $Templates.Count) {
+            throw "Invalid TUI selection: '$part'."
+        }
+        $candidate = $Templates[$number - 1]
+        if (-not ($selected | Where-Object Name -eq $candidate.Name)) {
+            $selected.Add($candidate)
+        }
+    }
+    return $selected.ToArray()
+}
+
+if ($UpdateRepository -and $SkipRepositoryUpdate) {
+    throw '-UpdateRepository and -SkipRepositoryUpdate cannot be used together.'
+}
+if ($NonInteractive -and $Tui) {
+    throw '-NonInteractive and -Tui cannot be used together.'
+}
+
+if ([string]::IsNullOrWhiteSpace($BackupDirectory)) {
+    $backupBase = $env:LOCALAPPDATA
+    if ([string]::IsNullOrWhiteSpace($backupBase)) {
+        $backupRoot = Join-Path ([System.Environment]::GetFolderPath('UserProfile')) '.dotfiles-windows'
+    }
+    else {
+        $backupRoot = Join-Path $backupBase 'dotfiles-windows'
+    }
+    $backupRoot = Join-Path $backupRoot 'config-backups'
+    $BackupDirectory = Join-Path $backupRoot (Get-Date -Format 'yyyyMMdd-HHmmss')
+}
+
+Assert-DotfilesUpdaterPathBoundary -RepositoryRoot $dotfilesRoot -ConfigDirectory $ConfigDirectory -BackupDirectory $BackupDirectory
+
+Write-Host 'Dotfiles updater' -ForegroundColor Cyan
+Write-Host 'No setup modules will run: packages, Windows features, and settings are not applied by this script.'
+
+$shouldUpdateRepository = $false
+if ($NonInteractive) {
+    $shouldUpdateRepository = [bool]$UpdateRepository
+}
+elseif ($UpdateRepository) {
+    $shouldUpdateRepository = $true
+}
+elseif (-not $SkipRepositoryUpdate) {
+    $shouldUpdateRepository = Read-UpdateConfirmation -Prompt 'Update the current dotfiles branch with git pull --ff-only?' -Default $true
+}
+
+if ($shouldUpdateRepository) {
+    Invoke-RepositoryFastForwardUpdate -RepositoryRoot $dotfilesRoot
+}
+else {
+    Write-Host 'Repository update skipped.' -ForegroundColor DarkYellow
+}
+
+$trackedTemplatePaths = @(Get-TrackedConfigurationTemplatePath -RepositoryRoot $dotfilesRoot)
+$templates = @(Get-DotfilesConfigurationTemplate -ConfigDirectory $ConfigDirectory -AllowedTemplatePath $trackedTemplatePaths)
+if ($templates.Count -eq 0) {
+    throw "No *.json.example templates were found in '$ConfigDirectory'."
+}
+
+$selectedTemplates = @()
+if ($NonInteractive) {
+    foreach ($name in @($TemplateName)) {
+        $candidate = @($templates | Where-Object Name -eq $name)
+        if ($candidate.Count -ne 1) {
+            throw "Unknown template '$name'. Available names: $($templates.Name -join ', ')."
+        }
+        $selectedTemplates += $candidate[0]
+    }
+}
+elseif ($Tui) {
+    $selectedTemplates = @(Select-TemplateWithTui -Templates $templates)
+}
+else {
+    Write-Host ''
+    Write-Host 'Choose local JSON files to refresh from the latest templates.' -ForegroundColor Cyan
+    foreach ($template in $templates) {
+        $default = [bool]$template.Recommended
+        $label = "Replace '$($template.Name)' from its .example template ($($template.Scope))?"
+        if (Read-UpdateConfirmation -Prompt $label -Default $default) {
+            $selectedTemplates += $template
+        }
+    }
+}
+
+if ($selectedTemplates.Count -eq 0) {
+    Write-Host 'No local JSON files selected. Nothing else to do.' -ForegroundColor Green
+    return
+}
+
+foreach ($template in $selectedTemplates) {
+    Assert-DotfilesConfigurationTemplate -TemplatePath $template.TemplatePath
+}
+
+Write-Host ''
+Write-Host 'Selected replacements:' -ForegroundColor Cyan
+$selectedTemplates | ForEach-Object {
+    $warning = if ($_.Recommended) { '' } else { ' [contains user/machine variables]' }
+    Write-Host "  - $($_.Name)$warning"
+}
+Write-Host "Existing files will be backed up under: $BackupDirectory"
+
+if (-not $NonInteractive -and -not (Read-UpdateConfirmation -Prompt 'Proceed with these replacements?' -Default $false)) {
+    Write-Host 'Replacement cancelled. No local JSON files were changed.' -ForegroundColor DarkYellow
+    return
+}
+
+$completedResults = [System.Collections.Generic.List[object]]::new()
+try {
+    foreach ($template in $selectedTemplates) {
+        $result = Update-DotfilesConfigurationTemplate -TemplatePath $template.TemplatePath -TargetPath $template.TargetPath -BackupDirectory $BackupDirectory
+        $completedResults.Add($result)
+    }
+}
+catch {
+    $updateError = $_
+    $rollbackErrors = [System.Collections.Generic.List[string]]::new()
+    for ($index = $completedResults.Count - 1; $index -ge 0; $index--) {
+        try {
+            Restore-DotfilesConfigurationTemplate -UpdateResult $completedResults[$index]
+        }
+        catch {
+            $rollbackErrors.Add("$($completedResults[$index].Name): $_")
+        }
+    }
+
+    if ($rollbackErrors.Count -gt 0) {
+        throw "JSON update failed and rollback was incomplete. Original error: $updateError. Rollback errors: $($rollbackErrors -join '; ')"
+    }
+    throw "JSON update failed; completed replacements were rolled back. $updateError"
+}
+$results = $completedResults.ToArray()
+
+Write-Host ''
+Write-Host 'Update summary' -ForegroundColor Green
+foreach ($result in $results) {
+    Write-Host ("  - {0}: {1}" -f $result.Name, $result.Status)
+    if ($result.BackupPath) {
+        Write-Host "      backup: $($result.BackupPath)"
+    }
+}
+Write-Host 'Review the resulting local JSON files before running setup.ps1.' -ForegroundColor Cyan
+
+# Windows Terminal settings are generated directly into the Terminal package LocalState
+# (no local dotfiles-configurations copy since the generate-not-link change). When the
+# baseline template was refreshed, offer to remove the generated file so the next
+# setup.ps1 run regenerates it from the new defaults. Never automatic without consent.
+$terminalTemplateSelected = @($selectedTemplates | Where-Object Name -eq 'windows-terminal-settings.json').Count -gt 0
+
+function Show-DotfilesTerminalSettingsDiff {
+    param(
+        [Parameter(Mandatory)][string]$TemplatePath,
+        [Parameter(Mandatory)][string]$LivePath
+    )
+
+    $gitCommand = @(Get-Command git -CommandType Application -ErrorAction SilentlyContinue)[0]
+    if (-not $gitCommand) {
+        Write-Host '  (git not available: skipping diff preview)' -ForegroundColor DarkYellow
+        return
+    }
+
+    # Live file on the right so added/removed lines read like "template -> live".
+    $diffOutput = @(& $gitCommand.Source diff --no-index --stat -- $TemplatePath $LivePath 2>&1)
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host '  Diff: template and live settings.json are identical.' -ForegroundColor Green
+        return
+    }
+
+    ($diffOutput | Select-Object -First 3) | ForEach-Object { Write-Host "  $_" }
+    Write-Host '  --- first changed lines (template -> live) ---' -ForegroundColor Cyan
+    $lineDiff = @(& $gitCommand.Source diff --no-index --unified=0 -- $TemplatePath $LivePath 2>&1 |
+        Where-Object { $_ -match '^[+-][^+-]' })
+    ($lineDiff | Select-Object -First 24) | ForEach-Object {
+        $color = if ($_ -like '-*') { 'Red' } else { 'Green' }
+        Write-Host "  $_" -ForegroundColor $color
+    }
+    if ($lineDiff.Count -gt 24) {
+        Write-Host ("  ... and {0} more changed lines." -f ($lineDiff.Count - 24)) -ForegroundColor DarkYellow
+    }
+}
+
+$shouldRegenerateTerminalSettings = $false
+if ($terminalTemplateSelected) {
+    $wtLocalStateSettings = if ($env:LOCALAPPDATA) {
+        Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
+    } else { $null }
+
+    if (-not $wtLocalStateSettings -or -not (Test-Path -LiteralPath $wtLocalStateSettings)) {
+        Write-Host "No generated Windows Terminal settings.json found; setup.ps1 will create it from the updated template." -ForegroundColor Cyan
+    }
+    else {
+        $terminalTemplate = $selectedTemplates | Where-Object Name -eq 'windows-terminal-settings.json' | Select-Object -First 1
+        Write-Host ''
+        Write-Host 'Comparing updated Windows Terminal template with the live settings.json:' -ForegroundColor Cyan
+        try {
+            Show-DotfilesTerminalSettingsDiff -TemplatePath $terminalTemplate.TemplatePath -LivePath $wtLocalStateSettings
+        } catch {
+            Write-Host "  (diff preview failed: $_)" -ForegroundColor DarkYellow
+        }
+
+        if ($RegenerateTerminalSettings) {
+            $shouldRegenerateTerminalSettings = $true
+        }
+        elseif ($NonInteractive) {
+            Write-Host "Windows Terminal settings.json was left untouched. Re-run with -RegenerateTerminalSettings to regenerate it at next setup." -ForegroundColor DarkYellow
+        }
+        else {
+            $shouldRegenerateTerminalSettings = Read-UpdateConfirmation -Prompt "Back up the live Windows Terminal settings.json and remove it so the next setup.ps1 regenerates from the updated template? Machine-specific edits (WSL profiles, fonts) will be removed from the live file but preserved in the backup" -Default $false
+        }
+
+        if ($shouldRegenerateTerminalSettings) {
+            try {
+                New-Item -ItemType Directory -Path $BackupDirectory -Force -ErrorAction Stop | Out-Null
+                $backupFileName = 'windows-terminal-settings.local-{0}.json' -f (Get-Date -Format 'yyyyMMdd-HHmmss')
+                $terminalBackupPath = Join-Path $BackupDirectory $backupFileName
+                Move-Item -LiteralPath $wtLocalStateSettings -Destination $terminalBackupPath -ErrorAction Stop
+                Write-Host "Live settings.json moved to '$terminalBackupPath'. Run setup.ps1 to regenerate from the updated baseline." -ForegroundColor Green
+                Write-Host 'WSL or other dynamic profiles can be recovered from the backup if Terminal does not recreate them.' -ForegroundColor Cyan
+            }
+            catch {
+                Write-Warning "Could not move '$wtLocalStateSettings': $_"
+            }
+        }
+    }
+}

@@ -3,9 +3,20 @@
 # Exclude .vscode folder
 .vscode/
 
-#Exclude all the logs
+# Exclude all the logs
 logs/*.txt
 
-# Excluse test results
+# Exclude test results
 tests/*.results.json
 
+# Local machine-specific dotfiles configuration
+dotfiles-configurations/*.json
+!dotfiles-configurations/*.json.example
+
+# Windows Terminal settings are created from the base template and kept machine-local
+# (dotfiles-configurations/windows-terminal-settings.json is ignored by the existing rule below)
+windows-terminal-settings/*
+!windows-terminal-settings/README.md
+
+# Private PowerShell profile extension
+powershell-profiles/extra.ps1
