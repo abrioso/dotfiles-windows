@@ -243,6 +243,10 @@ function Write-ModuleLogLocation {
             switch ($homeAliasPreflight.Action) {
                 'Skip' {
                     Write-Info $homeAliasPreflight.Message
+                    if ($homeAliasPreflight.AliasPath) {
+                        [System.Environment]::SetEnvironmentVariable('HOME', $homeAliasPreflight.AliasPath, 'Process')
+                        Write-Info "HOME set to '$($homeAliasPreflight.AliasPath)' in the Process scope."
+                    }
                     $scriptResults.Add($moduleName, 0)
                     continue moduleLoop
                 }
@@ -253,7 +257,8 @@ function Write-ModuleLogLocation {
                         Write-WarningMessage "Updating existing HOME from '$currentHome' to '$($homeAliasPreflight.AliasPath)'."
                     }
                     [System.Environment]::SetEnvironmentVariable('HOME', $homeAliasPreflight.AliasPath, 'User')
-                    Write-Info "HOME set to '$($homeAliasPreflight.AliasPath)' in the User scope."
+                    [System.Environment]::SetEnvironmentVariable('HOME', $homeAliasPreflight.AliasPath, 'Process')
+                    Write-Info "HOME set to '$($homeAliasPreflight.AliasPath)' in the User and Process scopes."
                     $scriptResults.Add($moduleName, 0)
                     continue moduleLoop
                 }
@@ -318,7 +323,8 @@ function Write-ModuleLogLocation {
                     Write-WarningMessage "Updating existing HOME from '$currentHome' to '$($homeAliasPreflight.AliasPath)'."
                 }
                 [System.Environment]::SetEnvironmentVariable('HOME', $homeAliasPreflight.AliasPath, 'User')
-                Write-Info "HOME set to '$($homeAliasPreflight.AliasPath)' in the User scope."
+                [System.Environment]::SetEnvironmentVariable('HOME', $homeAliasPreflight.AliasPath, 'Process')
+                Write-Info "HOME set to '$($homeAliasPreflight.AliasPath)' in the User and Process scopes."
             }
             Write-Info "Module '$moduleName' completed successfully."
         } else {
