@@ -31,10 +31,9 @@ $repo    = $Repo
 $branch  = $Branch
 
 $dotfilesTempDir = Join-Path $env:TEMP "dotfiles"
-if (![System.IO.Directory]::Exists($dotfilesTempDir)) {[System.IO.Directory]::CreateDirectory($dotfilesTempDir)}
-$sourceFile = Join-Path $dotfilesTempDir "dotfiles.zip"
+$invocationDirectory = Join-Path $dotfilesTempDir ([guid]::NewGuid().ToString("N"))
+$sourceFile = Join-Path $invocationDirectory "dotfiles.zip"
 $folderBranch = $branch -replace '[\\/]', '-'
-$dotfilesInstallDir = Join-Path $dotfilesTempDir "$repo-$folderBranch"
 
 function Invoke-Download {
   param (
@@ -107,19 +106,28 @@ if ($EndpointType -eq "custom-archive") {
     $downloadUrl = "https://github.com/$account/$repo/archive/$branch.zip"
 }
 
-Invoke-Download $downloadUrl $sourceFile
-if ([System.IO.Directory]::Exists($dotfilesInstallDir)) {[System.IO.Directory]::Delete($dotfilesInstallDir, $true)}
-$extractionStartedAt = Get-Date
-Expand-Zip $sourceFile $dotfilesTempDir
-$dotfilesInstallDir = Resolve-ExtractedDotfilesDirectory -ExpectedDirectory $dotfilesInstallDir -ExtractionRoot $dotfilesTempDir -ExtractionStartedAt $extractionStartedAt
-
 $setupExitCode = 0
-Push-Location -LiteralPath $dotfilesInstallDir
 try {
-    & .\setup-scripts\setup.ps1 -BootstrapBranch $branch -NonInteractive:$NonInteractive
-    $setupExitCode = $LASTEXITCODE
+    [System.IO.Directory]::CreateDirectory($dotfilesTempDir) | Out-Null
+    [System.IO.Directory]::CreateDirectory($invocationDirectory) | Out-Null
+    Invoke-Download $downloadUrl $sourceFile
+
+    $dotfilesInstallDir = Join-Path $invocationDirectory "$repo-$folderBranch"
+    $extractionStartedAt = Get-Date
+    Expand-Zip $sourceFile $invocationDirectory
+    $dotfilesInstallDir = Resolve-ExtractedDotfilesDirectory -ExpectedDirectory $dotfilesInstallDir -ExtractionRoot $invocationDirectory -ExtractionStartedAt $extractionStartedAt
+
+    Push-Location -LiteralPath $dotfilesInstallDir
+    try {
+        & .\setup-scripts\setup.ps1 -BootstrapBranch $branch -NonInteractive:$NonInteractive
+        $setupExitCode = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
 } finally {
-    Pop-Location
+    if ([System.IO.Directory]::Exists($invocationDirectory)) {
+        [System.IO.Directory]::Delete($invocationDirectory, $true)
+    }
 }
 
 if ($setupExitCode -ne 0) {
