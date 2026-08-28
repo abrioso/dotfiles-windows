@@ -363,6 +363,27 @@ Describe 'User home alias resolution' {
             $setup | Should -Match "(?s)if\s*\(\`$moduleExitCode\s+-eq\s+0\).*SetEnvironmentVariable\('HOME',\s*\`$homeAliasPreflight.AliasPath,\s*'User'\)"
         }
 
+        It 'updates process HOME after a non-elevated persisted HOME update' {
+            $setupPath = Join-Path $PSScriptRoot '../setup-scripts/setup.ps1'
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+
+            $setup | Should -Match "(?s)'RunNonElevated'\s*\{.*SetEnvironmentVariable\('HOME',\s*\`$homeAliasPreflight.AliasPath,\s*'User'\).*SetEnvironmentVariable\('HOME',\s*\`$homeAliasPreflight.AliasPath,\s*'Process'\).*continue\s+moduleLoop"
+        }
+
+        It 'updates process HOME on Skip only when preflight returned a persisted alias path' {
+            $setupPath = Join-Path $PSScriptRoot '../setup-scripts/setup.ps1'
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+
+            $setup | Should -Match "(?s)'Skip'\s*\{.*if\s*\(\`$homeAliasPreflight.AliasPath\)\s*\{.*SetEnvironmentVariable\('HOME',\s*\`$homeAliasPreflight.AliasPath,\s*'Process'\).*\}.*continue\s+moduleLoop"
+        }
+
+        It 'updates process HOME after successful elevated alias creation' {
+            $setupPath = Join-Path $PSScriptRoot '../setup-scripts/setup.ps1'
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+
+            $setup | Should -Match "(?s)if\s*\(\`$moduleExitCode\s+-eq\s+0\)\s*\{\s*if\s*\(\`$moduleName\s+-eq\s+'Set-UserHomeAlias.ps1'\).*SetEnvironmentVariable\('HOME',\s*\`$homeAliasPreflight.AliasPath,\s*'User'\).*SetEnvironmentVariable\('HOME',\s*\`$homeAliasPreflight.AliasPath,\s*'Process'\)"
+        }
+
         It 'makes the elevated child revalidate explicit paths and create only for Elevate' {
             $modulePath = Join-Path $PSScriptRoot '../setup-modules/Set-UserHomeAlias.ps1'
             $module = Get-Content -LiteralPath $modulePath -Raw
