@@ -9,7 +9,8 @@ This repository follows **gitflow** branching and requires **Pull Requests** for
 - `feature/<name>` — new features (branch from `develop`)
 - `fix/<name>` — non-urgent fixes (branch from `develop`)
 - `hotfix/<name>` — urgent fixes (branch from `main`, merge to both `main` and `develop`)
-- `release/<version>` — release prep (branch from `develop`, merge to `main`)
+- `release/<version>` — release prep (branch from `develop`; merge to `main` and reconcile
+  release-only commits back to `develop` before deletion)
 
 ## Rules for Agents
 

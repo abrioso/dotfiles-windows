@@ -51,7 +51,15 @@ This project uses **gitflow**. See [docs/GITFLOW.md](docs/GITFLOW.md) for the fu
 
 ## Release Process
 
-1. Create `release/vX.Y.Z` from `develop`
-2. Bump version references, update CHANGELOG
-3. PR into `main`, tag after merge
-4. Merge `main` back into `develop`
+1. Create `release/vYYYY.MM.N` from an up-to-date `origin/develop`.
+2. Apply only release stabilization changes and open a PR into `main`.
+3. Complete [the release acceptance matrix](docs/RELEASE_TESTING.md) against the release branch commit.
+4. Merge the production PR with a merge commit.
+5. If the release branch has release-only commits, merge the same branch into `develop` through
+   a second PR; do not merge `main` wholesale back into `develop`.
+6. Tag the verified `main` merge commit and publish the matching GitHub Release.
+7. Delete the release branch only after production and integration reconciliation are complete.
+
+Versions use Calendar Versioning: `vYYYY.MM.N`, for example `v2026.08.0`. `N` normally starts at
+`0` and increments for additional releases in the same month; it may instead be mapped explicitly
+to the day of the month for a date-oriented release identifier.

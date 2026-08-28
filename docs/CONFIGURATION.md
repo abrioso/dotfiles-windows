@@ -194,6 +194,13 @@ iex "& { $(irm 'https://raw.githubusercontent.com/YourGitHubAccount/YourDotfiles
 The `-Branch` value is used for both the downloaded archive and the repository checkout, so a bootstrap started from `develop` or another branch does not switch back to the template's default branch.
 The branch override is persisted to the local bootstrap JSON and therefore remains active on later setup runs.
 
+After the Git-free bootstrap creates the persistent workspace clone, post-reboot continuation and
+normal reruns should execute `setup-scripts\setup.ps1` from that clone. A new Git-free invocation
+extracts a fresh archive, recreates missing local JSON there, and copies its local JSON into the
+persistent clone with replacement semantics. It is therefore not the safe continuation path when
+the existing clone contains machine-specific local choices. The release acceptance matrix tests
+this behavior separately; see [Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
+
 For an unattended bootstrap that accepts all template defaults:
 
 ```pwsh

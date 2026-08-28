@@ -13,13 +13,15 @@ both locally and on GitHub.
 | `feature/*` | New functionality | `develop` |
 | `fix/*` | Non-urgent fixes | `develop` |
 | `hotfix/*` | Critical fixes | `main` + `develop` |
-| `release/*` | Release prep | `main` |
+| `release/*` | Release prep and stabilization | `main` and, when needed, `develop` |
 
 ```mermaid
 flowchart LR
     develop -->|checkout -b| feature[feature/fix branch]
     feature -->|push + PR| develop
-    develop -->|release branch + PR| main
+    develop -->|checkout -b| release[release/vYYYY.MM.N]
+    release -->|merge-commit PR| main
+    release -->|reconcile release-only commits| develop
     main -->|hotfix branch| hotfix[hotfix/*]
     hotfix -->|PR| main
     hotfix -->|PR| develop
@@ -71,12 +73,43 @@ gh pr create --base main --title "fix: ..."
 ### Release prep
 
 ```powershell
+git fetch --prune origin
 git checkout develop
-git checkout -b release/x.y.z
-# version bumps, final fixes
-gh pr create --base main --title "release: x.y.z"
-# after merging to main, tag it, then merge main back into develop
+git pull --ff-only origin develop
+git checkout -b release/v2026.08.0
+
+# Apply only release stabilization changes, then push the branch.
+git push -u origin release/v2026.08.0
+gh pr create --base main --head release/v2026.08.0 --title "release: v2026.08.0"
 ```
+
+Release versions use Calendar Versioning in the form `vYYYY.MM.N`:
+
+- `YYYY` is the four-digit release year.
+- `MM` is the zero-padded release month.
+- `N` is a non-negative release number within that month, starting at `0`; when a
+  date-oriented release identifier is useful, `N` may intentionally use the day of the month.
+- Examples: `v2026.08.0` for the first August 2026 release, `v2026.08.1` for a second
+  release in that month, or `v2026.08.23` when the final component is mapped to the day.
+
+Before opening the production PR, complete the acceptance matrix in
+[RELEASE_TESTING.md](RELEASE_TESTING.md) against the exact release-branch commit. Merge the
+release PR into `main` with a **merge commit**, not squash or rebase, so the production release
+boundary remains visible.
+
+Keep the release branch until reconciliation is complete:
+
+1. If the release branch contains stabilization commits not already in `develop`, open a second
+   PR from the same `release/vYYYY.MM.N` branch into `develop` and merge it with a merge commit.
+2. If there are no release-only commits, verify that the branch adds nothing to `develop`; do not
+   create an empty reconciliation PR.
+3. Tag the merge commit on `main` with the exact `vYYYY.MM.N` version and publish the matching
+   GitHub Release.
+4. Delete the release branch only after `main`, `develop`, the tag, and the GitHub Release have
+   all been verified.
+
+Do not merge `main` wholesale back into `develop` as a substitute for reconciling the release
+branch. Hotfixes continue to use their own explicit backport PR into `develop`.
 
 ## Commit messages
 

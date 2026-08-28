@@ -29,6 +29,12 @@ iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.co
 
 The Git-free path downloads a ZIP archive into `%TEMP%\dotfiles`, extracts it, and launches `setup.ps1` from the extracted folder.
 
+The archive is the initial bootstrap transport. Once setup creates the persistent workspace clone,
+post-reboot continuation and later idempotency runs execute `setup.ps1` from that clone rather than
+downloading a new archive. A repeated Git-free invocation has separate local-configuration
+replacement semantics documented in [Configuration](CONFIGURATION.md#git-free-install-parameters)
+and is tested independently in [Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
+
 ## 3. Local configuration is created
 
 The setup flow expects local machine-specific JSON files in `dotfiles-configurations/`. If they do not exist, `setup-scripts/configure.ps1` creates them from the tracked templates:
@@ -210,7 +216,10 @@ After a successful run, the user ends up with:
 
 ## 16. Rerunning setup
 
-The flow is designed to be idempotent. On later runs, setup reuses local config, skips already-correct state, and reapplies only what is missing or out of date.
+From the persistent workspace clone, the flow is designed to be idempotent. On later runs,
+`setup-scripts\setup.ps1` reuses local config, skips already-correct state, and reapplies only what
+is missing or out of date. After a reboot-required exit, continue from this clone; do not start a
+new Git-free bootstrap merely to resume the module plan.
 
 ## 17. Short summary
 

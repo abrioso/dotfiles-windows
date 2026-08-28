@@ -27,6 +27,11 @@ iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.co
 
 Windows PowerShell 5.1 is supported as the entry point. The bootstrap installs or reuses per-user PowerShell 7 and Git prerequisites, refreshes the process path, and then continues automatically in PowerShell 7 before running Git commands.
 
+Use the Git-free command for the initial bootstrap. After the persistent workspace clone has been
+created, continue post-reboot and later idempotency runs from that clone with
+`setup-scripts\setup.ps1`. A fresh Git-free archive regenerates local JSON from its templates and
+is not the continuation path for preserving an existing machine's local choices.
+
 For forks or custom archive sources, see [Configuration](docs/CONFIGURATION.md#git-free-install-parameters).
 
 Use `-NonInteractive` with the parameterized installer when all `.json.example` defaults should be accepted without opening the configuration prompts.
@@ -35,7 +40,10 @@ Use `-NonInteractive` with the parameterized installer when all `.json.example` 
 
 This repository uses a main setup script (`setup.ps1`) to orchestrate a series of modular PowerShell scripts located in the `setup-modules` directory. The configuration is data-driven, with package lists, environment variables, Git settings, and repository endpoint settings defined in local JSON files in the `dotfiles-configurations` directory. Local `*.json` configuration files are intentionally gitignored; tracked defaults live in `*.json.example` templates.
 
-The entire process is designed to be **idempotent**, meaning you can run the setup script multiple times on the same machine. It will only install or change things that are not already in the desired state.
+The persistent `setup.ps1` process is designed to be **idempotent**, meaning you can run it multiple
+times on the same machine. It will only install or change things that are not already in the desired
+state. Repeated Git-free bootstrap invocation is a separate transport/configuration scenario and
+must not be treated as equivalent to rerunning the persistent setup.
 
 ### Core Components
 
@@ -112,6 +120,11 @@ The TUI creates local gitignored JSON files from `*.json.example` templates when
 ## Validation
 
 Pull requests and pushes to `develop` or `main` run Pester, PSScriptAnalyzer, PowerShell syntax parsing, JSON parsing, and whitespace checks on Windows through GitHub Actions.
+
+Before promoting `develop` to `main`, run the clean-install, post-reboot, idempotency, migration,
+and rollback checks in [Release testing](docs/RELEASE_TESTING.md). Releases follow the
+`vYYYY.MM.N` Calendar Versioning and Git Flow process documented in
+[Gitflow Policy](docs/GITFLOW.md).
 
 ## Feedback
 
