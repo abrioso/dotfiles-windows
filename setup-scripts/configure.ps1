@@ -8,7 +8,8 @@
 [CmdletBinding()]
 param (
     [string]$ConfigDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'dotfiles-configurations'),
-    [switch]$NonInteractive
+    [switch]$NonInteractive,
+    [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -116,6 +117,39 @@ function Prompt-MultiChoice {
         }
     }
     return $selected.ToArray()
+}
+
+$legacyMigration = Get-DotfilesLegacyMigrationState `
+    -RepositoryRoot $RepositoryRoot `
+    -ConfigDirectory $ConfigDirectory
+if ($legacyMigration -and $legacyMigration.Status -eq 'pending') {
+    if ($NonInteractive) {
+        Write-WarningMessage 'A legacy configuration migration is pending; non-interactive mode will not apply it.'
+        Write-Host "Manifest: $($legacyMigration.ManifestPath)"
+        Write-Host "Migration directory: $($legacyMigration.MigrationDirectory)"
+        Write-Host 'Migration candidates:'
+        foreach ($entry in @($legacyMigration.Manifest.candidates)) {
+            Write-Host "  - $(Join-Path $legacyMigration.MigrationDirectory $entry.path)"
+        }
+        foreach ($warning in @($legacyMigration.Manifest.migrationWarnings)) { Write-WarningMessage ([string]$warning) }
+        return
+    }
+
+    $legacyApply = Invoke-DotfilesLegacyMigrationPrompt -MigrationState $legacyMigration
+    if (-not $legacyApply.Applied) { return }
+    Write-Host 'Legacy configuration migration applied successfully.' -ForegroundColor Green
+}
+elseif (-not $legacyMigration) {
+    $legacyStage = Invoke-DotfilesLegacyConfigurationStage `
+        -RepositoryRoot $RepositoryRoot `
+        -ConfigDirectory $ConfigDirectory
+    if ($legacyStage.Staged) {
+        Write-WarningMessage 'Legacy local configuration was recovered for review; no local configuration files were changed.'
+        Write-Host "Migration directory: $($legacyStage.MigrationDirectory)"
+        Write-Host "Manifest: $($legacyStage.ManifestPath)"
+        Write-Host 'Review the recovered files and run configure again for an explicit apply prompt.'
+        return
+    }
 }
 
 if (-not (Test-Path -LiteralPath $ConfigDirectory)) {
