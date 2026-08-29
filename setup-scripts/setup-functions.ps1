@@ -806,18 +806,23 @@ function Invoke-DotfilesGitCommand {
     $startInfo.RedirectStandardError = $true
 
     $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    if (-not $process.Start()) {
-        throw "Failed to start Git in '$RepositoryRoot'."
-    }
-    $output = $process.StandardOutput.ReadToEnd()
-    $errorOutput = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
+    try {
+        $process.StartInfo = $startInfo
+        if (-not $process.Start()) {
+            throw "Failed to start Git in '$RepositoryRoot'."
+        }
+        $output = $process.StandardOutput.ReadToEnd()
+        $errorOutput = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
 
-    return [pscustomobject]@{
-        ExitCode = $process.ExitCode
-        Output = $output
-        Error = $errorOutput
+        return [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Output = $output
+            Error = $errorOutput
+        }
+    }
+    finally {
+        $process.Dispose()
     }
 }
 
@@ -841,19 +846,25 @@ function Get-DotfilesGitBlobBytes {
     $startInfo.RedirectStandardError = $true
 
     $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    if (-not $process.Start()) {
-        throw "Failed to start Git while reading blob '$ObjectId'."
-    }
     $memory = [IO.MemoryStream]::new()
-    $process.StandardOutput.BaseStream.CopyTo($memory)
-    $errorOutput = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
-    if ($process.ExitCode -ne 0) {
-        throw "Cannot read Git blob '$ObjectId': $($errorOutput.Trim())"
-    }
+    try {
+        $process.StartInfo = $startInfo
+        if (-not $process.Start()) {
+            throw "Failed to start Git while reading blob '$ObjectId'."
+        }
+        $process.StandardOutput.BaseStream.CopyTo($memory)
+        $errorOutput = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            throw "Cannot read Git blob '$ObjectId': $($errorOutput.Trim())"
+        }
 
-    return $memory.ToArray()
+        return $memory.ToArray()
+    }
+    finally {
+        $memory.Dispose()
+        $process.Dispose()
+    }
 }
 
 function Test-DotfilesJsonBytes {
@@ -1503,7 +1514,17 @@ function Write-DotfilesLegacyCreateNewBytes {
 
 function Install-DotfilesLegacyAtomicFile {
     param ([Parameter(Mandatory)][string]$TemporaryPath, [Parameter(Mandatory)][string]$TargetPath)
-    if (Test-Path -LiteralPath $TargetPath -PathType Leaf) { [IO.File]::Move($TemporaryPath, $TargetPath, $true) }
+    if (Test-Path -LiteralPath $TargetPath -PathType Leaf) {
+        $backupPath = Join-Path ([IO.Path]::GetDirectoryName($TargetPath)) ('.replace-backup-{0}' -f [Guid]::NewGuid().ToString('N'))
+        try {
+            [IO.File]::Replace($TemporaryPath, $TargetPath, $backupPath)
+        }
+        finally {
+            if (Test-Path -LiteralPath $backupPath -PathType Leaf) {
+                Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
     else { [IO.File]::Move($TemporaryPath, $TargetPath) }
 }
 

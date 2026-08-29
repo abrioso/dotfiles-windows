@@ -114,6 +114,15 @@ Describe 'Setup configuration resolution' {
                 LegacyNames = $legacyNames
             }
         }
+
+        function Get-RepresentativeLegacyJsonFixture {
+            return @{
+                'dotfiles-bootstrap-variables.json' = '{"GITHUB_ACCOUNT":"abrioso","GITHUB_DOTFILES_REPO":"dotfiles-windows","GITHUB_DOTFILES_BRANCH":"main","WORKSPACE_FOLDER":"workspace","CUSTOM_PROFILE_FOLDER":"Documents","INSTALL_FEATURES":["hyperv"],"INSTALL_PACKAGES":["base","docker","development","productivity","browsers","multimedia"],"INSTALL_SETTINGS":["base","developer","pwsh"]}'
+                'git-variables.json' = '{"user.name":"Legacy Test","user.email":"legacy@example.invalid"}'
+                'env-variables.json' = '{"KNOWN":"value","UNKNOWN_ENV":{"nested":true}}'
+                'winget-packages.json' = '{"Packages":["9MV8F79FGXTR"],"base":["Git.Git"],"poweruser":[],"browsers":["Microsoft.Edge","Google.Chrome"],"productivity":["Microsoft.Office","Microsoft.PowerBI"],"development":["Git.Git","GitHub.cli","Microsoft.PowerShell","microsoft.azd"],"multimedia":[],"wsl":["Microsoft.WindowsSubsystemForLinux","Canonical.Ubuntu"],"docker":["Docker.DockerDesktop"]}'
+            }
+        }
     }
 
     Context 'Resolve-DotfilesWindowsFeature' {
@@ -467,11 +476,7 @@ Describe 'Setup configuration resolution' {
 
     Context 'Legacy configuration staging' {
         It 'generates validated current-schema candidates from representative production legacy data' {
-            $legacyJson = @{}
-            foreach ($name in @('dotfiles-bootstrap-variables.json', 'git-variables.json', 'env-variables.json', 'winget-packages.json')) {
-                $legacyJson[$name] = (& git -C "$PSScriptRoot/.." show "3c89480352d29f9193800594174a1bd4cb5c5386:dotfiles-configurations/$name") -join "`n"
-                if ($LASTEXITCODE -ne 0) { throw "Cannot load representative production legacy blob '$name'." }
-            }
+            $legacyJson = Get-RepresentativeLegacyJsonFixture
             $legacyBootstrap = $legacyJson['dotfiles-bootstrap-variables.json'] | ConvertFrom-Json
             $legacyBootstrap.INSTALL_FEATURES += 'removed-feature'
             $legacyBootstrap.INSTALL_SETTINGS += 'removed-setting'
