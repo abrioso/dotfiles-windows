@@ -44,7 +44,11 @@ Add-Content -LiteralPath $invocationFile -Value 'invoked'
         $setupDirectory = Join-Path $archiveRoot 'setup-scripts'
         New-Item -ItemType Directory -Path $setupDirectory -Force | Out-Null
         @'
-param([string]$LogFilePath)
+param(
+    [string]$BootstrapBranch,
+    [string]$LogFilePath,
+    [switch]$NonInteractive
+)
 Add-Content -LiteralPath (Join-Path $env:TEMP 'setup-log-paths.txt') -Value $LogFilePath
 & (Join-Path $PSHOME 'pwsh') -NoProfile -Command 'exit 0'
 '@ | Set-Content -LiteralPath (Join-Path $setupDirectory 'setup.ps1')

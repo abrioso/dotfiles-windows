@@ -35,7 +35,7 @@ $invocationDirectory = Join-Path $dotfilesTempDir ([guid]::NewGuid().ToString("N
 $sourceFile = Join-Path $invocationDirectory "dotfiles.zip"
 $folderBranch = $branch -replace '[\\/]', '-'
 $localAppData = if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { $env:TEMP } else { $env:LOCALAPPDATA }
-$fallbackLogDirectory = Join-Path $localAppData "dotfiles\logs"
+$fallbackLogDirectory = Join-Path (Join-Path $localAppData "dotfiles") "logs"
 $fallbackLogName = "setup-{0}-{1}.txt" -f (Get-Date -Format "yyyyMMdd-HHmmssfff"), [guid]::NewGuid().ToString("N")
 $fallbackLogFile = Join-Path $fallbackLogDirectory $fallbackLogName
 

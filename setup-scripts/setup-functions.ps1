@@ -52,6 +52,8 @@ function Start-Logging {
         $transcriptParameters.Append = $true
     }
     try {
+        $actualLogFilePath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($LogFilePath)
+        $transcriptParameters.Path = $actualLogFilePath
         $logDir = Split-Path -Parent $actualLogFilePath
         if (-not (Test-Path -LiteralPath $logDir -PathType Container)) {
             New-Item -Path $logDir -ItemType Directory -ErrorAction Stop | Out-Null

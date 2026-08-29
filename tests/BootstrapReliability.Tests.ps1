@@ -63,6 +63,35 @@ Stop-Logging
             $transcript | Should -Match 'child transcript marker'
         }
 
+        It 'retains a relative requested transcript after the working directory changes' {
+            $initialDirectory = Join-Path $TestDrive 'relative-initial'
+            $cloneDirectory = Join-Path $TestDrive 'relative-clone'
+            New-Item -ItemType Directory -Path (Join-Path $initialDirectory 'logs') -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') -Force | Out-Null
+            Push-Location $initialDirectory
+            $loggingStarted = $false
+            try {
+                $actualPath = Start-Logging -LogFilePath 'logs/setup-relative.txt' -PassThru
+                $loggingStarted = $true
+                Write-Host 'relative transcript marker'
+                Set-Location $cloneDirectory
+
+                $durablePath = Complete-DotfilesSetupLogging -LogFilePath $actualPath -DotfilesDirectory $cloneDirectory
+                $loggingStarted = $false
+
+                [System.IO.Path]::IsPathRooted($actualPath) | Should -BeTrue
+                $durablePath | Should -Be (Join-Path $cloneDirectory 'logs/setup-relative.txt')
+                Test-Path -LiteralPath $durablePath -PathType Leaf | Should -BeTrue
+                Get-Content -LiteralPath $durablePath -Raw | Should -Match 'relative transcript marker'
+            }
+            finally {
+                if ($loggingStarted) {
+                    Stop-Logging
+                }
+                Pop-Location
+            }
+        }
+
         It 'returns exactly one path when Stop-Transcript emits success output' {
             $fallbackDirectory = Join-Path $TestDrive 'single-return-fallback'
             $fallbackPath = Join-Path $fallbackDirectory 'setup-single-return.txt'
