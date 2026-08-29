@@ -40,6 +40,288 @@ Describe 'Bootstrap reliability contracts' {
             }
             Should -Invoke Start-Transcript -Times 0 -Exactly
         }
+
+        It 'appends a child-process transcript to the parent transcript' {
+            $logPath = Join-Path $TestDrive 'cross-process.txt'
+            $childPath = Join-Path $TestDrive 'append-child.ps1'
+            $functionsPath = Join-Path $script:repositoryRoot 'setup-scripts/setup-functions.ps1'
+            @"
+. '$functionsPath'
+Start-Logging -LogFilePath '$logPath' -Append
+Write-Host 'child transcript marker'
+Stop-Logging
+"@ | Set-Content -LiteralPath $childPath
+
+            Start-Logging -LogFilePath $logPath
+            Write-Host 'parent transcript marker'
+            Stop-Logging
+            & (Join-Path $PSHOME 'pwsh') -NoProfile -File $childPath
+            $LASTEXITCODE | Should -Be 0
+
+            $transcript = Get-Content -LiteralPath $logPath -Raw
+            $transcript | Should -Match 'parent transcript marker'
+            $transcript | Should -Match 'child transcript marker'
+        }
+
+        It 'retains a relative requested transcript after the working directory changes' {
+            $initialDirectory = Join-Path $TestDrive 'relative-initial'
+            $cloneDirectory = Join-Path $TestDrive 'relative-clone'
+            New-Item -ItemType Directory -Path (Join-Path $initialDirectory 'logs') -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') -Force | Out-Null
+            Push-Location $initialDirectory
+            $loggingStarted = $false
+            try {
+                $actualPath = Start-Logging -LogFilePath 'logs/setup-relative.txt' -PassThru
+                $loggingStarted = $true
+                Write-Host 'relative transcript marker'
+                Set-Location $cloneDirectory
+
+                $durablePath = Complete-DotfilesSetupLogging -LogFilePath $actualPath -DotfilesDirectory $cloneDirectory
+                $loggingStarted = $false
+
+                [System.IO.Path]::IsPathRooted($actualPath) | Should -BeTrue
+                $durablePath | Should -Be (Join-Path $cloneDirectory 'logs/setup-relative.txt')
+                Test-Path -LiteralPath $durablePath -PathType Leaf | Should -BeTrue
+                Get-Content -LiteralPath $durablePath -Raw | Should -Match 'relative transcript marker'
+            }
+            finally {
+                if ($loggingStarted) {
+                    Stop-Logging
+                }
+                Pop-Location
+            }
+        }
+
+        It 'returns exactly one path when Stop-Transcript emits success output' {
+            $fallbackDirectory = Join-Path $TestDrive 'single-return-fallback'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-single-return.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'single return transcript'
+            Mock Stop-Transcript { 'Transcript stopped, output file is representative.txt' }
+
+            $output = @(Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $null)
+
+            $output.Count | Should -Be 1
+            $output[0] | Should -Be $fallbackPath
+        }
+
+        It 'moves a finalized fallback transcript into persistent clone logs' {
+            $fallbackDirectory = Join-Path $TestDrive 'fallback'
+            $cloneDirectory = Join-Path $TestDrive 'clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-bootstrap.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, $cloneDirectory | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'bootstrap transcript'
+            Mock Stop-Transcript { }
+
+            $durablePath = Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory
+
+            $durablePath | Should -Be (Join-Path $cloneDirectory 'logs/setup-bootstrap.txt')
+            Test-Path -LiteralPath $fallbackPath | Should -BeFalse
+            Get-Content -LiteralPath $durablePath | Should -Be 'bootstrap transcript'
+        }
+
+        It 'retains an early-failure transcript without creating the missing clone' {
+            $fallbackDirectory = Join-Path $TestDrive 'local-app-data/dotfiles/logs'
+            $missingCloneDirectory = Join-Path $TestDrive 'missing-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-early-failure.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'early failure transcript'
+            Mock Stop-Transcript { }
+
+            $durablePath = Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $missingCloneDirectory
+
+            $durablePath | Should -Be $fallbackPath
+            Test-Path -LiteralPath $durablePath -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath $missingCloneDirectory | Should -BeFalse
+        }
+
+        It 'retains a fallback transcript when the target directory is not a Git checkout' {
+            $fallbackDirectory = Join-Path $TestDrive 'non-repo-fallback'
+            $nonRepoDirectory = Join-Path $TestDrive 'partial-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-partial-clone.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, $nonRepoDirectory | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'partial clone transcript'
+            Mock Stop-Transcript { }
+
+            $durablePath = Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $nonRepoDirectory
+
+            $durablePath | Should -Be $fallbackPath
+            Test-Path -LiteralPath $fallbackPath -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $nonRepoDirectory 'logs') | Should -BeFalse
+        }
+
+        It 'reports the durable main transcript after it exists' {
+            $fallbackDirectory = Join-Path $TestDrive 'report-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'report-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-report.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, $cloneDirectory | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'reported transcript'
+            Mock Stop-Transcript { }
+
+            $output = @(Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory 6>&1)
+            $durablePath = Join-Path $cloneDirectory 'logs/setup-report.txt'
+
+            Test-Path -LiteralPath $durablePath -PathType Leaf | Should -BeTrue
+            @($output | ForEach-Object { [string]$_ }) | Should -Contain "[INFO] Main setup log: $durablePath"
+            [string]$output[-1] | Should -Be $durablePath
+        }
+
+        It 'finalizes and reports logging for every setup exit including failure and 3010' {
+            $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
+            $tokens = $null
+            $parseErrors = $null
+            $setupAst = [System.Management.Automation.Language.Parser]::ParseFile($setupPath, [ref]$tokens, [ref]$parseErrors)
+            $parseErrors.Count | Should -Be 0
+
+            $exitStatements = @($setupAst.FindAll({
+                param($node)
+                $node -is [System.Management.Automation.Language.ExitStatementAst]
+            }, $true))
+            $exitStatements.Count | Should -BeGreaterThan 0
+            @($exitStatements | Where-Object { $_.Pipeline.Extent.Text -eq '3010' }).Count | Should -BeGreaterThan 0
+
+            foreach ($exitStatement in $exitStatements) {
+                $ancestor = $exitStatement.Parent
+                $isProtected = $false
+                while ($ancestor) {
+                    if ($ancestor -is [System.Management.Automation.Language.TryStatementAst] -and
+                        $ancestor.Finally -and
+                        $ancestor.Finally.Extent.Text -match 'Complete-DotfilesSetupLogging') {
+                        $isProtected = $true
+                        break
+                    }
+                    $ancestor = $ancestor.Parent
+                }
+                if (-not $isProtected) {
+                    throw "Exit '$($exitStatement.Extent.Text)' is not protected by durable transcript finalization."
+                }
+            }
+
+            $topLevelFinalizer = @($setupAst.FindAll({
+                param($node)
+                $node -is [System.Management.Automation.Language.CommandAst] -and
+                    $node.GetCommandName() -eq 'Complete-DotfilesSetupLogging'
+            }, $true))
+            $topLevelFinalizer.Count | Should -Be 1
+        }
+
+        It 'keeps transcript cleanup failure best-effort and reports the retained fallback' {
+            $fallbackDirectory = Join-Path $TestDrive 'cleanup-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'cleanup-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-cleanup.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, $cloneDirectory | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'cleanup failure transcript'
+            Mock Stop-Transcript { }
+            Mock Move-Item { throw [System.IO.IOException]::new('simulated cleanup failure') }
+
+            $output = @(Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory 6>&1 3>&1)
+
+            Test-Path -LiteralPath $fallbackPath -PathType Leaf | Should -BeTrue
+            @($output | ForEach-Object { [string]$_ }) | Should -Contain "[WARNING] Cannot retain setup transcript in persistent clone logs: simulated cleanup failure"
+            @($output | ForEach-Object { [string]$_ }) | Should -Contain "[INFO] Main setup log: $fallbackPath"
+            [string]$output[-1] | Should -Be $fallbackPath
+        }
+
+        It 'reports the source when a failed move leaves a stale destination collision' {
+            $fallbackDirectory = Join-Path $TestDrive 'collision-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'collision-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-collision.txt'
+            $destinationPath = Join-Path $cloneDirectory 'logs/setup-collision.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, (Join-Path $cloneDirectory '.git'), (Split-Path -Parent $destinationPath) | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'CURRENT'
+            Set-Content -LiteralPath $destinationPath -Value 'STALE'
+            Mock Stop-Transcript { }
+            Mock Move-Item { throw [System.IO.IOException]::new('stale destination collision') }
+
+            $output = @(Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory 6>&1)
+            $textOutput = @($output | ForEach-Object { [string]$_ })
+
+            $textOutput | Should -Contain "[INFO] Main setup log: $fallbackPath"
+            [string]$output[-1] | Should -Be $fallbackPath
+            Get-Content -LiteralPath $output[-1] | Should -Be 'CURRENT'
+            Get-Content -LiteralPath $destinationPath | Should -Be 'STALE'
+        }
+
+        It 'reports the destination when a move fails after creating it' {
+            $fallbackDirectory = Join-Path $TestDrive 'destination-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'destination-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-destination.txt'
+            $destinationPath = Join-Path $cloneDirectory 'logs/setup-destination.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, (Join-Path $cloneDirectory '.git') | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'destination transcript'
+            Mock Stop-Transcript { }
+            Mock Move-Item {
+                New-Item -ItemType Directory -Path (Split-Path -Parent $Destination) -Force | Out-Null
+                [System.IO.File]::Move($LiteralPath, $Destination)
+                throw [System.IO.IOException]::new('post-move failure')
+            }
+
+            $durablePath = Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory
+
+            $durablePath | Should -Be $destinationPath
+            Test-Path -LiteralPath $destinationPath -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath $fallbackPath | Should -BeFalse
+        }
+
+        It 'warns without reporting a path when a failed move leaves no transcript' {
+            $fallbackDirectory = Join-Path $TestDrive 'missing-after-move-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'missing-after-move-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-missing-after-move.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, (Join-Path $cloneDirectory '.git') | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'vanishing transcript'
+            Mock Stop-Transcript { }
+            Mock Move-Item {
+                Remove-Item -LiteralPath $LiteralPath -Force
+                throw [System.IO.IOException]::new('destructive move failure')
+            }
+
+            $output = @(Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory 6>&1 3>&1)
+            $textOutput = @($output | ForEach-Object { [string]$_ })
+
+            Test-Path -LiteralPath $fallbackPath | Should -BeFalse
+            $textOutput | Should -Contain '[WARNING] Setup transcript was not found at the source or destination after the move failure.'
+            @($textOutput | Where-Object { $_ -match 'Main setup log:' }).Count | Should -Be 0
+            @($output | Where-Object { $_ -is [string] -and $_ -eq $fallbackPath }).Count | Should -Be 0
+        }
+
+        It 'does not replace a primary setup failure or reboot-required status when cleanup fails' {
+            $fallbackDirectory = Join-Path $TestDrive 'primary-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'primary-clone'
+            New-Item -ItemType Directory -Path $fallbackDirectory, $cloneDirectory | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') | Out-Null
+            Mock Stop-Transcript { }
+            Mock Move-Item { throw [System.IO.IOException]::new('simulated cleanup failure') }
+
+            $failureLogPath = Join-Path $fallbackDirectory 'setup-primary-failure.txt'
+            Set-Content -LiteralPath $failureLogPath -Value 'primary failure transcript'
+            $caughtMessage = $null
+            try {
+                try {
+                    throw [System.InvalidOperationException]::new('primary setup failure')
+                }
+                finally {
+                    Complete-DotfilesSetupLogging -LogFilePath $failureLogPath -DotfilesDirectory $cloneDirectory | Out-Null
+                }
+            }
+            catch {
+                $caughtMessage = $_.Exception.Message
+            }
+            $caughtMessage | Should -Be 'primary setup failure'
+
+            $restartLogPath = Join-Path $fallbackDirectory 'setup-restart.txt'
+            Set-Content -LiteralPath $restartLogPath -Value 'restart transcript'
+            $setupExitCode = $null
+            try {
+                $setupExitCode = 3010
+            }
+            finally {
+                Complete-DotfilesSetupLogging -LogFilePath $restartLogPath -DotfilesDirectory $cloneDirectory | Out-Null
+            }
+            $setupExitCode | Should -Be 3010
+        }
     }
 
     Context 'Windows Terminal configuration' {

@@ -34,6 +34,10 @@ $dotfilesTempDir = Join-Path $env:TEMP "dotfiles"
 $invocationDirectory = Join-Path $dotfilesTempDir ([guid]::NewGuid().ToString("N"))
 $sourceFile = Join-Path $invocationDirectory "dotfiles.zip"
 $folderBranch = $branch -replace '[\\/]', '-'
+$localAppData = if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { $env:TEMP } else { $env:LOCALAPPDATA }
+$fallbackLogDirectory = Join-Path (Join-Path $localAppData "dotfiles") "logs"
+$fallbackLogName = "setup-{0}-{1}.txt" -f (Get-Date -Format "yyyyMMdd-HHmmssfff"), [guid]::NewGuid().ToString("N")
+$fallbackLogFile = Join-Path $fallbackLogDirectory $fallbackLogName
 
 function Invoke-Download {
   param (
@@ -72,9 +76,7 @@ function Resolve-ExtractedDotfilesDirectory {
         [Parameter(Mandatory)]
         [string]$ExpectedDirectory,
         [Parameter(Mandatory)]
-        [string]$ExtractionRoot,
-        [Parameter(Mandatory)]
-        [datetime]$ExtractionStartedAt
+        [string]$ExtractionRoot
     )
 
     if (Test-Path -LiteralPath $ExpectedDirectory) {
@@ -82,7 +84,6 @@ function Resolve-ExtractedDotfilesDirectory {
     }
 
     $candidateDirectories = @(Get-ChildItem -LiteralPath $ExtractionRoot -Directory |
-        Where-Object { $_.LastWriteTime -ge $ExtractionStartedAt } |
         Sort-Object LastWriteTime -Descending)
 
     if ($candidateDirectories.Count -eq 1) {
@@ -113,20 +114,23 @@ try {
     Invoke-Download $downloadUrl $sourceFile
 
     $dotfilesInstallDir = Join-Path $invocationDirectory "$repo-$folderBranch"
-    $extractionStartedAt = Get-Date
     Expand-Zip $sourceFile $invocationDirectory
-    $dotfilesInstallDir = Resolve-ExtractedDotfilesDirectory -ExpectedDirectory $dotfilesInstallDir -ExtractionRoot $invocationDirectory -ExtractionStartedAt $extractionStartedAt
+    $dotfilesInstallDir = Resolve-ExtractedDotfilesDirectory -ExpectedDirectory $dotfilesInstallDir -ExtractionRoot $invocationDirectory
 
     Push-Location -LiteralPath $dotfilesInstallDir
     try {
-        & .\setup-scripts\setup.ps1 -BootstrapBranch $branch -NonInteractive:$NonInteractive
+        & .\setup-scripts\setup.ps1 -BootstrapBranch $branch -LogFilePath $fallbackLogFile -NonInteractive:$NonInteractive
         $setupExitCode = $LASTEXITCODE
     } finally {
         Pop-Location
     }
 } finally {
-    if ([System.IO.Directory]::Exists($invocationDirectory)) {
-        [System.IO.Directory]::Delete($invocationDirectory, $true)
+    try {
+        if ([System.IO.Directory]::Exists($invocationDirectory)) {
+            [System.IO.Directory]::Delete($invocationDirectory, $true)
+        }
+    } catch {
+        Write-Warning "Cannot remove temporary installer directory '$invocationDirectory': $($_.Exception.Message)" -WarningAction Continue
     }
 }
 
