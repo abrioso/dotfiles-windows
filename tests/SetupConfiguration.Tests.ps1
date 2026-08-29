@@ -528,8 +528,10 @@ Describe 'Setup configuration resolution' {
 
                 foreach ($name in $testRepository.LegacyNames) {
                     $originalPath = Join-Path $result.MigrationDirectory "dotfiles-configurations/$name"
-                    $expected = [Text.UTF8Encoding]::new($false).GetBytes([string]$legacyJson[$name])
-                    if (-not [Linq.Enumerable]::SequenceEqual($expected, [IO.File]::ReadAllBytes($originalPath))) { throw "Recovered original '$name' changed during candidate generation." }
+                    $objectId = (& git -C $testRepository.Path rev-parse "$($testRepository.LegacyCommit):dotfiles-configurations/$name").Trim()
+                    if ($LASTEXITCODE -ne 0) { throw "Cannot resolve representative legacy blob '$name'." }
+                    $expected = Get-DotfilesGitBlobBytes -RepositoryRoot $testRepository.Path -ObjectId $objectId
+                    if (-not [Linq.Enumerable]::SequenceEqual([byte[]]$expected, [byte[]][IO.File]::ReadAllBytes($originalPath))) { throw "Recovered original '$name' changed during candidate generation." }
                     if (Test-Path -LiteralPath (Join-Path $testRepository.ConfigDirectory $name)) { throw "Local configuration '$name' was created." }
                 }
             }
@@ -576,7 +578,7 @@ Describe 'Setup configuration resolution' {
                 }
 
                 $manifest = Get-Content -LiteralPath $result.ManifestPath -Raw | ConvertFrom-Json
-                $canonicalRepository = (& git -C $testRepository.Path rev-parse --show-toplevel).Trim()
+                $canonicalRepository = [IO.Path]::GetFullPath((& git -C $testRepository.Path rev-parse --show-toplevel).Trim())
                 $canonicalConfig = [IO.Path]::GetFullPath($testRepository.ConfigDirectory)
                 if ($manifest.status -ne 'pending' -or $manifest.repositoryPath -ne $canonicalRepository -or
                     $manifest.configurationPath -ne $canonicalConfig -or
@@ -587,13 +589,11 @@ Describe 'Setup configuration resolution' {
                 foreach ($entry in $manifest.files) {
                     $stagedPath = Join-Path $result.MigrationDirectory $entry.path
                     $expectedPath = "$($testRepository.LegacyCommit):$($entry.path.Replace('\', '/'))"
-                    $expectedBytesFile = Join-Path $migrationRoot ([Guid]::NewGuid().ToString('N'))
-                    & git -C $testRepository.Path show $expectedPath > $expectedBytesFile
-                    if ($LASTEXITCODE -ne 0) { throw "Cannot read expected blob '$expectedPath'." }
-                    $expectedBytes = [IO.File]::ReadAllBytes($expectedBytesFile)
-                    Remove-Item -LiteralPath $expectedBytesFile -Force
+                    $objectId = (& git -C $testRepository.Path rev-parse $expectedPath).Trim()
+                    if ($LASTEXITCODE -ne 0) { throw "Cannot resolve expected blob '$expectedPath'." }
+                    $expectedBytes = Get-DotfilesGitBlobBytes -RepositoryRoot $testRepository.Path -ObjectId $objectId
                     $actualBytes = [IO.File]::ReadAllBytes($stagedPath)
-                    if (-not [Linq.Enumerable]::SequenceEqual($expectedBytes, $actualBytes)) {
+                    if (-not [Linq.Enumerable]::SequenceEqual([byte[]]$expectedBytes, [byte[]]$actualBytes)) {
                         throw "Staged bytes differ for '$($entry.path)'."
                     }
                     $actualHash = (Get-FileHash -LiteralPath $stagedPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -843,7 +843,9 @@ Describe 'Setup configuration resolution' {
                     NonInteractive = $NonInteractive
                 }
                 $output = (& "$PSScriptRoot/../setup-scripts/configure.ps1" @arguments 6>&1) | Out-String
-                if ($output -notmatch [regex]::Escape((Join-Path $localAppData 'dotfiles/migrations'))) {
+                $migrationRoot = Join-Path (Join-Path $localAppData 'dotfiles') 'migrations'
+                $manifests = if (Test-Path -LiteralPath $migrationRoot) { @(Get-ChildItem -LiteralPath $migrationRoot -Filter 'pending.json' -File -Recurse) } else { @() }
+                if ($output -notmatch 'Migration directory:' -or $manifests.Count -ne 1) {
                     throw 'Configure must report the external migration directory and stop.'
                 }
                 if (Test-Path -LiteralPath $testRepository.ConfigDirectory) {
