@@ -6,7 +6,18 @@
             "requiresAdmin": true,
             "whenSelected": [
                 "hyperv",
-                "wsl"
+                "wsl",
+                "sandbox"
+            ]
+        }
+    ],
+    "capabilities": [
+        {
+            "name": "windows-capabilities",
+            "script": "Configure-WindowsCapabilities.ps1",
+            "requiresAdmin": true,
+            "whenSelected": [
+                "rsat-active-directory"
             ]
         }
     ],
@@ -47,7 +58,10 @@
         ],
         "developer": [
             {
-                "script": "Apply-GitConfig.ps1"
+                "script": "Apply-GitConfig.ps1",
+                "requiresPackageGroups": [
+                    "development"
+                ]
             }
         ],
         "pwsh": [

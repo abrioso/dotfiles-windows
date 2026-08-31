@@ -15,7 +15,7 @@
 .EXAMPLE
     .\setup-scripts\update.ps1 -Tui
 .EXAMPLE
-    .\setup-scripts\update.ps1 -NonInteractive -UpdateRepository -TemplateName winget-packages.json,windows-features.json
+    .\setup-scripts\update.ps1 -NonInteractive -UpdateRepository -TemplateName winget-packages.json,windows-capabilities.json,windows-features.json
 #>
 [CmdletBinding()]
 param(
@@ -224,7 +224,7 @@ if ([string]::IsNullOrWhiteSpace($BackupDirectory)) {
 Assert-DotfilesUpdaterPathBoundary -RepositoryRoot $dotfilesRoot -ConfigDirectory $ConfigDirectory -BackupDirectory $BackupDirectory
 
 Write-Host 'Dotfiles updater' -ForegroundColor Cyan
-Write-Host 'No setup modules will run: packages, Windows features, and settings are not applied by this script.'
+Write-Host 'No setup modules will run: packages, Windows features, capabilities, and settings are not applied by this script.'
 
 $shouldUpdateRepository = $false
 if ($NonInteractive) {

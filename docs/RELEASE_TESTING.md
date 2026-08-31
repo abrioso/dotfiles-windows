@@ -173,7 +173,8 @@ created by the current `main` branch, including the previous profile and Termina
    git checkout <branch>
    ```
 2. Run `setup-scripts\update.ps1` and select only the shared catalogs initially:
-   `setup-modules.json`, `windows-features.json`, and `winget-packages.json`.
+   `setup-modules.json`, `windows-capabilities.json`, `windows-features.json`, and
+   `winget-packages.json`.
 3. Review the new local JSON before running setup.
 4. Run `setup.ps1`, then run it again to prove the migrated state is idempotent.
 

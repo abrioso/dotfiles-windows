@@ -1,10 +1,11 @@
 {
     "hyperv": [
-        "HypervisorPlatform",
-        "Microsoft-Hyper-V-All",
-        "Microsoft-Hyper-V-Tools-All"
+        "Microsoft-Hyper-V-All"
     ],
     "wsl": [
         "VirtualMachinePlatform"
+    ],
+    "sandbox": [
+        "Containers-DisposableClientVM"
     ]
 }

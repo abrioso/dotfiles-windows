@@ -5,6 +5,9 @@ Describe 'Setup configuration resolution' {
         if (-not (Get-Command Get-CimInstance -ErrorAction SilentlyContinue)) {
             function Get-CimInstance { throw 'Test placeholder must be mocked.' }
         }
+        if (-not (Get-Command Get-WindowsCapability -ErrorAction SilentlyContinue)) {
+            function Get-WindowsCapability { throw 'Test placeholder must be mocked.' }
+        }
 
         function Get-TestConfigDirectory {
             $path = Join-Path $env:TEMP ([System.Guid]::NewGuid())
@@ -147,8 +150,93 @@ Describe 'Setup configuration resolution' {
         }
     }
 
+    Context 'Resolve-DotfilesWindowsCapability' {
+        It 'returns capabilities in dependency order for selected groups' {
+            $configDir = Get-TestConfigDirectory
+            try {
+                $capabilitiesPath = Join-Path $configDir 'windows-capabilities.json'
+                $bootstrapPath = Join-Path $configDir 'dotfiles-bootstrap-variables.json'
+
+                Write-TestJson -Path $capabilitiesPath -Json '{"rsat-active-directory":["Rsat.ServerManager.Tools~~~~0.0.1.0","Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0"],"openssh":["OpenSSH.Client~~~~0.0.1.0"]}'
+                Write-TestJson -Path $bootstrapPath -Json '{"INSTALL_CAPABILITIES":["rsat-active-directory"]}'
+
+                $capabilities = @(Resolve-DotfilesWindowsCapability -ConfigPath $capabilitiesPath -BootstrapPath $bootstrapPath)
+                $expected = 'Rsat.ServerManager.Tools~~~~0.0.1.0,Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0'
+                if (($capabilities -join ',') -ne $expected) {
+                    throw "Expected the ordered Active Directory capability group, got '$($capabilities -join ',')'."
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $configDir -Recurse -Force
+            }
+        }
+
+        It 'returns no capabilities when INSTALL_CAPABILITIES is absent or empty' {
+            $configDir = Get-TestConfigDirectory
+            try {
+                $capabilitiesPath = Join-Path $configDir 'windows-capabilities.json'
+                $bootstrapPath = Join-Path $configDir 'dotfiles-bootstrap-variables.json'
+                Write-TestJson -Path $capabilitiesPath -Json '{"rsat":["Rsat.ServerManager.Tools~~~~0.0.1.0"]}'
+
+                foreach ($bootstrapJson in @('{}', '{"INSTALL_CAPABILITIES":[]}')) {
+                    Write-TestJson -Path $bootstrapPath -Json $bootstrapJson
+                    $capabilities = @(Resolve-DotfilesWindowsCapability -ConfigPath $capabilitiesPath -BootstrapPath $bootstrapPath)
+                    if ($capabilities.Count -ne 0) {
+                        throw "Expected no capabilities for bootstrap '$bootstrapJson'."
+                    }
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $configDir -Recurse -Force
+            }
+        }
+
+        It 'deduplicates capability names case-insensitively' {
+            $configDir = Get-TestConfigDirectory
+            try {
+                $capabilitiesPath = Join-Path $configDir 'windows-capabilities.json'
+                Write-TestJson -Path $capabilitiesPath -Json '{"first":["OpenSSH.Client~~~~0.0.1.0"],"second":["openssh.client~~~~0.0.1.0"]}'
+
+                $capabilities = @(Resolve-DotfilesWindowsCapability -ConfigPath $capabilitiesPath -Groups @('first', 'second') -GroupsSpecified)
+                if ($capabilities.Count -ne 1 -or $capabilities[0] -ne 'OpenSSH.Client~~~~0.0.1.0') {
+                    throw "Expected one deduplicated capability, got '$($capabilities -join ',')'."
+                }
+            }
+            finally {
+                Remove-Item -LiteralPath $configDir -Recurse -Force
+            }
+        }
+    }
+
+    Context 'Test-DotfilesWindowsCapabilitiesInstalled' {
+        It 'returns true only when every requested capability is installed' {
+            Mock Get-WindowsCapability {
+                [pscustomobject]@{ Name = $Name; State = 'Installed' }
+            }
+
+            $installed = Test-DotfilesWindowsCapabilitiesInstalled -CapabilityName @('Rsat.ServerManager.Tools~~~~0.0.1.0', 'Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0')
+            if (-not $installed) {
+                throw 'All requested capabilities in Installed state must satisfy the preflight.'
+            }
+        }
+
+        It 'returns false for a capability that is absent or cannot be queried' {
+            Mock Get-WindowsCapability {
+                [pscustomobject]@{ Name = $Name; State = 'NotPresent' }
+            }
+            if (Test-DotfilesWindowsCapabilitiesInstalled -CapabilityName @('OpenSSH.Client~~~~0.0.1.0')) {
+                throw 'A capability in NotPresent state must preserve elevation.'
+            }
+
+            Mock Get-WindowsCapability { throw 'DISM unavailable' }
+            if (Test-DotfilesWindowsCapabilitiesInstalled -CapabilityName @('OpenSSH.Client~~~~0.0.1.0')) {
+                throw 'An inconclusive capability preflight must fail closed.'
+            }
+        }
+    }
+
     Context 'Get-DotfilesSetupPlan' {
-        It 'builds a module plan from selected feature, package, and setting groups' {
+        It 'builds a module plan from selected feature, capability, package, and setting groups' {
             $configDir = Get-TestConfigDirectory
             try {
                 $setupModulesPath = Join-Path $configDir 'setup-modules.json'
@@ -156,6 +244,9 @@ Describe 'Setup configuration resolution' {
 {
   "features": [
     { "name": "windows-features", "script": "Configure-WindowsFeatures.ps1", "requiresAdmin": true, "whenSelected": [ "hyperv", "wsl" ] }
+  ],
+  "capabilities": [
+    { "name": "windows-capabilities", "script": "Configure-WindowsCapabilities.ps1", "requiresAdmin": true, "whenSelected": [ "rsat-active-directory" ] }
   ],
   "packages": [
     { "name": "winget-packages", "script": "Install-WingetPackages.ps1" }
@@ -170,11 +261,11 @@ Describe 'Setup configuration resolution' {
   }
 }
 '@
-                $bootstrap = '{"INSTALL_FEATURES":["wsl"],"INSTALL_PACKAGES":["base"],"INSTALL_SETTINGS":["developer"]}' | ConvertFrom-Json
+                $bootstrap = '{"INSTALL_FEATURES":["wsl"],"INSTALL_CAPABILITIES":["rsat-active-directory"],"INSTALL_PACKAGES":["base"],"INSTALL_SETTINGS":["developer"]}' | ConvertFrom-Json
 
                 $plan = Get-DotfilesSetupPlan -DotfilesVariables $bootstrap -ConfigDirectory $configDir
                 $scripts = @($plan | ForEach-Object { $_.Script })
-                $expected = @('Configure-WindowsFeatures.ps1', 'Install-WingetPackages.ps1', 'Apply-GitConfig.ps1')
+                $expected = @('Configure-WindowsFeatures.ps1', 'Configure-WindowsCapabilities.ps1', 'Install-WingetPackages.ps1', 'Apply-GitConfig.ps1')
 
                 if (($scripts -join ',') -ne ($expected -join ',')) {
                     throw "Expected scripts '$($expected -join ',')', got '$($scripts -join ',')'."
@@ -183,6 +274,10 @@ Describe 'Setup configuration resolution' {
                 $featureModule = $plan | Where-Object { $_.Script -eq 'Configure-WindowsFeatures.ps1' } | Select-Object -First 1
                 if (-not $featureModule.RequiresAdmin) {
                     throw 'Expected Configure-WindowsFeatures.ps1 to require admin.'
+                }
+                $capabilityModule = $plan | Where-Object { $_.Script -eq 'Configure-WindowsCapabilities.ps1' } | Select-Object -First 1
+                if (-not $capabilityModule.RequiresAdmin) {
+                    throw 'Expected Configure-WindowsCapabilities.ps1 to require admin.'
                 }
             }
             finally {
@@ -251,7 +346,7 @@ Describe 'Setup configuration resolution' {
   }
 }
 '@
-                $bootstrap = '{"INSTALL_FEATURES":[],"INSTALL_PACKAGES":[],"INSTALL_SETTINGS":[]}' | ConvertFrom-Json
+                $bootstrap = '{"INSTALL_FEATURES":[],"INSTALL_CAPABILITIES":[],"INSTALL_PACKAGES":[],"INSTALL_SETTINGS":[]}' | ConvertFrom-Json
 
                 $plan = Get-DotfilesSetupPlan -DotfilesVariables $bootstrap -ConfigDirectory $configDir
                 if ($plan.Count -ne 0) {

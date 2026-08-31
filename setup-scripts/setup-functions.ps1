@@ -524,6 +524,7 @@ function Get-DotfilesConfigFile {
         "env-variables.json",
         "winget-packages.json",
         "windows-features.json",
+        "windows-capabilities.json",
         "setup-modules.json"
     )
 }
@@ -689,6 +690,76 @@ function Test-DotfilesWindowsFeaturesEnabled {
     return $true
 }
 
+function Resolve-DotfilesWindowsCapability {
+    param (
+        [string]$ConfigPath = (Join-Path (Get-DotfilesConfigDirectory) "windows-capabilities.json"),
+        [string]$BootstrapPath = (Join-Path (Get-DotfilesConfigDirectory) "dotfiles-bootstrap-variables.json"),
+        [string[]]$Groups = @(),
+        [switch]$GroupsSpecified
+    )
+
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
+        throw "Windows capability configuration file not found: $ConfigPath"
+    }
+
+    $config = Read-DotfilesJsonFile -Path $ConfigPath
+    if (-not $GroupsSpecified) {
+        if (-not (Test-Path -LiteralPath $BootstrapPath)) {
+            return @()
+        }
+
+        $bootstrap = Read-DotfilesJsonFile -Path $BootstrapPath
+        if (-not (Test-DotfilesObjectProperty -InputObject $bootstrap -Name "INSTALL_CAPABILITIES")) {
+            return @()
+        }
+
+        $Groups = ConvertTo-DotfilesStringArray -Value $bootstrap.INSTALL_CAPABILITIES
+    }
+
+    if ($Groups.Count -eq 0) {
+        return @()
+    }
+
+    $capabilities = [System.Collections.Generic.List[string]]::new()
+    foreach ($property in $config.PSObject.Properties) {
+        if ($Groups -notcontains $property.Name) {
+            continue
+        }
+
+        foreach ($capabilityName in (ConvertTo-DotfilesStringArray -Value $property.Value)) {
+            if ($capabilities -notcontains $capabilityName) {
+                $capabilities.Add($capabilityName)
+            }
+        }
+    }
+
+    return $capabilities.ToArray()
+}
+
+function Test-DotfilesWindowsCapabilitiesInstalled {
+    param([Parameter(Mandatory)][string[]]$CapabilityName)
+
+    if ($CapabilityName.Count -eq 0) {
+        return $true
+    }
+
+    foreach ($requestedCapability in $CapabilityName) {
+        try {
+            $matches = @(Get-WindowsCapability -Online -Name $requestedCapability -ErrorAction Stop)
+        }
+        catch {
+            Write-WarningMessage "Could not query Windows capability state without elevation: $($_.Exception.Message)"
+            return $false
+        }
+
+        if ($matches.Count -ne 1 -or $matches[0].State -ne 'Installed') {
+            return $false
+        }
+    }
+
+    return $true
+}
+
 function Test-DotfilesProfileSymlinksCorrect {
     # Returns $true when every .ps1 file in the repo's powershell-profiles directory
     # already exists as a symlink pointing at its source file. Used by setup.ps1 to
@@ -754,6 +825,22 @@ function Get-DotfilesSetupPlan {
 
         if ($matched) {
             Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
+        }
+    }
+
+    $hasInstallCapabilities = Test-DotfilesObjectProperty -InputObject $DotfilesVariables -Name "INSTALL_CAPABILITIES"
+    $selectedCapabilities = if ($hasInstallCapabilities) { ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_CAPABILITIES } else { @() }
+    if ($hasInstallCapabilities -and $selectedCapabilities.Count -gt 0) {
+        foreach ($entry in $setupConfig.capabilities) {
+            $selectors = ConvertTo-DotfilesStringArray -Value $entry.whenSelected
+            $matched = $selectors.Count -eq 0
+            if (-not $matched) {
+                $matched = $null -ne ($selectors | Where-Object { $selectedCapabilities -contains $_ } | Select-Object -First 1)
+            }
+
+            if ($matched) {
+                Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
+            }
         }
     }
 

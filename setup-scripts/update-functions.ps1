@@ -125,6 +125,7 @@ function Get-DotfilesConfigurationTemplate {
 
     $recommendedNames = @(
         'setup-modules.json',
+        'windows-capabilities.json',
         'windows-features.json',
         'winget-packages.json'
     )
