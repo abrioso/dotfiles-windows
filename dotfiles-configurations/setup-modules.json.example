@@ -6,7 +6,8 @@
             "requiresAdmin": true,
             "whenSelected": [
                 "hyperv",
-                "wsl"
+                "wsl",
+                "sandbox"
             ]
         }
     ],
@@ -47,7 +48,10 @@
         ],
         "developer": [
             {
-                "script": "Apply-GitConfig.ps1"
+                "script": "Apply-GitConfig.ps1",
+                "requiresPackageGroups": [
+                    "development"
+                ]
             }
         ],
         "pwsh": [

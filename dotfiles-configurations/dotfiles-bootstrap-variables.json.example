@@ -12,7 +12,8 @@
     "WORKSPACE_FOLDER": "workspace",
     "INSTALL_FEATURES": [
         "hyperv",
-        "wsl"
+        "wsl",
+        "sandbox"
     ],
     "INSTALL_PACKAGES": [
         "base",
@@ -23,7 +24,8 @@
         "multimedia",
         "PowerBI",
         "productivity",
-        "pwsh"
+        "pwsh",
+        "poweruser"
     ],
     "INSTALL_SETTINGS": [
         "base",
