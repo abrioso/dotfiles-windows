@@ -479,7 +479,7 @@ Stop-Logging
                 throw 'The elevated Windows capability module must own and close its transcript.'
             }
             if ($setup -notmatch "Configure-WindowsCapabilities\.ps1.+Set-UserHomeAlias\.ps1") {
-                throw 'Setup must provide an explicit module log path to the Windows capability module.'
+                throw 'Setup must handle Configure-WindowsCapabilities.ps1 before Set-UserHomeAlias.ps1.'
             }
         }
 
