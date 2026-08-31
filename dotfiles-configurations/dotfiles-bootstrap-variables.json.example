@@ -15,6 +15,9 @@
         "wsl",
         "sandbox"
     ],
+    "INSTALL_CAPABILITIES": [
+        "rsat-active-directory"
+    ],
     "INSTALL_PACKAGES": [
         "base",
         "browsers",

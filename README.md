@@ -61,6 +61,7 @@ This folder contains the main scripts that kick off the installation and setup p
 This folder contains the modular scripts that perform the actual configuration tasks. The `setup.ps1` script calls these in sequence.
 
 -   `Configure-WindowsFeatures.ps1`: Enables selected Windows features such as `VirtualMachinePlatform` for WSL 2 and the independently selectable Hyper-V group. If Windows requires a reboot, setup stops with code `3010`; restart and rerun before package installation continues.
+-   `Configure-WindowsCapabilities.ps1`: Installs selected Windows capabilities such as the RSAT Active Directory tools. It skips capabilities already installed and also stops setup with code `3010` when Windows requires a reboot.
 -   `Install-WingetPackages.ps1`: Reads local `winget-packages.json` and installs the selected package groups using the `winget` command-line tool, including optional per-package `user` or `machine` scope and `installerType` (e.g. `wix`) declarations.
 -   `Configure-WSL2.ps1`: Runs after Winget when the `wsl` group is selected, sets WSL 2 as the default, and applies WSL 2 to an existing Ubuntu registration.
 -   `Set-EnvironmentVariables.ps1`: Reads local `env-variables.json` and configures environment variables.
@@ -74,7 +75,8 @@ This folder contains tracked `*.json.example` templates and local gitignored `*.
 
 -   `winget-packages.json.example`: Defines available `winget` package groups. The TUI copies it to local `winget-packages.json`.
 -   `windows-features.json.example`: Defines available Windows optional feature groups. The TUI copies it to local `windows-features.json`.
--   `setup-modules.json.example`: Defines the ordered module catalog for feature, package, and settings setup. The TUI copies it to local `setup-modules.json`.
+-   `windows-capabilities.json.example`: Defines available Windows capability groups. The TUI copies it to local `windows-capabilities.json`.
+-   `setup-modules.json.example`: Defines the ordered module catalog for feature, capability, package, and settings setup. The TUI copies it to local `setup-modules.json`.
 -   `env-variables.json.example`: Template for custom environment variables.
 -   `git-variables.json.example`: Template for global Git configuration settings, such as name, email, and aliases.
 -   `dotfiles-bootstrap-variables.json.example`: Template for bootstrap variables, install groups, and repository endpoint type (`github-https`, `github-ssh`, or `custom`).

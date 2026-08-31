@@ -413,18 +413,36 @@ Stop-Logging
             }
         }
 
-        It 'uses Windows PowerShell 5.1 for the DISM feature module in both launch paths' {
+        It 'uses PowerShell error handling for Windows capabilities' {
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsCapabilities.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+
+            if ($module -notmatch 'Get-WindowsCapability.+-ErrorAction Stop') {
+                throw 'Get-WindowsCapability must fail when a selected capability cannot be queried.'
+            }
+            if ($module -notmatch 'Add-WindowsCapability.+-ErrorAction Stop') {
+                throw 'Add-WindowsCapability must emit a terminating error on failure.'
+            }
+            if ($module -match '\$LASTEXITCODE') {
+                throw 'PowerShell cmdlet failures must not be inferred from LASTEXITCODE.'
+            }
+            if ($module -notmatch "State -eq 'Installed'" -or $module -notmatch "State -eq 'NotPresent'") {
+                throw 'Windows capability installation must explicitly handle Installed and NotPresent states.'
+            }
+        }
+
+        It 'uses Windows PowerShell 5.1 for DISM modules in both launch paths' {
             $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
             $setup = Get-Content -LiteralPath $setupPath -Raw
 
             if ($setup -notmatch 'WindowsPowerShell\\v1\.0\\powershell\.exe') {
-                throw 'Configure-WindowsFeatures must use the in-box Windows PowerShell host for DISM cmdlets.'
+                throw 'Windows DISM modules must use the in-box Windows PowerShell host.'
             }
             if ($setup -notmatch 'Start-Process\s+-FilePath\s+\$moduleHost' -or $setup -notmatch '&\s+\$moduleHost\s+@moduleArguments') {
                 throw 'Elevated and already-elevated module launches must use the selected module host.'
             }
-            if ($setup -notmatch "else\s*\{\s*'pwsh\.exe'\s*\}") {
-                throw 'Modules other than Configure-WindowsFeatures must remain on PowerShell 7.'
+            if ($setup -notmatch "Configure-WindowsFeatures\.ps1.+Configure-WindowsCapabilities\.ps1" -or $setup -notmatch "else\s*\{\s*'pwsh\.exe'\s*\}") {
+                throw 'Only Windows DISM modules must use Windows PowerShell 5.1; other modules must remain on PowerShell 7.'
             }
         }
 
@@ -451,6 +469,20 @@ Stop-Logging
             }
         }
 
+        It 'writes an independent transcript for the elevated Windows capability module' {
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsCapabilities.ps1'
+            $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+
+            if ($module -notmatch 'Start-Logging\s+-LogFilePath\s+\$LogFilePath\s+-PassThru\s+-RequireRequestedPath' -or $module -notmatch 'Stop-Logging') {
+                throw 'The elevated Windows capability module must own and close its transcript.'
+            }
+            if ($setup -notmatch "Configure-WindowsCapabilities\.ps1.+Set-UserHomeAlias\.ps1") {
+                throw 'Setup must provide an explicit module log path to the Windows capability module.'
+            }
+        }
+
         It 'stops setup with the Windows reboot-required exit code before running later modules' {
             $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsFeatures.ps1'
             $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
@@ -468,6 +500,12 @@ Stop-Logging
             }
             if ($setup -notmatch 'Exit 3010') {
                 throw 'Setup must propagate the reboot-required exit code to its caller.'
+            }
+
+            $capabilityModulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsCapabilities.ps1'
+            $capabilityModule = Get-Content -LiteralPath $capabilityModulePath -Raw
+            if ($capabilityModule -notmatch 'if \(\$restartNeeded\)[\s\S]*?\$moduleExitCode\s*=\s*3010' -or $capabilityModule -notmatch 'exit \$moduleExitCode') {
+                throw 'The Windows capability module must return exit code 3010 when a reboot is required.'
             }
         }
 
@@ -672,6 +710,20 @@ Stop-Logging
     }
 
     Context 'Default configuration consistency' {
+        It 'orders the RSAT Server Manager prerequisite before the Active Directory capability' {
+            $capabilitiesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/windows-capabilities.json.example'
+            $capabilities = Get-Content -LiteralPath $capabilitiesPath -Raw | ConvertFrom-Json
+            $rsatActiveDirectory = @($capabilities.'rsat-active-directory')
+            $expected = @(
+                'Rsat.ServerManager.Tools~~~~0.0.1.0',
+                'Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0'
+            )
+
+            if (($rsatActiveDirectory -join ',') -ne ($expected -join ',')) {
+                throw "The RSAT Active Directory group must preserve dependency order, got '$($rsatActiveDirectory -join ',')'."
+            }
+        }
+
         It 'uses only VirtualMachinePlatform for the WSL 2 feature group' {
             $featuresPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/windows-features.json.example'
             $features = Get-Content -LiteralPath $featuresPath -Raw | ConvertFrom-Json

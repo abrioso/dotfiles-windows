@@ -11,6 +11,16 @@
             ]
         }
     ],
+    "capabilities": [
+        {
+            "name": "windows-capabilities",
+            "script": "Configure-WindowsCapabilities.ps1",
+            "requiresAdmin": true,
+            "whenSelected": [
+                "rsat-active-directory"
+            ]
+        }
+    ],
     "packages": [
         {
             "name": "winget-packages",

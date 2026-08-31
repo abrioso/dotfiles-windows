@@ -182,6 +182,7 @@ $moduleConfigDirectory = Join-Path $dotfilesDirectory "dotfiles-configurations"
 $moduleLogDirectory = Join-Path $dotfilesDirectory "logs"
 Assert-DotfilesSetupDependencies -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 $modulesToRun = Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
+$windowsDismModules = @('Configure-WindowsFeatures.ps1', 'Configure-WindowsCapabilities.ps1')
 
 if (-not (Test-Path -LiteralPath $moduleScriptsPath)) {
     Write-ErrorMessage "The 'setup-modules' directory was not found at '$moduleScriptsPath'."
@@ -221,6 +222,16 @@ function Write-ModuleLogLocation {
                 -BootstrapPath (Join-Path $moduleConfigDirectory 'dotfiles-bootstrap-variables.json'))
             if (Test-DotfilesWindowsFeaturesEnabled -FeatureName $requestedFeatures) {
                 Write-Info 'All requested Windows features are already enabled. Skipping elevation.'
+                $scriptResults.Add($moduleName, 0)
+                continue
+            }
+        }
+        elseif ($moduleName -eq 'Configure-WindowsCapabilities.ps1') {
+            $requestedCapabilities = @(Resolve-DotfilesWindowsCapability `
+                -ConfigPath (Join-Path $moduleConfigDirectory 'windows-capabilities.json') `
+                -BootstrapPath (Join-Path $moduleConfigDirectory 'dotfiles-bootstrap-variables.json'))
+            if (Test-DotfilesWindowsCapabilitiesInstalled -CapabilityName $requestedCapabilities) {
+                Write-Info 'All requested Windows capabilities are already installed. Skipping elevation.'
                 $scriptResults.Add($moduleName, 0)
                 continue
             }
@@ -279,18 +290,18 @@ function Write-ModuleLogLocation {
             }
         }
 
-        $moduleHost = if ($moduleName -eq 'Configure-WindowsFeatures.ps1') {
+        $moduleHost = if ($moduleName -in $windowsDismModules) {
             Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
         } else {
             'pwsh.exe'
         }
-        if ($moduleName -eq 'Configure-WindowsFeatures.ps1' -and -not (Test-Path -LiteralPath $moduleHost -PathType Leaf)) {
+        if ($moduleName -in $windowsDismModules -and -not (Test-Path -LiteralPath $moduleHost -PathType Leaf)) {
             throw "Windows PowerShell 5.1 was not found at '$moduleHost'."
         }
 
         $moduleArguments = @('-NoProfile', '-File', $modulePath)
         $scriptArg = "-NoProfile -File `"$modulePath`""
-        if ($moduleName -in @('Configure-WindowsFeatures.ps1', 'Set-UserHomeAlias.ps1')) {
+        if ($moduleName -in @('Configure-WindowsFeatures.ps1', 'Configure-WindowsCapabilities.ps1', 'Set-UserHomeAlias.ps1')) {
             $moduleLogName = "{0}-{1}-{2}.txt" -f $moduleName, (Get-Date -Format 'yyyyMMdd-HHmmssfff'), [System.Guid]::NewGuid().ToString('N').Substring(0, 8)
             $moduleLogFile = Join-Path $moduleLogDirectory $moduleLogName
             $moduleArguments += @('-LogFilePath', $moduleLogFile)
