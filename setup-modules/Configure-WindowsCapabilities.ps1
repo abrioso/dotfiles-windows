@@ -69,6 +69,8 @@ try {
                 Write-Host "Successfully installed capability '$capabilityName'."
                 if ($result.RestartNeeded) {
                     $restartNeeded = $true
+                    Write-Warning "Capability '$capabilityName' requires a restart. Deferring the remaining Windows capabilities until setup is re-run after the restart."
+                    break
                 }
             }
             else {

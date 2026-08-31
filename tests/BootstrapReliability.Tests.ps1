@@ -432,6 +432,9 @@ Stop-Logging
             if ($module -notmatch "State -eq 'Installed'" -or $module -notmatch "State -eq 'NotPresent'") {
                 throw 'Windows capability installation must explicitly handle Installed and NotPresent states.'
             }
+            if ($module -notmatch 'if \(\$result\.RestartNeeded\)\s*\{[\s\S]*?\$restartNeeded\s*=\s*\$true[\s\S]*?break\s*\}') {
+                throw 'Windows capability installation must defer remaining capabilities when a restart is required.'
+            }
         }
 
         It 'uses Windows PowerShell 5.1 for DISM modules in both launch paths' {
