@@ -423,6 +423,9 @@ Stop-Logging
             if ($module -notmatch 'Add-WindowsCapability.+-ErrorAction Stop') {
                 throw 'Add-WindowsCapability must emit a terminating error on failure.'
             }
+            if ($module -match 'Add-WindowsCapability.+-NoRestart') {
+                throw 'Add-WindowsCapability does not support the NoRestart parameter in Windows PowerShell 5.1.'
+            }
             if ($module -match '\$LASTEXITCODE') {
                 throw 'PowerShell cmdlet failures must not be inferred from LASTEXITCODE.'
             }
