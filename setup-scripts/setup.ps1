@@ -326,7 +326,7 @@ function Write-ModuleLogLocation {
 
         $scriptResults.Add($moduleName, $moduleExitCode)
         if ($moduleExitCode -eq 3010) {
-            Write-WarningMessage "Module '$moduleName' enabled Windows features that require a restart. Restart Windows, then re-run setup to continue."
+            Write-WarningMessage "Module '$moduleName' made Windows changes that require a restart. Restart Windows, then re-run setup to continue."
             Write-ModuleLogLocation -ModuleLogFile $moduleLogFile
             Exit 3010
         }
