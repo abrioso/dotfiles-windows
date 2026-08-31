@@ -64,7 +64,7 @@ try {
             }
             elseif ($capability.State -eq 'NotPresent') {
                 Write-Host "Capability '$capabilityName' is not present. Installing..."
-                $result = Add-WindowsCapability -Online -Name $capabilityName -ErrorAction Stop
+                $result = Add-WindowsCapability -Online -Name $capabilityName -NoRestart -ErrorAction Stop
 
                 Write-Host "Successfully installed capability '$capabilityName'."
                 if ($result.RestartNeeded) {
