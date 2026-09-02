@@ -488,8 +488,13 @@ Describe 'Setup configuration resolution' {
             }
 
             foreach ($groupName in $expectedGroups.Keys) {
-                $group = @($packageGroups.PSObject.Properties[$groupName].Value)
-                if ($group.Count -ne 1) {
+                $groupProperty = $packageGroups.PSObject.Properties[$groupName]
+                if ($null -eq $groupProperty) {
+                    throw "Expected package group '$groupName' to exist."
+                }
+
+                $group = @($groupProperty.Value)
+                if ($group.Count -ne 1 -or $null -eq $group[0]) {
                     throw "Expected package group '$groupName' to contain exactly one package."
                 }
                 if ($group[0].id -ne $expectedGroups[$groupName] -or $group[0].scope -ne 'machine') {
