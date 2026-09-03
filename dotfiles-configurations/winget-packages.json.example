@@ -138,5 +138,17 @@
             "id": "JanDeDobbeleer.OhMyPosh",
             "scope": "user"
         }
+    ],
+    "tailscale": [
+        {
+            "id": "Tailscale.Tailscale",
+            "scope": "machine"
+        }
+    ],
+    "google-drive": [
+        {
+            "id": "Google.GoogleDrive",
+            "scope": "machine"
+        }
     ]
 }

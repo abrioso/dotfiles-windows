@@ -478,5 +478,29 @@ Describe 'Setup configuration resolution' {
                 }
             }
         }
+
+        It 'defines dedicated machine-scoped Tailscale and Google Drive package groups' {
+            $packageTemplatePath = Join-Path $PSScriptRoot '../dotfiles-configurations/winget-packages.json.example'
+            $packageGroups = Get-Content -LiteralPath $packageTemplatePath -Raw | ConvertFrom-Json
+            $expectedGroups = @{
+                'tailscale' = 'Tailscale.Tailscale'
+                'google-drive' = 'Google.GoogleDrive'
+            }
+
+            foreach ($groupName in $expectedGroups.Keys) {
+                $groupProperty = $packageGroups.PSObject.Properties[$groupName]
+                if ($null -eq $groupProperty) {
+                    throw "Expected package group '$groupName' to exist."
+                }
+
+                $group = @($groupProperty.Value)
+                if ($group.Count -ne 1 -or $null -eq $group[0]) {
+                    throw "Expected package group '$groupName' to contain exactly one package."
+                }
+                if ($group[0].id -ne $expectedGroups[$groupName] -or $group[0].scope -ne 'machine') {
+                    throw "Expected package group '$groupName' to contain machine-scoped package '$($expectedGroups[$groupName])'."
+                }
+            }
+        }
     }
 }
