@@ -2,7 +2,9 @@
 
 This checklist is the acceptance gate for promoting `develop` through a
 `release/vYYYY.MM.N` branch into `main`. Record the tested commit, Windows build, machine type,
-and evidence for every required scenario.
+and evidence for every required scenario. Copy
+[RELEASE_EVIDENCE_TEMPLATE.md](RELEASE_EVIDENCE_TEMPLATE.md) outside the repository before filling
+it; completed evidence and raw artifacts must not modify the release candidate under test.
 
 ## Test topology
 
