@@ -1021,9 +1021,23 @@ function Sync-DotfilesLocalConfiguration {
     if ($sourcePath -eq $targetPath) { return }
 
     Get-ChildItem -LiteralPath $sourceConfigDirectory -Filter "*.json" -File | ForEach-Object {
-        $targetFile = Join-Path $targetConfigDirectory $_.Name
-        Copy-Item -LiteralPath $_.FullName -Destination $targetFile -Force
-        Write-Info "Copied local configuration '$($_.Name)' to cloned repository."
+        $fileName = $_.Name
+        $sourceFile = $_.FullName
+        $targetFile = Join-Path $targetConfigDirectory $fileName
+        if (Test-Path -LiteralPath $targetFile) {
+            Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
+        } else {
+            try {
+                [System.IO.File]::Copy($sourceFile, $targetFile, $false)
+                Write-Info "Copied local configuration '$fileName' to cloned repository."
+            } catch [System.IO.IOException] {
+                if (Test-Path -LiteralPath $targetFile) {
+                    Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
+                } else {
+                    throw
+                }
+            }
+        }
     }
 }
 

@@ -713,6 +713,79 @@ Stop-Logging
                 throw 'Declarative package installs must select the Winget community source explicitly.'
             }
         }
+
+        It 'preserves existing local configuration during repeated Git-free bootstrap' {
+            $sourceRoot = Join-Path $TestDrive 'bootstrap-source'
+            $targetRoot = Join-Path $TestDrive 'persistent-clone'
+            $sourceConfig = Join-Path $sourceRoot 'dotfiles-configurations'
+            $targetConfig = Join-Path $targetRoot 'dotfiles-configurations'
+            New-Item -ItemType Directory -Path $sourceConfig -Force | Out-Null
+            New-Item -ItemType Directory -Path $targetConfig -Force | Out-Null
+
+            $preservedName = 'dotfiles-bootstrap-variables.json'
+            $preservedSourceFile = Join-Path $sourceConfig $preservedName
+            $preservedTargetFile = Join-Path $targetConfig $preservedName
+            $sourceBytes = [System.Text.Encoding]::UTF8.GetBytes('{"INSTALL_PACKAGES":["base"]}')
+            $expectedLocalBytes = [System.Text.Encoding]::UTF8.GetBytes("{`r`n  `"INSTALL_PACKAGES`": [`"base`", `"tailscale`", `"google-drive`"]`r`n}")
+            [System.IO.File]::WriteAllBytes($preservedSourceFile, $sourceBytes)
+            [System.IO.File]::WriteAllBytes($preservedTargetFile, $expectedLocalBytes)
+
+            $missingName = 'git-variables.json'
+            $missingSourceFile = Join-Path $sourceConfig $missingName
+            $missingTargetFile = Join-Path $targetConfig $missingName
+            $missingBytes = [System.Text.Encoding]::UTF8.GetBytes('{"user.name":"Local User"}')
+            [System.IO.File]::WriteAllBytes($missingSourceFile, $missingBytes)
+            Mock Write-Info { }
+
+            Sync-DotfilesLocalConfiguration -SourceRoot $sourceRoot -TargetRoot $targetRoot
+
+            [System.IO.File]::ReadAllBytes($preservedTargetFile) |
+                Should -BeExactly $expectedLocalBytes
+            [System.IO.File]::ReadAllBytes($missingTargetFile) |
+                Should -BeExactly $missingBytes
+            Should -Invoke Write-Info -Times 1 -Exactly -ParameterFilter {
+                $Message -eq "Skipped existing local configuration '$preservedName' in cloned repository."
+            }
+            Should -Invoke Write-Info -Times 1 -Exactly -ParameterFilter {
+                $Message -eq "Copied local configuration '$missingName' to cloned repository."
+            }
+        }
+
+        It 'does not overwrite local configuration created during synchronization' {
+            $sourceRoot = Join-Path $TestDrive 'race-source'
+            $targetRoot = Join-Path $TestDrive 'race-target'
+            $sourceConfig = Join-Path $sourceRoot 'dotfiles-configurations'
+            $targetConfig = Join-Path $targetRoot 'dotfiles-configurations'
+            New-Item -ItemType Directory -Path $sourceConfig -Force | Out-Null
+            New-Item -ItemType Directory -Path $targetConfig -Force | Out-Null
+
+            $fileName = 'dotfiles-bootstrap-variables.json'
+            $sourceFile = Join-Path $sourceConfig $fileName
+            $script:raceTargetFile = Join-Path $targetConfig $fileName
+            $sourceBytes = [System.Text.Encoding]::UTF8.GetBytes('{"source":true}')
+            $script:raceTargetBytes = [System.Text.Encoding]::UTF8.GetBytes('{"created-during-sync":true}')
+            [System.IO.File]::WriteAllBytes($sourceFile, $sourceBytes)
+            $script:raceTargetChecks = 0
+            Mock Test-Path {
+                if ($LiteralPath -eq $script:raceTargetFile) {
+                    $script:raceTargetChecks++
+                    if ($script:raceTargetChecks -eq 1) {
+                        [System.IO.File]::WriteAllBytes($script:raceTargetFile, $script:raceTargetBytes)
+                        return $false
+                    }
+                }
+                return $true
+            }
+            Mock Write-Info { }
+
+            Sync-DotfilesLocalConfiguration -SourceRoot $sourceRoot -TargetRoot $targetRoot
+
+            [System.IO.File]::ReadAllBytes($script:raceTargetFile) |
+                Should -BeExactly $script:raceTargetBytes
+            Should -Invoke Write-Info -Times 1 -Exactly -ParameterFilter {
+                $Message -eq "Skipped existing local configuration '$fileName' in cloned repository."
+            }
+        }
     }
 
     Context 'Default configuration consistency' {

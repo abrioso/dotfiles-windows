@@ -231,12 +231,16 @@ created by the current `main` branch, including the previous profile and Termina
 ## Repeated Git-free invocation
 
 This is a distinct safety test, not the post-reboot continuation path. Before running it, put a
-recognisable non-secret change in one persistent local JSON and take a snapshot or backup.
+recognisable non-secret change in one persistent local JSON and record its content or hash. Move a
+different local JSON to a backup outside the repository so the same invocation exercises both the
+preserve-existing and populate-missing paths. Take a VM snapshot before changing either file.
 
 - [ ] Re-run the Git-free bootstrap from the same branch.
-- [ ] Record whether the persistent local JSON is preserved, replaced, or prompts for a decision.
-- [ ] Treat silent replacement of existing machine-local choices as a release blocker unless it is
-      explicitly accepted and documented for that release.
+- [ ] The existing personalised JSON remains byte-for-byte unchanged.
+- [ ] The missing JSON is recreated from the release-branch template.
+- [ ] The transcript reports that the existing configuration was skipped and the missing
+      configuration was copied.
+- [ ] Treat replacement of any existing machine-local JSON as a release blocker.
 - [ ] Restore the snapshot before continuing other acceptance tests.
 
 ## Final release-branch gate
