@@ -782,6 +782,8 @@ Stop-Logging
 
             [System.IO.File]::ReadAllBytes($script:raceTargetFile) |
                 Should -BeExactly $script:raceTargetBytes
+            @(Get-ChildItem -LiteralPath $targetConfig -Filter '*.tmp' -File -Force) |
+                Should -HaveCount 0
             Should -Invoke Write-Info -Times 1 -Exactly -ParameterFilter {
                 $Message -eq "Skipped existing local configuration '$fileName' in cloned repository."
             }

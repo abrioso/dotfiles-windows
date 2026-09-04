@@ -1027,14 +1027,22 @@ function Sync-DotfilesLocalConfiguration {
         if (Test-Path -LiteralPath $targetFile) {
             Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
         } else {
+            $temporaryFile = Join-Path $targetConfigDirectory ".$fileName.$([guid]::NewGuid().ToString('N')).tmp"
             try {
-                [System.IO.File]::Copy($sourceFile, $targetFile, $false)
-                Write-Info "Copied local configuration '$fileName' to cloned repository."
-            } catch [System.IO.IOException] {
-                if (Test-Path -LiteralPath $targetFile) {
-                    Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
-                } else {
-                    throw
+                [System.IO.File]::Copy($sourceFile, $temporaryFile, $false)
+                try {
+                    [System.IO.File]::Move($temporaryFile, $targetFile)
+                    Write-Info "Copied local configuration '$fileName' to cloned repository."
+                } catch [System.IO.IOException] {
+                    if (Test-Path -LiteralPath $targetFile) {
+                        Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
+                    } else {
+                        throw
+                    }
+                }
+            } finally {
+                if (Test-Path -LiteralPath $temporaryFile) {
+                    [System.IO.File]::Delete($temporaryFile)
                 }
             }
         }
