@@ -21,9 +21,11 @@ The three main interactions do **not** all use the Git-free entry point:
 3. **Idempotency:** run `setup.ps1` from the same persistent clone again.
 
 The Git-free archive is a bootstrap transport, not the persistent checkout. Re-running it creates
-fresh local JSON from the archive templates and currently copies those files into the persistent
-clone with replacement semantics. Do not use it for post-reboot continuation when preserving the
-first run's local choices matter. Test repeated Git-free invocation separately as described below.
+fresh local JSON from the archive templates, copies only files missing from the persistent clone,
+and preserves existing machine-local JSON. However, that invocation has already loaded its active
+bootstrap variables from the fresh archive configuration. Do not use it for post-reboot
+continuation when the first run's active choices must remain in effect; execute `setup.ps1` from the
+persistent clone instead. Test repeated Git-free invocation separately as described below.
 
 ## Evidence to capture
 

@@ -128,9 +128,10 @@ The TUI creates local gitignored JSON files from `*.json.example` templates when
 Pull requests and pushes to `develop` or `main` run Pester, PSScriptAnalyzer, PowerShell syntax parsing, JSON parsing, and whitespace checks on Windows through GitHub Actions.
 
 Before promoting `develop` to `main`, run the clean-install, post-reboot, idempotency, migration,
-and rollback checks in [Release testing](docs/RELEASE_TESTING.md). Releases follow the
-`vYYYY.MM.N` Calendar Versioning and Git Flow process documented in
-[Gitflow Policy](docs/GITFLOW.md).
+and rollback checks in [Release testing](docs/RELEASE_TESTING.md). Copy the reusable
+[release evidence template](docs/RELEASE_EVIDENCE_TEMPLATE.md) outside the repository and fill it
+against the exact release commit under test. Releases follow the `vYYYY.MM.N` Calendar Versioning
+and Git Flow process documented in [Gitflow Policy](docs/GITFLOW.md).
 
 ## Feedback
 

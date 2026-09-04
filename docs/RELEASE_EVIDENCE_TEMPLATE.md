@@ -59,9 +59,26 @@ Run in Windows PowerShell 5.1:
 
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-iex "& { $(irm 'https://raw.githubusercontent.com/abrioso/dotfiles-windows/<release-branch>/setup-scripts/install.ps1') } -Account abrioso -Repo dotfiles-windows -Branch <release-branch> -NonInteractive"
-$InstallExitCode = $LASTEXITCODE
-$InstallExitCode | Set-Content "$EvidenceRoot\01-clean-install-exit-code.txt"
+$BootstrapScript = Join-Path $env:TEMP "dotfiles-windows-bootstrap-$([guid]::NewGuid().ToString('N')).ps1"
+try {
+    Invoke-WebRequest `
+        -UseBasicParsing `
+        -Uri 'https://raw.githubusercontent.com/abrioso/dotfiles-windows/<release-branch>/setup-scripts/install.ps1' `
+        -OutFile $BootstrapScript
+    & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
+        -NoLogo `
+        -NoProfile `
+        -ExecutionPolicy Bypass `
+        -File $BootstrapScript `
+        -Account abrioso `
+        -Repo dotfiles-windows `
+        -Branch <release-branch> `
+        -NonInteractive
+    $InstallExitCode = $LASTEXITCODE
+    $InstallExitCode | Set-Content "$EvidenceRoot\01-clean-install-exit-code.txt"
+} finally {
+    Remove-Item -LiteralPath $BootstrapScript -Force -ErrorAction SilentlyContinue
+}
 ```
 
 Record:
