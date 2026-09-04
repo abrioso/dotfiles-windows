@@ -86,7 +86,21 @@ Restart Windows before interaction 2.
 
 ## Interaction 2: post-reboot continuation
 
-Open PowerShell in the persistent clone and run:
+Open PowerShell in the persistent clone. Before the first post-reboot setup run, launch the TUI and
+add the opt-in `tailscale` and `google-drive` package groups while preserving the other default
+selections:
+
+```powershell
+.\setup-scripts\configure.ps1
+$bootstrap = Get-Content -LiteralPath '.\dotfiles-configurations\dotfiles-bootstrap-variables.json' -Raw | ConvertFrom-Json
+foreach ($group in @('tailscale', 'google-drive')) {
+    if ($group -notin @($bootstrap.INSTALL_PACKAGES)) {
+        throw "Required acceptance package group '$group' is not selected."
+    }
+}
+```
+
+Then run setup from the same persistent clone:
 
 ```powershell
 git status --short --branch
