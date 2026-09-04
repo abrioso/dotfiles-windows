@@ -86,17 +86,35 @@ Restart Windows before interaction 2.
 
 ## Interaction 2: post-reboot continuation
 
-Open PowerShell in the persistent clone. Before the first post-reboot setup run, launch the TUI and
-add the opt-in `tailscale` and `google-drive` package groups while preserving the other default
-selections:
+Open PowerShell in the persistent clone. Before the first post-reboot setup run, set the exact
+ordered package selection for this acceptance scenario: the tracked defaults followed by the two
+opt-in groups. This deliberately edits only the local, gitignored bootstrap configuration:
 
 ```powershell
-.\setup-scripts\configure.ps1
-$bootstrap = Get-Content -LiteralPath '.\dotfiles-configurations\dotfiles-bootstrap-variables.json' -Raw | ConvertFrom-Json
-foreach ($group in @('tailscale', 'google-drive')) {
-    if ($group -notin @($bootstrap.INSTALL_PACKAGES)) {
-        throw "Required acceptance package group '$group' is not selected."
-    }
+$bootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
+$bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
+$expectedPackageGroups = @(
+    'base',
+    'browsers',
+    'development',
+    'wsl',
+    'docker',
+    'multimedia',
+    'PowerBI',
+    'productivity',
+    'pwsh',
+    'poweruser',
+    'tailscale',
+    'google-drive'
+)
+$bootstrap.INSTALL_PACKAGES = $expectedPackageGroups
+$bootstrap | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $bootstrapPath -Encoding utf8
+
+$actualPackageGroups = @(
+    (Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json).INSTALL_PACKAGES
+)
+if (($actualPackageGroups -join "`n") -cne ($expectedPackageGroups -join "`n")) {
+    throw "Acceptance package groups are missing or out of order: $($actualPackageGroups -join ', ')."
 }
 ```
 
