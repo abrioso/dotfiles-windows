@@ -119,6 +119,10 @@ Examples:
 
 `INSTALL_PACKAGES` in `dotfiles-bootstrap-variables.json` controls which package groups are installed from `winget-packages.json`.
 
+The tracked defaults deliberately leave `tailscale` and `google-drive` unselected. Both are
+machine-scoped, optional integrations: add either group to `INSTALL_PACKAGES` through the TUI or
+local JSON only on machines where it is required.
+
 Package object entries contain an `id` and may constrain `scope` (`user` or `machine`) and
 `installerType` (currently `wix`). Omit scope when the selected upstream manifest does not declare
 one; forcing a scope is an installer-selection constraint and can result in `No applicable

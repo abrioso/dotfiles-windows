@@ -2,6 +2,10 @@
 
 Dotfiles for Windows, inspired by several other dotfiles repositories. This setup uses a modular, idempotent PowerShell script-based approach to configure a new machine.
 
+The supported target is Windows 11 Pro or Enterprise. The tracked non-interactive defaults enable
+Hyper-V, Windows Sandbox, WSL and RSAT capabilities; use the configuration TUI to deselect groups
+that are unavailable or unwanted on a particular machine.
+
 ## Installation
 
 > **Note:** To make this work, you need to set your PowerShell execution policy to allow scripts to run. You can do this for your user account by running the following command in PowerShell:
