@@ -6,9 +6,11 @@ and evidence for every required scenario.
 
 ## Test topology
 
-Use a disposable Windows 11 machine or VM with snapshots. An Entra ID joined machine whose real
-profile path contains non-ASCII characters is required for the `HOME` alias scenario. Use the
-default package, feature, and setting selections unless a scenario says otherwise.
+Use a disposable Windows 11 Pro or Enterprise machine or VM with snapshots. An Entra ID joined
+machine whose real profile path contains non-ASCII characters is required for the `HOME` alias
+scenario. Use the default package, feature, capability, and setting selections unless a scenario
+says otherwise. Tailscale and Google Drive remain opt-in; select both explicitly for the package
+acceptance scenario without adding them to the tracked defaults.
 
 The three main interactions do **not** all use the Git-free entry point:
 
@@ -26,7 +28,7 @@ first run's local choices matter. Test repeated Git-free invocation separately a
 For each interaction, retain:
 
 - the exact Git commit under test;
-- the setup transcript and any elevated Windows-feature transcript;
+- the setup transcript and any elevated Windows feature or capability transcript;
 - the process exit code;
 - screenshots or command output for UAC, WSL, Docker, package and filesystem checks;
 - `git status --short` from the persistent clone.
@@ -38,7 +40,7 @@ addresses, repository endpoints, tokens, or other machine-specific values.
 
 ### Preconditions
 
-- Start from a snapshot with the selected Windows optional features disabled.
+- Start from a snapshot with the selected Windows optional features disabled and capabilities absent.
 - Remove any previous persistent dotfiles clone, local dotfiles configuration, `HOME` alias,
   Windows Terminal baseline, and repo-managed PowerShell profiles.
 - Ensure Windows Package Manager is available. Git and PowerShell 7 should be absent when testing
@@ -98,6 +100,9 @@ git rev-parse HEAD
 - [ ] Already-enabled Windows features pass the non-elevated preflight and do not cause another
       feature UAC prompt.
 - [ ] Setup continues beyond the reboot boundary and executes modules in documented order.
+- [ ] Selected Windows capabilities install in declared order under Windows PowerShell 5.1.
+- [ ] If capability installation returns `3010`, setup stops before Winget; restart Windows and
+      repeat this interaction before evaluating downstream modules.
 - [ ] A module failure stops the remaining plan and returns a non-zero exit code.
 
 ### Winget checks
@@ -107,6 +112,8 @@ git rev-parse HEAD
       non-zero Winget exit code.
 - [ ] `Microsoft.PowerShell` and `Microsoft.WindowsTerminal` remain user-scoped MSIX packages.
 - [ ] Packages declared with machine scope request UAC only when installation is required.
+- [ ] With the opt-in `tailscale` and `google-drive` groups selected, both packages install using
+      their machine-scoped installers and are detected as installed on the idempotency run.
 - [ ] `Microsoft.WSL` installs before `Canonical.Ubuntu`, and the WSL group completes before
       Docker Desktop.
 

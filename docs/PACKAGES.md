@@ -66,13 +66,13 @@ required UAC elevation itself while the package module continues running as the 
 - `browsers` — Chrome, Edge and Firefox
 - `development` — Azure tooling, Dev Home, GitHub CLI, Python, Git, PowerShell and Visual Studio Code
 - `docker` — Docker Desktop
-- `google-drive` — Google Drive for desktop, providing machine-wide Drive integration
+- `google-drive` — optional Google Drive for desktop, providing machine-wide Drive integration
 - `multimedia` — OBS Studio and VLC
 - `poweruser` — package-management and power-user tooling
 - `PowerBI` — Power BI Desktop, installed with machine scope
 - `productivity` — Microsoft Office, OneDrive and Teams
 - `pwsh` — Oh My Posh
-- `tailscale` — Tailscale client and system service for mesh VPN connectivity
+- `tailscale` — optional Tailscale client and system service for mesh VPN connectivity
 - `wsl` — WSL and Ubuntu
 
 ## Selected package scopes and elevation
