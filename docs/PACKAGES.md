@@ -42,7 +42,8 @@ every installer with `0x8A150010` (`No applicable installer`). In that case the 
 scope and may use `installerType` to select a deterministic upstream installer.
 
 The shared defaults request `machine` scope for Docker Desktop, gsudo, Azure CLI, Edge, Office,
-Power BI Desktop, Firefox, Tailscale and Google Drive. These packages either publish only machine installers or
+Power BI Desktop, Firefox, Tailscale, Google Drive, 7-Zip, Delinea Connection Manager and the
+Yubico tools. These packages either publish only machine installers or
 intentionally require machine-wide integration.
 
 Packages that publish explicit user installers remain `user` scoped. Some MSIX, AppX and portable installers omit `Scope` in the upstream manifest; their existing `user` selection is retained where the installer format supports per-user deployment. When a package offers both a machine installer and a scope-neutral portable or MSIX alternative, changing its scope can change which installer type Winget selects.
@@ -62,18 +63,31 @@ required UAC elevation itself while the package module continues running as the 
 
 ## Package categories
 
-- `base` — Git, PowerShell, Visual Studio Code and Windows Terminal
+- `base` — 7-Zip, Git, PowerShell, Visual Studio Code and Windows Terminal
 - `browsers` — Chrome, Edge and Firefox
-- `development` — Azure tooling, Dev Home, GitHub CLI, Python, Git, PowerShell and Visual Studio Code
+- `dev` — Git, GitHub CLI, PowerShell, Visual Studio Code, Python 3.13 and Yaak (API client)
+- `azure` — Azure Developer CLI (`azd`), Azure CLI, PowerShell and Visual Studio Code
 - `docker` — Docker Desktop
+- `delinea` — optional Delinea Connection Manager for remote connection management
 - `google-drive` — optional Google Drive for desktop, providing machine-wide Drive integration
 - `multimedia` — OBS Studio and VLC
 - `poweruser` — package-management and power-user tooling
 - `PowerBI` — Power BI Desktop, installed with machine scope
-- `productivity` — Microsoft Office, OneDrive and Teams
+- `productivity` — Microsoft 365 Copilot, Microsoft Office, OneDrive and Teams
 - `pwsh` — PowerShell, Windows Terminal and Oh My Posh (all with `user` scope)
 - `tailscale` — optional Tailscale client and system service for mesh VPN connectivity
 - `wsl` — WSL and Ubuntu
+- `yubico` — optional Yubico Authenticator, YubiKey Manager and YubiKey Manager CLI
+
+The `delinea` and `yubico` groups are available in the configuration TUI but are not selected
+in the shared bootstrap defaults. Select them in `INSTALL_PACKAGES` when required.
+
+The former `development` group is split into `dev` and `azure`; both are selected in the
+shared bootstrap defaults to preserve the previous package set. The `developer` settings
+group requires `dev` for Git configuration. Packages shared by selected groups are deduplicated.
+For existing local configurations, refresh `winget-packages.json` and `setup-modules.json`
+from their templates, preserving any customizations, and replace `development` in
+`dotfiles-bootstrap-variables.json`'s `INSTALL_PACKAGES` with `dev` and/or `azure` as needed.
 
 ## Selected package scopes and elevation
 
@@ -85,6 +99,13 @@ affecting bootstrap installs.
 
 | Package | Requested scope | Expected elevation |
 | --- | --- | --- |
+| `7zip.7zip` | `machine` | Yes when installation is required; upstream installers declare machine scope. |
+| `Delinea.DelineaConnectionManager` | `machine` | Yes when installation is required; upstream WiX installer declares machine scope. |
+| `Microsoft.365Copilot` | `user` | Upstream installer declares user scope. |
+| `Yaak.app` | `user` | Normally no; upstream NSIS installer declares user scope. |
+| `Yubico.Authenticator` | `machine` | Yes when installation is required; upstream WiX installer declares machine scope. |
+| `Yubico.YubikeyManager` | `machine` | Yes when installation is required; upstream NSIS installers declare machine scope. |
+| `Yubico.YubiKeyManagerCLI` | `machine` | Yes when installation is required; upstream WiX installer declares machine scope. |
 | `Docker.DockerDesktop` | `machine` | Yes when installation is required. |
 | `gerardog.gsudo` | `machine` | Yes when installation is required; gsudo installs system integration. |
 | `Git.Git` | `user` | Normally no. Git also publishes a machine installer, but bootstrap deliberately selects the user installer. |
@@ -103,3 +124,12 @@ affecting bootstrap installs.
 | `Tailscale.Tailscale` | `machine` | Yes when installation is required; Tailscale installs its system service and network integration. |
 
 Git and PowerShell are also bootstrap prerequisites. If missing, setup installs them explicitly with `user` scope before processing package groups. An existing installation in either scope is reused.
+
+Scopes for the additions above were checked on 2026-09-06 against the Winget installer manifests:
+[7-Zip 26.02](https://github.com/microsoft/winget-pkgs/blob/master/manifests/7/7zip/7zip/26.02/7zip.7zip.installer.yaml),
+[Delinea 2.9.0.33](https://github.com/microsoft/winget-pkgs/blob/master/manifests/d/Delinea/DelineaConnectionManager/2.9.0.33/Delinea.DelineaConnectionManager.installer.yaml),
+[Microsoft 365 Copilot 19.2607.33010](https://github.com/microsoft/winget-pkgs/blob/master/manifests/m/Microsoft/365Copilot/19.2607.33010/Microsoft.365Copilot.installer.yaml),
+[Yaak 2026.7.1](https://github.com/microsoft/winget-pkgs/blob/master/manifests/y/Yaak/app/2026.7.1/Yaak.app.installer.yaml),
+[Yubico Authenticator 7.4.1](https://github.com/microsoft/winget-pkgs/blob/master/manifests/y/Yubico/Authenticator/7.4.1/Yubico.Authenticator.installer.yaml),
+[YubiKey Manager 1.2.6](https://github.com/microsoft/winget-pkgs/blob/master/manifests/y/Yubico/YubikeyManager/1.2.6/Yubico.YubikeyManager.installer.yaml), and
+[YubiKey Manager CLI 5.9.2](https://github.com/microsoft/winget-pkgs/blob/master/manifests/y/Yubico/YubiKeyManagerCLI/5.9.2/Yubico.YubiKeyManagerCLI.installer.yaml).

@@ -21,7 +21,8 @@
     "INSTALL_PACKAGES": [
         "base",
         "browsers",
-        "development",
+        "dev",
+        "azure",
         "wsl",
         "docker",
         "multimedia",
