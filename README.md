@@ -108,8 +108,11 @@ git config --global user.email "your.email@example.com"
 ```
 
 Nerd Font setup records installed file hashes and verifies registration before skipping.
-Legacy installations without this record are refreshed once; partial installations are repaired.
-`tests/NerdFontRepair.Tests.ps1` covers missing/corrupt files and missing registration.
+Legacy installations without this record are checked against the downloaded archive once;
+identical files are reused even when in use, and missing registration is repaired.
+If a changed font is locked, close applications using it (including Windows Terminal) and
+rerun setup from a console using another font; restart Windows if the lock persists.
+`tests/NerdFontRepair.Tests.ps1` covers missing/corrupt files, locked files and missing registration.
 
 ## Customization
 
