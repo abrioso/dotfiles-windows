@@ -1025,6 +1025,9 @@ function Sync-DotfilesLocalConfiguration {
         $sourceFile = $_.FullName
         $targetFile = Join-Path $targetConfigDirectory $fileName
         if (Test-Path -LiteralPath $targetFile) {
+            if (-not (Test-Path -LiteralPath $targetFile -PathType Leaf)) {
+                throw "Local configuration target '$targetFile' exists but is not a file."
+            }
             Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
         } else {
             $temporaryFile = Join-Path $targetConfigDirectory ".$fileName.$([guid]::NewGuid().ToString('N')).tmp"
@@ -1035,6 +1038,9 @@ function Sync-DotfilesLocalConfiguration {
                     Write-Info "Copied local configuration '$fileName' to cloned repository."
                 } catch [System.IO.IOException] {
                     if (Test-Path -LiteralPath $targetFile) {
+                        if (-not (Test-Path -LiteralPath $targetFile -PathType Leaf)) {
+                            throw "Local configuration target '$targetFile' exists but is not a file."
+                        }
                         Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
                     } else {
                         throw

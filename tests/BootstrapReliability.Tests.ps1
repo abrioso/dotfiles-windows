@@ -751,6 +751,27 @@ Stop-Logging
             }
         }
 
+        It 'fails when an existing local configuration target is not a file' {
+            $sourceRoot = Join-Path $TestDrive 'invalid-target-source'
+            $targetRoot = Join-Path $TestDrive 'invalid-target-clone'
+            $sourceConfig = Join-Path $sourceRoot 'dotfiles-configurations'
+            $targetConfig = Join-Path $targetRoot 'dotfiles-configurations'
+            New-Item -ItemType Directory -Path $sourceConfig -Force | Out-Null
+            New-Item -ItemType Directory -Path $targetConfig -Force | Out-Null
+
+            $fileName = 'dotfiles-bootstrap-variables.json'
+            $sourceFile = Join-Path $sourceConfig $fileName
+            $targetFile = Join-Path $targetConfig $fileName
+            [System.IO.File]::WriteAllText($sourceFile, '{}')
+            New-Item -ItemType Directory -Path $targetFile | Out-Null
+            Mock Write-Info { }
+
+            { Sync-DotfilesLocalConfiguration -SourceRoot $sourceRoot -TargetRoot $targetRoot } |
+                Should -Throw -ExpectedMessage "Local configuration target '$targetFile' exists but is not a file."
+            Test-Path -LiteralPath $targetFile -PathType Container | Should -BeTrue
+            Should -Invoke Write-Info -Times 0 -Exactly
+        }
+
         It 'does not overwrite local configuration created during synchronization' {
             $sourceRoot = Join-Path $TestDrive 'race-source'
             $targetRoot = Join-Path $TestDrive 'race-target'
@@ -787,6 +808,42 @@ Stop-Logging
             Should -Invoke Write-Info -Times 1 -Exactly -ParameterFilter {
                 $Message -eq "Skipped existing local configuration '$fileName' in cloned repository."
             }
+        }
+
+        It 'fails when a non-file local configuration target appears during synchronization' {
+            $sourceRoot = Join-Path $TestDrive 'invalid-race-source'
+            $targetRoot = Join-Path $TestDrive 'invalid-race-target'
+            $sourceConfig = Join-Path $sourceRoot 'dotfiles-configurations'
+            $targetConfig = Join-Path $targetRoot 'dotfiles-configurations'
+            New-Item -ItemType Directory -Path $sourceConfig -Force | Out-Null
+            New-Item -ItemType Directory -Path $targetConfig -Force | Out-Null
+
+            $fileName = 'dotfiles-bootstrap-variables.json'
+            $sourceFile = Join-Path $sourceConfig $fileName
+            $script:invalidRaceTargetFile = Join-Path $targetConfig $fileName
+            [System.IO.File]::WriteAllText($sourceFile, '{}')
+            $script:invalidRaceTargetChecks = 0
+            Mock Test-Path {
+                if ($LiteralPath -eq $script:invalidRaceTargetFile) {
+                    $script:invalidRaceTargetChecks++
+                    if ($script:invalidRaceTargetChecks -eq 1) {
+                        New-Item -ItemType Directory -Path $script:invalidRaceTargetFile | Out-Null
+                        return $false
+                    }
+                    if ($PathType -eq 'Leaf') {
+                        return $false
+                    }
+                }
+                return $true
+            }
+            Mock Write-Info { }
+
+            { Sync-DotfilesLocalConfiguration -SourceRoot $sourceRoot -TargetRoot $targetRoot } |
+                Should -Throw -ExpectedMessage "Local configuration target '$script:invalidRaceTargetFile' exists but is not a file."
+            Test-Path -LiteralPath $script:invalidRaceTargetFile -PathType Container | Should -BeTrue
+            @(Get-ChildItem -LiteralPath $targetConfig -Filter '*.tmp' -File -Force) |
+                Should -HaveCount 0
+            Should -Invoke Write-Info -Times 0 -Exactly
         }
     }
 
