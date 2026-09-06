@@ -22,10 +22,12 @@ The three main interactions do **not** all use the Git-free entry point:
 
 The Git-free archive is a bootstrap transport, not the persistent checkout. Re-running it creates
 fresh local JSON from the archive templates, copies only files missing from the persistent clone,
-and preserves existing machine-local JSON. However, that invocation has already loaded its active
-bootstrap variables from the fresh archive configuration. Do not use it for post-reboot
-continuation when the first run's active choices must remain in effect; execute `setup.ps1` from the
-persistent clone instead. Test repeated Git-free invocation separately as described below.
+and preserves existing machine-local JSON. After synchronization, setup reloads the persistent
+bootstrap configuration before validating dependencies and building the module plan. Saved choices
+therefore control both orchestration and modules. `-BootstrapBranch` selects the checkout for this
+invocation without replacing an existing persistent configuration. Initial repository location and
+endpoint selection still come from the bootstrap transport. For post-reboot continuation, execute
+`setup.ps1` from the persistent clone. Test repeated Git-free invocation separately as described below.
 
 ## Evidence to capture
 

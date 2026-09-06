@@ -49,6 +49,9 @@ times on the same machine. It will only install or change things that are not al
 state. Repeated Git-free bootstrap invocation is a separate transport/configuration scenario and
 must not be treated as equivalent to rerunning the persistent setup.
 
+The setup reloads persistent bootstrap choices after configuration synchronization.
+`tests/EffectiveBootstrap.Tests.ps1` covers preservation of saved opt-outs.
+
 ### Core Components
 
 #### `setup-scripts`
