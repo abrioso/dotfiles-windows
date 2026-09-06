@@ -49,6 +49,9 @@ times on the same machine. It will only install or change things that are not al
 state. Repeated Git-free bootstrap invocation is a separate transport/configuration scenario and
 must not be treated as equivalent to rerunning the persistent setup.
 
+Git configuration read/write failures stop setup. `tests/GitConfigFailure.Tests.ps1`
+exercises malformed configuration and a held Git configuration lock.
+
 ### Core Components
 
 #### `setup-scripts`
