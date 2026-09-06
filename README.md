@@ -49,6 +49,9 @@ times on the same machine. It will only install or change things that are not al
 state. Repeated Git-free bootstrap invocation is a separate transport/configuration scenario and
 must not be treated as equivalent to rerunning the persistent setup.
 
+The setup reloads persistent bootstrap choices after configuration synchronization.
+`tests/EffectiveBootstrap.Tests.ps1` covers preservation of saved opt-outs.
+
 ### Core Components
 
 #### `setup-scripts`
@@ -68,10 +71,10 @@ This folder contains the modular scripts that perform the actual configuration t
 -   `Configure-WindowsCapabilities.ps1`: Installs selected Windows capabilities such as the RSAT Active Directory tools. It skips capabilities already installed and also stops setup with code `3010` when Windows requires a reboot.
 -   `Install-WingetPackages.ps1`: Reads local `winget-packages.json` and installs the selected package groups using the `winget` command-line tool, including optional per-package `user` or `machine` scope and `installerType` (e.g. `wix`) declarations.
 -   `Configure-WSL2.ps1`: Runs after Winget when the `wsl` group is selected, sets WSL 2 as the default, and applies WSL 2 to an existing Ubuntu registration.
--   `Set-EnvironmentVariables.ps1`: Reads local `env-variables.json` and configures environment variables.
+-   `Set-EnvironmentVariables.ps1`: Reads local `env-variables.json` and configures environment variables. Validates entries first and elevates only pending Machine changes; the child skips User entries and propagates failures. `tests/EnvironmentElevation.Tests.ps1` covers these contracts.
 -   `Set-UserHomeAlias.ps1`: Creates an ASCII-only junction alias for the user profile directory (for Entra ID displayName paths with accents) and points the user-scope `HOME` variable at it. It prefers the signed-in UPN reported by the in-box `whoami.exe /upn`, with validated identity/`USERNAME` fallbacks. Setup requests UAC only when the junction must first be created under `C:\Users`; an ASCII-only profile, a fully satisfied rerun, or a rerun that only needs a user-scope `HOME` update does not prompt. The elevated child receives the original profile and alias paths explicitly and performs only the junction mutation; the non-elevated parent updates `HOME` for the invoking user, even when UAC uses different Administrator credentials.
 -   `Install-LocalPowerShellProfiles.ps1`: Copies repo profiles to `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced) and writes a marker stub into the profile directory that dot-sources the local copy, so profiles stay per-machine even when Documents is OneDrive-synced.
--   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config.
+-   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config. Read/write failures stop setup; `tests/GitConfigFailure.Tests.ps1` covers malformed configuration and held locks.
 
 #### `dotfiles-configurations`
 
@@ -88,6 +91,9 @@ This folder contains tracked `*.json.example` templates and local gitignored `*.
 ### PowerShell Profile
 
 The setup deploys per-machine PowerShell profiles: the real profile files live in `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced), and a small marker stub in the profile directory dot-sources them. This keeps your profile configuration tracked in this repository while staying personal to each machine, even when Documents is synchronised by OneDrive. The profile is composed of several files located in the `powershell-profiles` directory.
+
+Profile stubs resolve `LOCALAPPDATA` at load time, so the same synced stub works across
+machines. `tests/PortableProfile.Tests.ps1` verifies this with different local paths.
 
 ### Private files and Secrets
 
