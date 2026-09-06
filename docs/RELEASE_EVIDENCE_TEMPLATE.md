@@ -126,7 +126,7 @@ Set and verify the exact package order in the persistent clone:
 $bootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
 $bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
 $expectedPackageGroups = @(
-    'base', 'browsers', 'development', 'wsl', 'docker', 'multimedia',
+    'base', 'browsers', 'dev', 'azure', 'wsl', 'docker', 'multimedia',
     'PowerBI', 'productivity', 'pwsh', 'poweruser', 'tailscale', 'google-drive'
 )
 $bootstrap.INSTALL_PACKAGES = $expectedPackageGroups

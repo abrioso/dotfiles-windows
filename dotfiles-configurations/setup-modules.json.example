@@ -60,7 +60,7 @@
             {
                 "script": "Apply-GitConfig.ps1",
                 "requiresPackageGroups": [
-                    "development"
+                    "dev"
                 ]
             }
         ],

@@ -77,7 +77,7 @@
             "scope": "machine"
         }
     ],
-    "development": [
+    "dev": [
         {
             "id": "Git.Git",
             "scope": "user"
@@ -86,6 +86,20 @@
             "id": "GitHub.cli",
             "scope": "user"
         },
+        {
+            "id": "Microsoft.PowerShell",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.VisualStudioCode",
+            "scope": "user"
+        },
+        {
+            "id": "Python.Python.3.13",
+            "scope": "user"
+        }
+    ],
+    "azure": [
         {
             "id": "Microsoft.Azd",
             "installerType": "wix"
@@ -100,10 +114,6 @@
         },
         {
             "id": "Microsoft.VisualStudioCode",
-            "scope": "user"
-        },
-        {
-            "id": "Python.Python.3.13",
             "scope": "user"
         }
     ],

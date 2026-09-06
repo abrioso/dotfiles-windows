@@ -102,7 +102,8 @@ $bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
 $expectedPackageGroups = @(
     'base',
     'browsers',
-    'development',
+    'dev',
+    'azure',
     'wsl',
     'docker',
     'multimedia',

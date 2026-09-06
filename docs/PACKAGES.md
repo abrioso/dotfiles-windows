@@ -64,7 +64,8 @@ required UAC elevation itself while the package module continues running as the 
 
 - `base` — Git, PowerShell, Visual Studio Code and Windows Terminal
 - `browsers` — Chrome, Edge and Firefox
-- `development` — Azure tooling, Dev Home, GitHub CLI, Python, Git, PowerShell and Visual Studio Code
+- `dev` — Git, GitHub CLI, PowerShell, Visual Studio Code and Python 3.13
+- `azure` — Azure Developer CLI (`azd`), Azure CLI, PowerShell and Visual Studio Code
 - `docker` — Docker Desktop
 - `google-drive` — optional Google Drive for desktop, providing machine-wide Drive integration
 - `multimedia` — OBS Studio and VLC
@@ -74,6 +75,13 @@ required UAC elevation itself while the package module continues running as the 
 - `pwsh` — PowerShell, Windows Terminal and Oh My Posh (all with `user` scope)
 - `tailscale` — optional Tailscale client and system service for mesh VPN connectivity
 - `wsl` — WSL and Ubuntu
+
+The former `development` group is split into `dev` and `azure`; both are selected in the
+shared bootstrap defaults to preserve the previous package set. The `developer` settings
+group requires `dev` for Git configuration. Packages shared by selected groups are deduplicated.
+For existing local configurations, refresh `winget-packages.json` and `setup-modules.json`
+from their templates, preserving any customizations, and replace `development` in
+`dotfiles-bootstrap-variables.json`'s `INSTALL_PACKAGES` with `dev` and/or `azure` as needed.
 
 ## Selected package scopes and elevation
 

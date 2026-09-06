@@ -132,7 +132,8 @@ installer`. Duplicate package IDs across selected groups must use identical meta
 {
   "INSTALL_PACKAGES": [
     "base",
-    "development",
+    "dev",
+    "azure",
     "wsl"
   ]
 }
