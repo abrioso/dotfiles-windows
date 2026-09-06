@@ -1021,9 +1021,37 @@ function Sync-DotfilesLocalConfiguration {
     if ($sourcePath -eq $targetPath) { return }
 
     Get-ChildItem -LiteralPath $sourceConfigDirectory -Filter "*.json" -File | ForEach-Object {
-        $targetFile = Join-Path $targetConfigDirectory $_.Name
-        Copy-Item -LiteralPath $_.FullName -Destination $targetFile -Force
-        Write-Info "Copied local configuration '$($_.Name)' to cloned repository."
+        $fileName = $_.Name
+        $sourceFile = $_.FullName
+        $targetFile = Join-Path $targetConfigDirectory $fileName
+        if (Test-Path -LiteralPath $targetFile) {
+            if (-not (Test-Path -LiteralPath $targetFile -PathType Leaf)) {
+                throw "Local configuration target '$targetFile' exists but is not a file."
+            }
+            Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
+        } else {
+            $temporaryFile = Join-Path $targetConfigDirectory ".$fileName.$([guid]::NewGuid().ToString('N')).tmp"
+            try {
+                [System.IO.File]::Copy($sourceFile, $temporaryFile, $false)
+                try {
+                    [System.IO.File]::Move($temporaryFile, $targetFile)
+                    Write-Info "Copied local configuration '$fileName' to cloned repository."
+                } catch [System.IO.IOException] {
+                    if (Test-Path -LiteralPath $targetFile) {
+                        if (-not (Test-Path -LiteralPath $targetFile -PathType Leaf)) {
+                            throw "Local configuration target '$targetFile' exists but is not a file."
+                        }
+                        Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
+                    } else {
+                        throw
+                    }
+                }
+            } finally {
+                if (Test-Path -LiteralPath $temporaryFile) {
+                    [System.IO.File]::Delete($temporaryFile)
+                }
+            }
+        }
     }
 }
 

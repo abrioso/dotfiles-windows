@@ -2,7 +2,9 @@
 
 This checklist is the acceptance gate for promoting `develop` through a
 `release/vYYYY.MM.N` branch into `main`. Record the tested commit, Windows build, machine type,
-and evidence for every required scenario.
+and evidence for every required scenario. Copy
+[RELEASE_EVIDENCE_TEMPLATE.md](RELEASE_EVIDENCE_TEMPLATE.md) outside the repository before filling
+it; completed evidence and raw artifacts must not modify the release candidate under test.
 
 ## Test topology
 
@@ -19,9 +21,11 @@ The three main interactions do **not** all use the Git-free entry point:
 3. **Idempotency:** run `setup.ps1` from the same persistent clone again.
 
 The Git-free archive is a bootstrap transport, not the persistent checkout. Re-running it creates
-fresh local JSON from the archive templates and currently copies those files into the persistent
-clone with replacement semantics. Do not use it for post-reboot continuation when preserving the
-first run's local choices matter. Test repeated Git-free invocation separately as described below.
+fresh local JSON from the archive templates, copies only files missing from the persistent clone,
+and preserves existing machine-local JSON. However, that invocation has already loaded its active
+bootstrap variables from the fresh archive configuration. Do not use it for post-reboot
+continuation when the first run's active choices must remain in effect; execute `setup.ps1` from the
+persistent clone instead. Test repeated Git-free invocation separately as described below.
 
 ## Evidence to capture
 
@@ -231,12 +235,16 @@ created by the current `main` branch, including the previous profile and Termina
 ## Repeated Git-free invocation
 
 This is a distinct safety test, not the post-reboot continuation path. Before running it, put a
-recognisable non-secret change in one persistent local JSON and take a snapshot or backup.
+recognisable non-secret change in one persistent local JSON and record its content or hash. Move a
+different local JSON to a backup outside the repository so the same invocation exercises both the
+preserve-existing and populate-missing paths. Take a VM snapshot before changing either file.
 
 - [ ] Re-run the Git-free bootstrap from the same branch.
-- [ ] Record whether the persistent local JSON is preserved, replaced, or prompts for a decision.
-- [ ] Treat silent replacement of existing machine-local choices as a release blocker unless it is
-      explicitly accepted and documented for that release.
+- [ ] The existing personalised JSON remains byte-for-byte unchanged.
+- [ ] The missing JSON is recreated from the release-branch template.
+- [ ] The transcript reports that the existing configuration was skipped and the missing
+      configuration was copied.
+- [ ] Treat replacement of any existing machine-local JSON as a release blocker.
 - [ ] Restore the snapshot before continuing other acceptance tests.
 
 ## Final release-branch gate

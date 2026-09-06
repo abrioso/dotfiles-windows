@@ -220,10 +220,12 @@ The branch override is persisted to the local bootstrap JSON and therefore remai
 
 After the Git-free bootstrap creates the persistent workspace clone, post-reboot continuation and
 normal reruns should execute `setup-scripts\setup.ps1` from that clone. A new Git-free invocation
-extracts a fresh archive, recreates missing local JSON there, and copies its local JSON into the
-persistent clone with replacement semantics. It is therefore not the safe continuation path when
-the existing clone contains machine-specific local choices. The release acceptance matrix tests
-this behavior separately; see [Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
+extracts a fresh archive and recreates missing local JSON there. Synchronization copies only JSON
+missing from the persistent clone and preserves existing machine-local files. The current
+invocation nevertheless uses bootstrap variables already loaded from the archive configuration,
+so it is not the safe continuation path when the first run's active choices must remain in effect.
+The release acceptance matrix tests preservation and missing-file population separately; see
+[Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
 
 For an unattended bootstrap that accepts all template defaults:
 
