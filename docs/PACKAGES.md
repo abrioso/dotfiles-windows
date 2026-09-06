@@ -42,7 +42,7 @@ every installer with `0x8A150010` (`No applicable installer`). In that case the 
 scope and may use `installerType` to select a deterministic upstream installer.
 
 The shared defaults request `machine` scope for Docker Desktop, gsudo, Azure CLI, Edge, Office,
-Power BI Desktop and Firefox. These packages either publish only machine installers or
+Power BI Desktop, Firefox, Tailscale and Google Drive. These packages either publish only machine installers or
 intentionally require machine-wide integration.
 
 Packages that publish explicit user installers remain `user` scoped. Some MSIX, AppX and portable installers omit `Scope` in the upstream manifest; their existing `user` selection is retained where the installer format supports per-user deployment. When a package offers both a machine installer and a scope-neutral portable or MSIX alternative, changing its scope can change which installer type Winget selects.
@@ -66,11 +66,13 @@ required UAC elevation itself while the package module continues running as the 
 - `browsers` — Chrome, Edge and Firefox
 - `development` — Azure tooling, Dev Home, GitHub CLI, Python, Git, PowerShell and Visual Studio Code
 - `docker` — Docker Desktop
+- `google-drive` — optional Google Drive for desktop, providing machine-wide Drive integration
 - `multimedia` — OBS Studio and VLC
 - `poweruser` — package-management and power-user tooling
 - `PowerBI` — Power BI Desktop, installed with machine scope
 - `productivity` — Microsoft Office, OneDrive and Teams
 - `pwsh` — Oh My Posh
+- `tailscale` — optional Tailscale client and system service for mesh VPN connectivity
 - `wsl` — WSL and Ubuntu
 
 ## Selected package scopes and elevation
@@ -86,6 +88,7 @@ affecting bootstrap installs.
 | `Docker.DockerDesktop` | `machine` | Yes when installation is required. |
 | `gerardog.gsudo` | `machine` | Yes when installation is required; gsudo installs system integration. |
 | `Git.Git` | `user` | Normally no. Git also publishes a machine installer, but bootstrap deliberately selects the user installer. |
+| `Google.GoogleDrive` | `machine` | Yes when installation is required; Drive for desktop installs machine-wide integration. |
 | `Microsoft.Azd` | omitted; WiX pinned | No UAC was required in the clean-machine validation; its upstream WiX installer has no declared scope. |
 | `Microsoft.AzureCLI` | `machine` | Yes when installation is required. |
 | `Microsoft.Edge` | `machine` | Yes when installation is required; Edge is normally already provisioned by Windows. |
@@ -97,5 +100,6 @@ affecting bootstrap installs.
 | `Microsoft.VisualStudioCode` | `user` | Normally no; selects the user installer. |
 | `Microsoft.WindowsTerminal` | `user` | Normally no; installs as an MSIX package for the user. |
 | `Microsoft.WSL` | omitted; WiX pinned | Yes when installation is required; the WiX installer presents UAC. |
+| `Tailscale.Tailscale` | `machine` | Yes when installation is required; Tailscale installs its system service and network integration. |
 
 Git and PowerShell are also bootstrap prerequisites. If missing, setup installs them explicitly with `user` scope before processing package groups. An existing installation in either scope is reused.

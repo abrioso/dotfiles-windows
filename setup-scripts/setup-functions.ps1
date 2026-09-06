@@ -39,16 +39,26 @@ function Start-Logging {
         [Parameter(Mandatory)]
         [string]$LogFilePath,
         [switch]$PassThru,
-        [switch]$RequireRequestedPath
+        [switch]$RequireRequestedPath,
+        [switch]$Append
     )
 
     $actualLogFilePath = $LogFilePath
+    $transcriptParameters = @{
+        ErrorAction = 'Stop'
+        Path = $actualLogFilePath
+    }
+    if ($Append) {
+        $transcriptParameters.Append = $true
+    }
     try {
+        $actualLogFilePath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($LogFilePath)
+        $transcriptParameters.Path = $actualLogFilePath
         $logDir = Split-Path -Parent $actualLogFilePath
         if (-not (Test-Path -LiteralPath $logDir -PathType Container)) {
             New-Item -Path $logDir -ItemType Directory -ErrorAction Stop | Out-Null
         }
-        Start-Transcript -Path $actualLogFilePath -ErrorAction Stop | Out-Null
+        Start-Transcript @transcriptParameters | Out-Null
     }
     catch {
         if ($RequireRequestedPath) {
@@ -59,7 +69,8 @@ function Start-Logging {
         $fallbackName = "{0}-{1}.txt" -f [System.IO.Path]::GetFileNameWithoutExtension($LogFilePath), [System.Guid]::NewGuid().ToString('N')
         $actualLogFilePath = Join-Path $env:TEMP $fallbackName
         try {
-            Start-Transcript -Path $actualLogFilePath -ErrorAction Stop | Out-Null
+            $transcriptParameters.Path = $actualLogFilePath
+            Start-Transcript @transcriptParameters | Out-Null
             Write-WarningMessage "Logging to temporary location: $actualLogFilePath"
         }
         catch {
@@ -74,10 +85,62 @@ function Start-Logging {
  
 function Stop-Logging {
     try {
-        Stop-Transcript -ErrorAction Stop
+        Stop-Transcript -ErrorAction Stop | Out-Null
     }
     catch {
         Write-WarningMessage "Cannot stop transcript: $($_.Exception.Message)"
+    }
+}
+
+function Complete-DotfilesSetupLogging {
+    param (
+        [Parameter(Mandatory)]
+        [string]$LogFilePath,
+        [AllowNull()]
+        [string]$DotfilesDirectory
+    )
+
+    Stop-Logging
+
+    $durableLogPath = $LogFilePath
+    $cloneLogPath = $null
+    try {
+        if (-not [string]::IsNullOrWhiteSpace($DotfilesDirectory) -and
+            (Test-Path -LiteralPath $DotfilesDirectory -PathType Container) -and
+            (Test-Path -LiteralPath (Join-Path $DotfilesDirectory '.git'))) {
+            $durableLogDirectory = Join-Path $DotfilesDirectory 'logs'
+            if (-not (Test-Path -LiteralPath $durableLogDirectory -PathType Container)) {
+                New-Item -ItemType Directory -Path $durableLogDirectory -Force -ErrorAction Stop | Out-Null
+            }
+
+            $cloneLogPath = Join-Path $durableLogDirectory (Split-Path -Leaf $LogFilePath)
+            if (-not [string]::Equals(
+                [System.IO.Path]::GetFullPath($LogFilePath),
+                [System.IO.Path]::GetFullPath($cloneLogPath),
+                [System.StringComparison]::OrdinalIgnoreCase)) {
+                Move-Item -LiteralPath $LogFilePath -Destination $cloneLogPath -ErrorAction Stop
+            }
+            $durableLogPath = $cloneLogPath
+        }
+    }
+    catch {
+        Write-WarningMessage "Cannot retain setup transcript in persistent clone logs: $($_.Exception.Message)"
+        if (Test-Path -LiteralPath $LogFilePath -PathType Leaf) {
+            $durableLogPath = $LogFilePath
+        }
+        elseif (-not [string]::IsNullOrWhiteSpace($cloneLogPath) -and
+            (Test-Path -LiteralPath $cloneLogPath -PathType Leaf)) {
+            $durableLogPath = $cloneLogPath
+        }
+        else {
+            $durableLogPath = $null
+            Write-WarningMessage "Setup transcript was not found at the source or destination after the move failure."
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($durableLogPath)) {
+        Write-Info "Main setup log: $durableLogPath"
+        return $durableLogPath
     }
 }
 
@@ -461,6 +524,7 @@ function Get-DotfilesConfigFile {
         "env-variables.json",
         "winget-packages.json",
         "windows-features.json",
+        "windows-capabilities.json",
         "setup-modules.json"
     )
 }
@@ -626,6 +690,76 @@ function Test-DotfilesWindowsFeaturesEnabled {
     return $true
 }
 
+function Resolve-DotfilesWindowsCapability {
+    param (
+        [string]$ConfigPath = (Join-Path (Get-DotfilesConfigDirectory) "windows-capabilities.json"),
+        [string]$BootstrapPath = (Join-Path (Get-DotfilesConfigDirectory) "dotfiles-bootstrap-variables.json"),
+        [string[]]$Groups = @(),
+        [switch]$GroupsSpecified
+    )
+
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
+        throw "Windows capability configuration file not found: $ConfigPath"
+    }
+
+    $config = Read-DotfilesJsonFile -Path $ConfigPath
+    if (-not $GroupsSpecified) {
+        if (-not (Test-Path -LiteralPath $BootstrapPath)) {
+            return @()
+        }
+
+        $bootstrap = Read-DotfilesJsonFile -Path $BootstrapPath
+        if (-not (Test-DotfilesObjectProperty -InputObject $bootstrap -Name "INSTALL_CAPABILITIES")) {
+            return @()
+        }
+
+        $Groups = ConvertTo-DotfilesStringArray -Value $bootstrap.INSTALL_CAPABILITIES
+    }
+
+    if ($Groups.Count -eq 0) {
+        return @()
+    }
+
+    $capabilities = [System.Collections.Generic.List[string]]::new()
+    foreach ($property in $config.PSObject.Properties) {
+        if ($Groups -notcontains $property.Name) {
+            continue
+        }
+
+        foreach ($capabilityName in (ConvertTo-DotfilesStringArray -Value $property.Value)) {
+            if ($capabilities -notcontains $capabilityName) {
+                $capabilities.Add($capabilityName)
+            }
+        }
+    }
+
+    return $capabilities.ToArray()
+}
+
+function Test-DotfilesWindowsCapabilitiesInstalled {
+    param([Parameter(Mandatory)][string[]]$CapabilityName)
+
+    if ($CapabilityName.Count -eq 0) {
+        return $true
+    }
+
+    foreach ($requestedCapability in $CapabilityName) {
+        try {
+            $matches = @(Get-WindowsCapability -Online -Name $requestedCapability -ErrorAction Stop)
+        }
+        catch {
+            Write-WarningMessage "Could not query Windows capability state without elevation: $($_.Exception.Message)"
+            return $false
+        }
+
+        if ($matches.Count -ne 1 -or $matches[0].State -ne 'Installed') {
+            return $false
+        }
+    }
+
+    return $true
+}
+
 function Test-DotfilesProfileSymlinksCorrect {
     # Returns $true when every .ps1 file in the repo's powershell-profiles directory
     # already exists as a symlink pointing at its source file. Used by setup.ps1 to
@@ -691,6 +825,22 @@ function Get-DotfilesSetupPlan {
 
         if ($matched) {
             Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
+        }
+    }
+
+    $hasInstallCapabilities = Test-DotfilesObjectProperty -InputObject $DotfilesVariables -Name "INSTALL_CAPABILITIES"
+    $selectedCapabilities = if ($hasInstallCapabilities) { ConvertTo-DotfilesStringArray -Value $DotfilesVariables.INSTALL_CAPABILITIES } else { @() }
+    if ($hasInstallCapabilities -and $selectedCapabilities.Count -gt 0) {
+        foreach ($entry in $setupConfig.capabilities) {
+            $selectors = ConvertTo-DotfilesStringArray -Value $entry.whenSelected
+            $matched = $selectors.Count -eq 0
+            if (-not $matched) {
+                $matched = $null -ne ($selectors | Where-Object { $selectedCapabilities -contains $_ } | Select-Object -First 1)
+            }
+
+            if ($matched) {
+                Add-DotfilesSetupPlanItem -Plan $plan -Entry $entry
+            }
         }
     }
 
@@ -871,9 +1021,37 @@ function Sync-DotfilesLocalConfiguration {
     if ($sourcePath -eq $targetPath) { return }
 
     Get-ChildItem -LiteralPath $sourceConfigDirectory -Filter "*.json" -File | ForEach-Object {
-        $targetFile = Join-Path $targetConfigDirectory $_.Name
-        Copy-Item -LiteralPath $_.FullName -Destination $targetFile -Force
-        Write-Info "Copied local configuration '$($_.Name)' to cloned repository."
+        $fileName = $_.Name
+        $sourceFile = $_.FullName
+        $targetFile = Join-Path $targetConfigDirectory $fileName
+        if (Test-Path -LiteralPath $targetFile) {
+            if (-not (Test-Path -LiteralPath $targetFile -PathType Leaf)) {
+                throw "Local configuration target '$targetFile' exists but is not a file."
+            }
+            Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
+        } else {
+            $temporaryFile = Join-Path $targetConfigDirectory ".$fileName.$([guid]::NewGuid().ToString('N')).tmp"
+            try {
+                [System.IO.File]::Copy($sourceFile, $temporaryFile, $false)
+                try {
+                    [System.IO.File]::Move($temporaryFile, $targetFile)
+                    Write-Info "Copied local configuration '$fileName' to cloned repository."
+                } catch [System.IO.IOException] {
+                    if (Test-Path -LiteralPath $targetFile) {
+                        if (-not (Test-Path -LiteralPath $targetFile -PathType Leaf)) {
+                            throw "Local configuration target '$targetFile' exists but is not a file."
+                        }
+                        Write-Info "Skipped existing local configuration '$fileName' in cloned repository."
+                    } else {
+                        throw
+                    }
+                }
+            } finally {
+                if (Test-Path -LiteralPath $temporaryFile) {
+                    [System.IO.File]::Delete($temporaryFile)
+                }
+            }
+        }
     }
 }
 

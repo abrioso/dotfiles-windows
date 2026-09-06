@@ -31,10 +31,13 @@ $repo    = $Repo
 $branch  = $Branch
 
 $dotfilesTempDir = Join-Path $env:TEMP "dotfiles"
-if (![System.IO.Directory]::Exists($dotfilesTempDir)) {[System.IO.Directory]::CreateDirectory($dotfilesTempDir)}
-$sourceFile = Join-Path $dotfilesTempDir "dotfiles.zip"
+$invocationDirectory = Join-Path $dotfilesTempDir ([guid]::NewGuid().ToString("N"))
+$sourceFile = Join-Path $invocationDirectory "dotfiles.zip"
 $folderBranch = $branch -replace '[\\/]', '-'
-$dotfilesInstallDir = Join-Path $dotfilesTempDir "$repo-$folderBranch"
+$localAppData = if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { $env:TEMP } else { $env:LOCALAPPDATA }
+$fallbackLogDirectory = Join-Path (Join-Path $localAppData "dotfiles") "logs"
+$fallbackLogName = "setup-{0}-{1}.txt" -f (Get-Date -Format "yyyyMMdd-HHmmssfff"), [guid]::NewGuid().ToString("N")
+$fallbackLogFile = Join-Path $fallbackLogDirectory $fallbackLogName
 
 function Invoke-Download {
   param (
@@ -73,9 +76,7 @@ function Resolve-ExtractedDotfilesDirectory {
         [Parameter(Mandatory)]
         [string]$ExpectedDirectory,
         [Parameter(Mandatory)]
-        [string]$ExtractionRoot,
-        [Parameter(Mandatory)]
-        [datetime]$ExtractionStartedAt
+        [string]$ExtractionRoot
     )
 
     if (Test-Path -LiteralPath $ExpectedDirectory) {
@@ -83,7 +84,6 @@ function Resolve-ExtractedDotfilesDirectory {
     }
 
     $candidateDirectories = @(Get-ChildItem -LiteralPath $ExtractionRoot -Directory |
-        Where-Object { $_.LastWriteTime -ge $ExtractionStartedAt } |
         Sort-Object LastWriteTime -Descending)
 
     if ($candidateDirectories.Count -eq 1) {
@@ -107,19 +107,31 @@ if ($EndpointType -eq "custom-archive") {
     $downloadUrl = "https://github.com/$account/$repo/archive/$branch.zip"
 }
 
-Invoke-Download $downloadUrl $sourceFile
-if ([System.IO.Directory]::Exists($dotfilesInstallDir)) {[System.IO.Directory]::Delete($dotfilesInstallDir, $true)}
-$extractionStartedAt = Get-Date
-Expand-Zip $sourceFile $dotfilesTempDir
-$dotfilesInstallDir = Resolve-ExtractedDotfilesDirectory -ExpectedDirectory $dotfilesInstallDir -ExtractionRoot $dotfilesTempDir -ExtractionStartedAt $extractionStartedAt
-
 $setupExitCode = 0
-Push-Location -LiteralPath $dotfilesInstallDir
 try {
-    & .\setup-scripts\setup.ps1 -BootstrapBranch $branch -NonInteractive:$NonInteractive
-    $setupExitCode = $LASTEXITCODE
+    [System.IO.Directory]::CreateDirectory($dotfilesTempDir) | Out-Null
+    [System.IO.Directory]::CreateDirectory($invocationDirectory) | Out-Null
+    Invoke-Download $downloadUrl $sourceFile
+
+    $dotfilesInstallDir = Join-Path $invocationDirectory "$repo-$folderBranch"
+    Expand-Zip $sourceFile $invocationDirectory
+    $dotfilesInstallDir = Resolve-ExtractedDotfilesDirectory -ExpectedDirectory $dotfilesInstallDir -ExtractionRoot $invocationDirectory
+
+    Push-Location -LiteralPath $dotfilesInstallDir
+    try {
+        & .\setup-scripts\setup.ps1 -BootstrapBranch $branch -LogFilePath $fallbackLogFile -NonInteractive:$NonInteractive
+        $setupExitCode = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
 } finally {
-    Pop-Location
+    try {
+        if ([System.IO.Directory]::Exists($invocationDirectory)) {
+            [System.IO.Directory]::Delete($invocationDirectory, $true)
+        }
+    } catch {
+        Write-Warning "Cannot remove temporary installer directory '$invocationDirectory': $($_.Exception.Message)" -WarningAction Continue
+    }
 }
 
 if ($setupExitCode -ne 0) {

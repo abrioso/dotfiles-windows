@@ -128,6 +128,7 @@ $configNames = @(
     'env-variables.json',
     'winget-packages.json',
     'windows-features.json',
+    'windows-capabilities.json',
     'setup-modules.json'
 )
 
@@ -142,12 +143,14 @@ $bootstrapPath = Join-Path $ConfigDirectory 'dotfiles-bootstrap-variables.json'
 $gitPath = Join-Path $ConfigDirectory 'git-variables.json'
 $wingetPath = Join-Path $ConfigDirectory 'winget-packages.json'
 $featuresPath = Join-Path $ConfigDirectory 'windows-features.json'
+$capabilitiesPath = Join-Path $ConfigDirectory 'windows-capabilities.json'
 $setupModulesPath = Join-Path $ConfigDirectory 'setup-modules.json'
 
 $bootstrap = Read-JsonFile -Path $bootstrapPath
 $gitConfig = Read-JsonFile -Path $gitPath
 $wingetConfig = Read-JsonFile -Path $wingetPath
 $featuresConfig = Read-JsonFile -Path $featuresPath
+$capabilitiesConfig = Read-JsonFile -Path $capabilitiesPath
 $setupModulesConfig = Read-JsonFile -Path $setupModulesPath
 
 Write-Section 'Repository endpoint'
@@ -170,6 +173,20 @@ $bootstrap.INSTALL_PACKAGES = Prompt-MultiChoice -Label 'Package groups to insta
 Write-Section 'Windows feature groups'
 $featureGroups = if ($featuresConfig) { @($featuresConfig.PSObject.Properties.Name | Sort-Object) } else { @() }
 $bootstrap.INSTALL_FEATURES = Prompt-MultiChoice -Label 'Windows feature groups to enable' -Choices $featureGroups -CurrentValues $bootstrap.INSTALL_FEATURES
+
+Write-Section 'Windows capability groups'
+$capabilityGroups = if ($capabilitiesConfig) { @($capabilitiesConfig.PSObject.Properties.Name | Sort-Object) } else { @() }
+$currentCapabilities = if (Test-DotfilesObjectProperty -InputObject $bootstrap -Name 'INSTALL_CAPABILITIES') {
+    $bootstrap.INSTALL_CAPABILITIES
+} else {
+    @()
+}
+$selectedCapabilities = Prompt-MultiChoice -Label 'Windows capability groups to install' -Choices $capabilityGroups -CurrentValues $currentCapabilities
+if (Test-DotfilesObjectProperty -InputObject $bootstrap -Name 'INSTALL_CAPABILITIES') {
+    $bootstrap.INSTALL_CAPABILITIES = $selectedCapabilities
+} else {
+    $bootstrap | Add-Member -NotePropertyName 'INSTALL_CAPABILITIES' -NotePropertyValue $selectedCapabilities
+}
 
 Write-Section 'Setup setting groups'
 $settingGroups = if ($setupModulesConfig.settings) { @($setupModulesConfig.settings.PSObject.Properties.Name | Sort-Object) } else { @() }

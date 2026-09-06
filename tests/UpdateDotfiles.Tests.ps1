@@ -43,6 +43,7 @@ Describe 'Dotfiles update helpers' {
                     'env-variables.json.example',
                     'git-variables.json.example',
                     'setup-modules.json.example',
+                    'windows-capabilities.json.example',
                     'windows-features.json.example',
                     'winget-packages.json.example',
                     'windows-terminal-settings.json.example'
@@ -54,6 +55,7 @@ Describe 'Dotfiles update helpers' {
                     'env-variables.json',
                     'git-variables.json',
                     'setup-modules.json',
+                    'windows-capabilities.json',
                     'windows-features.json',
                     'winget-packages.json',
                     'windows-terminal-settings.json'
@@ -66,10 +68,10 @@ Describe 'Dotfiles update helpers' {
                 $names = @($templates.Name)
                 $recommended = @($templates | Where-Object Recommended | ForEach-Object Name)
 
-                if (($names -join ',') -ne 'dotfiles-bootstrap-variables.json,env-variables.json,git-variables.json,setup-modules.json,windows-features.json,windows-terminal-settings.json,winget-packages.json') {
+                if (($names -join ',') -ne 'dotfiles-bootstrap-variables.json,env-variables.json,git-variables.json,setup-modules.json,windows-capabilities.json,windows-features.json,windows-terminal-settings.json,winget-packages.json') {
                     throw "Unexpected template discovery order: '$($names -join ',')'."
                 }
-                if (($recommended -join ',') -ne 'setup-modules.json,windows-features.json,winget-packages.json') {
+                if (($recommended -join ',') -ne 'setup-modules.json,windows-capabilities.json,windows-features.json,winget-packages.json') {
                     throw "Unexpected recommended templates: '$($recommended -join ',')'."
                 }
             }

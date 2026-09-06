@@ -31,9 +31,11 @@ The Git-free path downloads a ZIP archive into `%TEMP%\dotfiles`, extracts it, a
 
 The archive is the initial bootstrap transport. Once setup creates the persistent workspace clone,
 post-reboot continuation and later idempotency runs execute `setup.ps1` from that clone rather than
-downloading a new archive. A repeated Git-free invocation has separate local-configuration
-replacement semantics documented in [Configuration](CONFIGURATION.md#git-free-install-parameters)
-and is tested independently in [Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
+downloading a new archive. A repeated Git-free invocation preserves JSON already present in the
+persistent clone and populates only missing files, but the current invocation still uses bootstrap
+variables loaded from its fresh archive configuration. That behavior is documented in
+[Configuration](CONFIGURATION.md#git-free-install-parameters) and tested independently in
+[Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
 
 ## 3. Local configuration is created
 
@@ -44,6 +46,7 @@ The setup flow expects local machine-specific JSON files in `dotfiles-configurat
 - `env-variables.json.example`
 - `winget-packages.json.example`
 - `windows-features.json.example`
+- `windows-capabilities.json.example`
 - `setup-modules.json.example`
 
 These local `*.json` files are gitignored and are intended to hold machine-specific values.
@@ -57,6 +60,7 @@ In interactive mode, `configure.ps1` prompts for the main install choices:
 - workspace folder under `%USERPROFILE%`
 - package groups to install
 - Windows feature groups to enable
+- Windows capability groups to install
 - settings groups to apply
 - Git identity and editor settings
 
@@ -114,34 +118,37 @@ The install plan is not hardcoded. `setup.ps1` builds it from local configuratio
 - `dotfiles-bootstrap-variables.json`
 - `setup-modules.json`
 - `windows-features.json`
+- `windows-capabilities.json`
 - `winget-packages.json`
 
-The plan is assembled from three areas:
+The plan is assembled from four areas:
 
 - feature modules selected by `INSTALL_FEATURES`
+- capability modules selected by `INSTALL_CAPABILITIES`
 - package modules selected by `INSTALL_PACKAGES`
 - settings modules selected by `INSTALL_SETTINGS`
 
 Using the current example defaults on `develop`, the resulting module order is:
 
 1. `Configure-WindowsFeatures.ps1`
-2. `Install-WingetPackages.ps1`
-3. `Configure-WSL2.ps1`
-4. `Set-EnvironmentVariables.ps1`
-5. `Set-UserHomeAlias.ps1`
-6. `Install-NerdFont.ps1`
-7. `Install-WindowsTerminalSettings.ps1`
-8. `Apply-GitConfig.ps1`
-9. `Install-LocalPowerShellProfiles.ps1`
-10. `Install-OmpConfig.ps1`
+2. `Configure-WindowsCapabilities.ps1`
+3. `Install-WingetPackages.ps1`
+4. `Configure-WSL2.ps1`
+5. `Set-EnvironmentVariables.ps1`
+6. `Set-UserHomeAlias.ps1`
+7. `Install-NerdFont.ps1`
+8. `Install-WindowsTerminalSettings.ps1`
+9. `Apply-GitConfig.ps1`
+10. `Install-LocalPowerShellProfiles.ps1`
+11. `Install-OmpConfig.ps1`
 
 ## 13. Modules run one by one
 
-Each module runs in its own PowerShell 7 process.
+Each module runs in its own PowerShell process. DISM feature and capability modules use the in-box Windows PowerShell 5.1 host; other modules use PowerShell 7.
 
 - Modules marked `requiresAdmin` are relaunched elevated when needed.
 - Non-admin modules run without elevation.
-- If the Windows feature module returns reboot-required code `3010`, setup stops before packages and settings; restart Windows and rerun setup to continue.
+- If a Windows feature or capability module returns reboot-required code `3010`, setup stops before packages and settings; restart Windows and rerun setup to continue.
 - If any other module fails, setup stops immediately.
 
 ## 14. What each module does for the user
@@ -149,6 +156,10 @@ Each module runs in its own PowerShell 7 process.
 ### `Configure-WindowsFeatures.ps1`
 
 Enables the selected Windows optional features. The shared WSL 2 configuration enables `VirtualMachinePlatform`; Hyper-V remains an independently selectable feature group. When Windows reports that a restart is required, the module returns code `3010` so setup does not continue into WSL, Ubuntu, or Docker installation before the reboot.
+
+### `Configure-WindowsCapabilities.ps1`
+
+Installs explicitly selected Windows capability groups. The default `rsat-active-directory` group installs Server Manager before the dependent Active Directory Domain Services and Lightweight Directory Services tools. Already installed capabilities are skipped; unavailable capabilities and unsupported states fail the module. If an installation requires a restart, the module returns code `3010` immediately and defers the remaining capabilities until setup is re-run after Windows restarts.
 
 ### `Install-WingetPackages.ps1`
 

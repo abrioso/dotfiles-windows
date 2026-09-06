@@ -11,7 +11,8 @@ Tracked templates live in `dotfiles-configurations/` with a `.json.example` suff
 | `dotfiles-bootstrap-variables.json.example` | `dotfiles-bootstrap-variables.json` | Bootstrap settings, repository endpoint type, install groups, and workspace path. |
 | `winget-packages.json.example` | `winget-packages.json` | Available `winget` package groups and package IDs. |
 | `windows-features.json.example` | `windows-features.json` | Available Windows optional feature groups and feature names. |
-| `setup-modules.json.example` | `setup-modules.json` | Ordered setup module plan for features, packages, and settings. |
+| `windows-capabilities.json.example` | `windows-capabilities.json` | Available Windows capability groups and capability names. |
+| `setup-modules.json.example` | `setup-modules.json` | Ordered setup module plan for features, capabilities, packages, and settings. |
 | `env-variables.json.example` | `env-variables.json` | Environment variables to apply. |
 | `git-variables.json.example` | `git-variables.json` | Global Git configuration values. |
 
@@ -46,6 +47,7 @@ It first asks whether the current Git branch should be updated with `git pull --
 By default, the updater recommends only shared catalogs that do not contain user identity or machine endpoint values:
 
 - `setup-modules.json`
+- `windows-capabilities.json`
 - `windows-features.json`
 - `winget-packages.json`
 
@@ -69,7 +71,7 @@ For an explicit unattended update, name every local JSON that may be replaced:
 .\setup-scripts\update.ps1 `
     -NonInteractive `
     -UpdateRepository `
-    -TemplateName winget-packages.json,windows-features.json,setup-modules.json
+    -TemplateName winget-packages.json,windows-capabilities.json,windows-features.json,setup-modules.json
 ```
 
 In non-interactive mode the repository is updated only when `-UpdateRepository` is present, and no JSON is replaced unless named with `-TemplateName`.
@@ -117,6 +119,10 @@ Examples:
 
 `INSTALL_PACKAGES` in `dotfiles-bootstrap-variables.json` controls which package groups are installed from `winget-packages.json`.
 
+The tracked defaults deliberately leave `tailscale` and `google-drive` unselected. Both are
+machine-scoped, optional integrations: add either group to `INSTALL_PACKAGES` through the TUI or
+local JSON only on machines where it is required.
+
 Package object entries contain an `id` and may constrain `scope` (`user` or `machine`) and
 `installerType` (currently `wix`). Omit scope when the selected upstream manifest does not declare
 one; forcing a scope is an installer-selection constraint and can result in `No applicable
@@ -159,13 +165,31 @@ An explicit empty array skips Windows optional feature configuration. If the pro
 
 The shared `wsl` feature group targets WSL 2 only and enables `VirtualMachinePlatform`. The modern `Microsoft.WSL` runtime and Ubuntu distribution are installed separately through Winget; the legacy `Microsoft-Windows-Subsystem-Linux` component used for WSL 1 is not enabled on clean installations. After package installation, `Configure-WSL2.ps1` sets version 2 as the default and converts an existing `Ubuntu` registration to WSL 2.
 
-`Configure-WindowsFeatures.ps1` runs under the in-box Windows PowerShell 5.1 host even when the main setup is running in PowerShell 7. This avoids the known `Class not registered` failure in DISM PowerShell cmdlets hosted by MSIX/WindowsApps builds of PowerShell 7; all other setup modules continue to use PowerShell 7.
+`Configure-WindowsFeatures.ps1` and `Configure-WindowsCapabilities.ps1` run under the in-box Windows PowerShell 5.1 host even when the main setup is running in PowerShell 7. This avoids the known `Class not registered` failure in DISM PowerShell cmdlets hosted by MSIX/WindowsApps builds of PowerShell 7; all other setup modules continue to use PowerShell 7.
 
 Before requesting elevation, setup performs a read-only `Win32_OptionalFeature` CIM preflight. If every requested feature is present exactly once with `InstallState = 1` (`Enabled`), the administrative module is skipped. Any disabled, absent, unknown, duplicate, missing, or unqueryable state falls back to the elevated module, which revalidates the selection with DISM before making changes.
 
 If enabling a selected Windows feature requires a reboot, setup exits with Windows code `3010` before installing packages or applying settings. Restart Windows and run setup again; the feature module skips features that are already enabled and setup continues with the remaining modules.
 
-Local configuration files are intentionally preserved once created. When upgrading an existing checkout, reconcile `windows-features.json`, `winget-packages.json`, `dotfiles-bootstrap-variables.json`, and `setup-modules.json` with their updated `.example` templates before testing this flow. The setup does not automatically disable an already enabled `Microsoft-Windows-Subsystem-Linux` component because another local distro may still depend on WSL 1; verify all distros with `wsl --list --verbose` before disabling that legacy feature manually.
+## Windows capability group selection
+
+`INSTALL_CAPABILITIES` controls which Windows capability groups are installed from `windows-capabilities.json`.
+
+```json
+{
+  "INSTALL_CAPABILITIES": [
+    "rsat-active-directory"
+  ]
+}
+```
+
+An explicit empty array skips Windows capability configuration. Because capabilities were added after the original configuration format, an absent property also skips them; existing machines therefore do not begin installing new capabilities merely because their checkout was updated.
+
+The `rsat-active-directory` group installs `Rsat.ServerManager.Tools~~~~0.0.1.0` before `Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0`, preserving the prerequisite-before-dependent order. `Configure-WindowsCapabilities.ps1` checks for the `Installed` state and calls `Add-WindowsCapability` only for capabilities in the `NotPresent` state. Unknown states and unavailable capability names fail the module instead of being silently skipped.
+
+Like the Windows feature module, the capability module uses the in-box Windows PowerShell 5.1 host for DISM cmdlets, owns an independent log, and returns code `3010` when Windows reports that a reboot is required. It immediately defers any remaining capabilities so dependent components are not installed across a pending restart; restart Windows and run setup again to continue. Its read-only preflight fails closed: if capability state cannot be established without elevation, setup runs the administrative module, which validates the state again before making changes.
+
+Local configuration files are intentionally preserved once created. When upgrading an existing checkout, reconcile `windows-capabilities.json`, `windows-features.json`, `winget-packages.json`, `dotfiles-bootstrap-variables.json`, and `setup-modules.json` with their updated `.example` templates before testing this flow. The setup does not automatically disable an already enabled `Microsoft-Windows-Subsystem-Linux` component because another local distro may still depend on WSL 1; verify all distros with `wsl --list --verbose` before disabling that legacy feature manually.
 
 ## Setup setting group selection
 
@@ -196,10 +220,12 @@ The branch override is persisted to the local bootstrap JSON and therefore remai
 
 After the Git-free bootstrap creates the persistent workspace clone, post-reboot continuation and
 normal reruns should execute `setup-scripts\setup.ps1` from that clone. A new Git-free invocation
-extracts a fresh archive, recreates missing local JSON there, and copies its local JSON into the
-persistent clone with replacement semantics. It is therefore not the safe continuation path when
-the existing clone contains machine-specific local choices. The release acceptance matrix tests
-this behavior separately; see [Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
+extracts a fresh archive and recreates missing local JSON there. Synchronization copies only JSON
+missing from the persistent clone and preserves existing machine-local files. The current
+invocation nevertheless uses bootstrap variables already loaded from the archive configuration,
+so it is not the safe continuation path when the first run's active choices must remain in effect.
+The release acceptance matrix tests preservation and missing-file population separately; see
+[Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
 
 For an unattended bootstrap that accepts all template defaults:
 
@@ -226,7 +252,7 @@ During setup:
 5. The configured branch is fetched, checked out, and fast-forward pulled.
 6. Local gitignored configuration generated during git-free bootstrap is copied into the real workspace clone after branch checkout.
 7. Setup validates package-group dependencies declared by selected settings.
-8. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
+8. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_CAPABILITIES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
 9. Setup modules consume the local `*.json` files and setup stops if a configured module is missing or fails.
 
 The `pwsh` setting deploys Oh My Posh themes using non-elevated hard links when source and target are on the same volume, with a regular copy fallback across volumes. The CaskaydiaCove Nerd Font is installed by the `base` settings group, since it is required for terminal rendering regardless of the Oh My Posh selection.

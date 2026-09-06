@@ -2,13 +2,17 @@
 
 This checklist is the acceptance gate for promoting `develop` through a
 `release/vYYYY.MM.N` branch into `main`. Record the tested commit, Windows build, machine type,
-and evidence for every required scenario.
+and evidence for every required scenario. Copy
+[RELEASE_EVIDENCE_TEMPLATE.md](RELEASE_EVIDENCE_TEMPLATE.md) outside the repository before filling
+it; completed evidence and raw artifacts must not modify the release candidate under test.
 
 ## Test topology
 
-Use a disposable Windows 11 machine or VM with snapshots. An Entra ID joined machine whose real
-profile path contains non-ASCII characters is required for the `HOME` alias scenario. Use the
-default package, feature, and setting selections unless a scenario says otherwise.
+Use a disposable Windows 11 Pro or Enterprise machine or VM with snapshots. An Entra ID joined
+machine whose real profile path contains non-ASCII characters is required for the `HOME` alias
+scenario. Use the default package, feature, capability, and setting selections unless a scenario
+says otherwise. Tailscale and Google Drive remain opt-in; select both explicitly for the package
+acceptance scenario without adding them to the tracked defaults.
 
 The three main interactions do **not** all use the Git-free entry point:
 
@@ -17,16 +21,18 @@ The three main interactions do **not** all use the Git-free entry point:
 3. **Idempotency:** run `setup.ps1` from the same persistent clone again.
 
 The Git-free archive is a bootstrap transport, not the persistent checkout. Re-running it creates
-fresh local JSON from the archive templates and currently copies those files into the persistent
-clone with replacement semantics. Do not use it for post-reboot continuation when preserving the
-first run's local choices matter. Test repeated Git-free invocation separately as described below.
+fresh local JSON from the archive templates, copies only files missing from the persistent clone,
+and preserves existing machine-local JSON. However, that invocation has already loaded its active
+bootstrap variables from the fresh archive configuration. Do not use it for post-reboot
+continuation when the first run's active choices must remain in effect; execute `setup.ps1` from the
+persistent clone instead. Test repeated Git-free invocation separately as described below.
 
 ## Evidence to capture
 
 For each interaction, retain:
 
 - the exact Git commit under test;
-- the setup transcript and any elevated Windows-feature transcript;
+- the setup transcript and any elevated Windows feature or capability transcript;
 - the process exit code;
 - screenshots or command output for UAC, WSL, Docker, package and filesystem checks;
 - `git status --short` from the persistent clone.
@@ -38,7 +44,7 @@ addresses, repository endpoints, tokens, or other machine-specific values.
 
 ### Preconditions
 
-- Start from a snapshot with the selected Windows optional features disabled.
+- Start from a snapshot with the selected Windows optional features disabled and capabilities absent.
 - Remove any previous persistent dotfiles clone, local dotfiles configuration, `HOME` alias,
   Windows Terminal baseline, and repo-managed PowerShell profiles.
 - Ensure Windows Package Manager is available. Git and PowerShell 7 should be absent when testing
@@ -84,7 +90,39 @@ Restart Windows before interaction 2.
 
 ## Interaction 2: post-reboot continuation
 
-Open PowerShell in the persistent clone and run:
+Open PowerShell in the persistent clone. Before the first post-reboot setup run, set the exact
+ordered package selection for this acceptance scenario: the tracked defaults followed by the two
+opt-in groups. This deliberately edits only the local, gitignored bootstrap configuration:
+
+```powershell
+$bootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
+$bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
+$expectedPackageGroups = @(
+    'base',
+    'browsers',
+    'development',
+    'wsl',
+    'docker',
+    'multimedia',
+    'PowerBI',
+    'productivity',
+    'pwsh',
+    'poweruser',
+    'tailscale',
+    'google-drive'
+)
+$bootstrap.INSTALL_PACKAGES = $expectedPackageGroups
+$bootstrap | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $bootstrapPath -Encoding utf8
+
+$actualPackageGroups = @(
+    (Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json).INSTALL_PACKAGES
+)
+if (($actualPackageGroups -join "`n") -cne ($expectedPackageGroups -join "`n")) {
+    throw "Acceptance package groups are missing or out of order: $($actualPackageGroups -join ', ')."
+}
+```
+
+Then run setup from the same persistent clone:
 
 ```powershell
 git status --short --branch
@@ -98,6 +136,9 @@ git rev-parse HEAD
 - [ ] Already-enabled Windows features pass the non-elevated preflight and do not cause another
       feature UAC prompt.
 - [ ] Setup continues beyond the reboot boundary and executes modules in documented order.
+- [ ] Selected Windows capabilities install in declared order under Windows PowerShell 5.1.
+- [ ] If capability installation returns `3010`, setup stops before Winget; restart Windows and
+      repeat this interaction before evaluating downstream modules.
 - [ ] A module failure stops the remaining plan and returns a non-zero exit code.
 
 ### Winget checks
@@ -107,6 +148,8 @@ git rev-parse HEAD
       non-zero Winget exit code.
 - [ ] `Microsoft.PowerShell` and `Microsoft.WindowsTerminal` remain user-scoped MSIX packages.
 - [ ] Packages declared with machine scope request UAC only when installation is required.
+- [ ] With the opt-in `tailscale` and `google-drive` groups selected, both packages install using
+      their machine-scoped installers and are detected as installed on the idempotency run.
 - [ ] `Microsoft.WSL` installs before `Canonical.Ubuntu`, and the WSL group completes before
       Docker Desktop.
 
@@ -173,7 +216,8 @@ created by the current `main` branch, including the previous profile and Termina
    git checkout <branch>
    ```
 2. Run `setup-scripts\update.ps1` and select only the shared catalogs initially:
-   `setup-modules.json`, `windows-features.json`, and `winget-packages.json`.
+   `setup-modules.json`, `windows-capabilities.json`, `windows-features.json`, and
+   `winget-packages.json`.
 3. Review the new local JSON before running setup.
 4. Run `setup.ps1`, then run it again to prove the migrated state is idempotent.
 
@@ -191,12 +235,16 @@ created by the current `main` branch, including the previous profile and Termina
 ## Repeated Git-free invocation
 
 This is a distinct safety test, not the post-reboot continuation path. Before running it, put a
-recognisable non-secret change in one persistent local JSON and take a snapshot or backup.
+recognisable non-secret change in one persistent local JSON and record its content or hash. Move a
+different local JSON to a backup outside the repository so the same invocation exercises both the
+preserve-existing and populate-missing paths. Take a VM snapshot before changing either file.
 
 - [ ] Re-run the Git-free bootstrap from the same branch.
-- [ ] Record whether the persistent local JSON is preserved, replaced, or prompts for a decision.
-- [ ] Treat silent replacement of existing machine-local choices as a release blocker unless it is
-      explicitly accepted and documented for that release.
+- [ ] The existing personalised JSON remains byte-for-byte unchanged.
+- [ ] The missing JSON is recreated from the release-branch template.
+- [ ] The transcript reports that the existing configuration was skipped and the missing
+      configuration was copied.
+- [ ] Treat replacement of any existing machine-local JSON as a release blocker.
 - [ ] Restore the snapshot before continuing other acceptance tests.
 
 ## Final release-branch gate

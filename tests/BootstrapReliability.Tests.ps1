@@ -40,6 +40,288 @@ Describe 'Bootstrap reliability contracts' {
             }
             Should -Invoke Start-Transcript -Times 0 -Exactly
         }
+
+        It 'appends a child-process transcript to the parent transcript' {
+            $logPath = Join-Path $TestDrive 'cross-process.txt'
+            $childPath = Join-Path $TestDrive 'append-child.ps1'
+            $functionsPath = Join-Path $script:repositoryRoot 'setup-scripts/setup-functions.ps1'
+            @"
+. '$functionsPath'
+Start-Logging -LogFilePath '$logPath' -Append
+Write-Host 'child transcript marker'
+Stop-Logging
+"@ | Set-Content -LiteralPath $childPath
+
+            Start-Logging -LogFilePath $logPath
+            Write-Host 'parent transcript marker'
+            Stop-Logging
+            & (Join-Path $PSHOME 'pwsh') -NoProfile -File $childPath
+            $LASTEXITCODE | Should -Be 0
+
+            $transcript = Get-Content -LiteralPath $logPath -Raw
+            $transcript | Should -Match 'parent transcript marker'
+            $transcript | Should -Match 'child transcript marker'
+        }
+
+        It 'retains a relative requested transcript after the working directory changes' {
+            $initialDirectory = Join-Path $TestDrive 'relative-initial'
+            $cloneDirectory = Join-Path $TestDrive 'relative-clone'
+            New-Item -ItemType Directory -Path (Join-Path $initialDirectory 'logs') -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') -Force | Out-Null
+            Push-Location $initialDirectory
+            $loggingStarted = $false
+            try {
+                $actualPath = Start-Logging -LogFilePath 'logs/setup-relative.txt' -PassThru
+                $loggingStarted = $true
+                Write-Host 'relative transcript marker'
+                Set-Location $cloneDirectory
+
+                $durablePath = Complete-DotfilesSetupLogging -LogFilePath $actualPath -DotfilesDirectory $cloneDirectory
+                $loggingStarted = $false
+
+                [System.IO.Path]::IsPathRooted($actualPath) | Should -BeTrue
+                $durablePath | Should -Be (Join-Path $cloneDirectory 'logs/setup-relative.txt')
+                Test-Path -LiteralPath $durablePath -PathType Leaf | Should -BeTrue
+                Get-Content -LiteralPath $durablePath -Raw | Should -Match 'relative transcript marker'
+            }
+            finally {
+                if ($loggingStarted) {
+                    Stop-Logging
+                }
+                Pop-Location
+            }
+        }
+
+        It 'returns exactly one path when Stop-Transcript emits success output' {
+            $fallbackDirectory = Join-Path $TestDrive 'single-return-fallback'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-single-return.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'single return transcript'
+            Mock Stop-Transcript { 'Transcript stopped, output file is representative.txt' }
+
+            $output = @(Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $null)
+
+            $output.Count | Should -Be 1
+            $output[0] | Should -Be $fallbackPath
+        }
+
+        It 'moves a finalized fallback transcript into persistent clone logs' {
+            $fallbackDirectory = Join-Path $TestDrive 'fallback'
+            $cloneDirectory = Join-Path $TestDrive 'clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-bootstrap.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, $cloneDirectory | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'bootstrap transcript'
+            Mock Stop-Transcript { }
+
+            $durablePath = Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory
+
+            $durablePath | Should -Be (Join-Path $cloneDirectory 'logs/setup-bootstrap.txt')
+            Test-Path -LiteralPath $fallbackPath | Should -BeFalse
+            Get-Content -LiteralPath $durablePath | Should -Be 'bootstrap transcript'
+        }
+
+        It 'retains an early-failure transcript without creating the missing clone' {
+            $fallbackDirectory = Join-Path $TestDrive 'local-app-data/dotfiles/logs'
+            $missingCloneDirectory = Join-Path $TestDrive 'missing-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-early-failure.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'early failure transcript'
+            Mock Stop-Transcript { }
+
+            $durablePath = Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $missingCloneDirectory
+
+            $durablePath | Should -Be $fallbackPath
+            Test-Path -LiteralPath $durablePath -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath $missingCloneDirectory | Should -BeFalse
+        }
+
+        It 'retains a fallback transcript when the target directory is not a Git checkout' {
+            $fallbackDirectory = Join-Path $TestDrive 'non-repo-fallback'
+            $nonRepoDirectory = Join-Path $TestDrive 'partial-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-partial-clone.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, $nonRepoDirectory | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'partial clone transcript'
+            Mock Stop-Transcript { }
+
+            $durablePath = Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $nonRepoDirectory
+
+            $durablePath | Should -Be $fallbackPath
+            Test-Path -LiteralPath $fallbackPath -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $nonRepoDirectory 'logs') | Should -BeFalse
+        }
+
+        It 'reports the durable main transcript after it exists' {
+            $fallbackDirectory = Join-Path $TestDrive 'report-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'report-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-report.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, $cloneDirectory | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'reported transcript'
+            Mock Stop-Transcript { }
+
+            $output = @(Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory 6>&1)
+            $durablePath = Join-Path $cloneDirectory 'logs/setup-report.txt'
+
+            Test-Path -LiteralPath $durablePath -PathType Leaf | Should -BeTrue
+            @($output | ForEach-Object { [string]$_ }) | Should -Contain "[INFO] Main setup log: $durablePath"
+            [string]$output[-1] | Should -Be $durablePath
+        }
+
+        It 'finalizes and reports logging for every setup exit including failure and 3010' {
+            $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
+            $tokens = $null
+            $parseErrors = $null
+            $setupAst = [System.Management.Automation.Language.Parser]::ParseFile($setupPath, [ref]$tokens, [ref]$parseErrors)
+            $parseErrors.Count | Should -Be 0
+
+            $exitStatements = @($setupAst.FindAll({
+                param($node)
+                $node -is [System.Management.Automation.Language.ExitStatementAst]
+            }, $true))
+            $exitStatements.Count | Should -BeGreaterThan 0
+            @($exitStatements | Where-Object { $_.Pipeline.Extent.Text -eq '3010' }).Count | Should -BeGreaterThan 0
+
+            foreach ($exitStatement in $exitStatements) {
+                $ancestor = $exitStatement.Parent
+                $isProtected = $false
+                while ($ancestor) {
+                    if ($ancestor -is [System.Management.Automation.Language.TryStatementAst] -and
+                        $ancestor.Finally -and
+                        $ancestor.Finally.Extent.Text -match 'Complete-DotfilesSetupLogging') {
+                        $isProtected = $true
+                        break
+                    }
+                    $ancestor = $ancestor.Parent
+                }
+                if (-not $isProtected) {
+                    throw "Exit '$($exitStatement.Extent.Text)' is not protected by durable transcript finalization."
+                }
+            }
+
+            $topLevelFinalizer = @($setupAst.FindAll({
+                param($node)
+                $node -is [System.Management.Automation.Language.CommandAst] -and
+                    $node.GetCommandName() -eq 'Complete-DotfilesSetupLogging'
+            }, $true))
+            $topLevelFinalizer.Count | Should -Be 1
+        }
+
+        It 'keeps transcript cleanup failure best-effort and reports the retained fallback' {
+            $fallbackDirectory = Join-Path $TestDrive 'cleanup-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'cleanup-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-cleanup.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, $cloneDirectory | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'cleanup failure transcript'
+            Mock Stop-Transcript { }
+            Mock Move-Item { throw [System.IO.IOException]::new('simulated cleanup failure') }
+
+            $output = @(Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory 6>&1 3>&1)
+
+            Test-Path -LiteralPath $fallbackPath -PathType Leaf | Should -BeTrue
+            @($output | ForEach-Object { [string]$_ }) | Should -Contain "[WARNING] Cannot retain setup transcript in persistent clone logs: simulated cleanup failure"
+            @($output | ForEach-Object { [string]$_ }) | Should -Contain "[INFO] Main setup log: $fallbackPath"
+            [string]$output[-1] | Should -Be $fallbackPath
+        }
+
+        It 'reports the source when a failed move leaves a stale destination collision' {
+            $fallbackDirectory = Join-Path $TestDrive 'collision-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'collision-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-collision.txt'
+            $destinationPath = Join-Path $cloneDirectory 'logs/setup-collision.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, (Join-Path $cloneDirectory '.git'), (Split-Path -Parent $destinationPath) | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'CURRENT'
+            Set-Content -LiteralPath $destinationPath -Value 'STALE'
+            Mock Stop-Transcript { }
+            Mock Move-Item { throw [System.IO.IOException]::new('stale destination collision') }
+
+            $output = @(Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory 6>&1)
+            $textOutput = @($output | ForEach-Object { [string]$_ })
+
+            $textOutput | Should -Contain "[INFO] Main setup log: $fallbackPath"
+            [string]$output[-1] | Should -Be $fallbackPath
+            Get-Content -LiteralPath $output[-1] | Should -Be 'CURRENT'
+            Get-Content -LiteralPath $destinationPath | Should -Be 'STALE'
+        }
+
+        It 'reports the destination when a move fails after creating it' {
+            $fallbackDirectory = Join-Path $TestDrive 'destination-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'destination-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-destination.txt'
+            $destinationPath = Join-Path $cloneDirectory 'logs/setup-destination.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, (Join-Path $cloneDirectory '.git') | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'destination transcript'
+            Mock Stop-Transcript { }
+            Mock Move-Item {
+                New-Item -ItemType Directory -Path (Split-Path -Parent $Destination) -Force | Out-Null
+                [System.IO.File]::Move($LiteralPath, $Destination)
+                throw [System.IO.IOException]::new('post-move failure')
+            }
+
+            $durablePath = Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory
+
+            $durablePath | Should -Be $destinationPath
+            Test-Path -LiteralPath $destinationPath -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath $fallbackPath | Should -BeFalse
+        }
+
+        It 'warns without reporting a path when a failed move leaves no transcript' {
+            $fallbackDirectory = Join-Path $TestDrive 'missing-after-move-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'missing-after-move-clone'
+            $fallbackPath = Join-Path $fallbackDirectory 'setup-missing-after-move.txt'
+            New-Item -ItemType Directory -Path $fallbackDirectory, (Join-Path $cloneDirectory '.git') | Out-Null
+            Set-Content -LiteralPath $fallbackPath -Value 'vanishing transcript'
+            Mock Stop-Transcript { }
+            Mock Move-Item {
+                Remove-Item -LiteralPath $LiteralPath -Force
+                throw [System.IO.IOException]::new('destructive move failure')
+            }
+
+            $output = @(Complete-DotfilesSetupLogging -LogFilePath $fallbackPath -DotfilesDirectory $cloneDirectory 6>&1 3>&1)
+            $textOutput = @($output | ForEach-Object { [string]$_ })
+
+            Test-Path -LiteralPath $fallbackPath | Should -BeFalse
+            $textOutput | Should -Contain '[WARNING] Setup transcript was not found at the source or destination after the move failure.'
+            @($textOutput | Where-Object { $_ -match 'Main setup log:' }).Count | Should -Be 0
+            @($output | Where-Object { $_ -is [string] -and $_ -eq $fallbackPath }).Count | Should -Be 0
+        }
+
+        It 'does not replace a primary setup failure or reboot-required status when cleanup fails' {
+            $fallbackDirectory = Join-Path $TestDrive 'primary-fallback'
+            $cloneDirectory = Join-Path $TestDrive 'primary-clone'
+            New-Item -ItemType Directory -Path $fallbackDirectory, $cloneDirectory | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $cloneDirectory '.git') | Out-Null
+            Mock Stop-Transcript { }
+            Mock Move-Item { throw [System.IO.IOException]::new('simulated cleanup failure') }
+
+            $failureLogPath = Join-Path $fallbackDirectory 'setup-primary-failure.txt'
+            Set-Content -LiteralPath $failureLogPath -Value 'primary failure transcript'
+            $caughtMessage = $null
+            try {
+                try {
+                    throw [System.InvalidOperationException]::new('primary setup failure')
+                }
+                finally {
+                    Complete-DotfilesSetupLogging -LogFilePath $failureLogPath -DotfilesDirectory $cloneDirectory | Out-Null
+                }
+            }
+            catch {
+                $caughtMessage = $_.Exception.Message
+            }
+            $caughtMessage | Should -Be 'primary setup failure'
+
+            $restartLogPath = Join-Path $fallbackDirectory 'setup-restart.txt'
+            Set-Content -LiteralPath $restartLogPath -Value 'restart transcript'
+            $setupExitCode = $null
+            try {
+                $setupExitCode = 3010
+            }
+            finally {
+                Complete-DotfilesSetupLogging -LogFilePath $restartLogPath -DotfilesDirectory $cloneDirectory | Out-Null
+            }
+            $setupExitCode | Should -Be 3010
+        }
     }
 
     Context 'Windows Terminal configuration' {
@@ -131,18 +413,42 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
-        It 'uses Windows PowerShell 5.1 for the DISM feature module in both launch paths' {
+        It 'uses PowerShell error handling for Windows capabilities' {
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsCapabilities.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+
+            if ($module -notmatch 'Get-WindowsCapability.+-ErrorAction Stop') {
+                throw 'Get-WindowsCapability must fail when a selected capability cannot be queried.'
+            }
+            if ($module -notmatch 'Add-WindowsCapability.+-ErrorAction Stop') {
+                throw 'Add-WindowsCapability must emit a terminating error on failure.'
+            }
+            if ($module -match 'Add-WindowsCapability.+-NoRestart') {
+                throw 'Add-WindowsCapability does not support the NoRestart parameter in Windows PowerShell 5.1.'
+            }
+            if ($module -match '\$LASTEXITCODE') {
+                throw 'PowerShell cmdlet failures must not be inferred from LASTEXITCODE.'
+            }
+            if ($module -notmatch "State -eq 'Installed'" -or $module -notmatch "State -eq 'NotPresent'") {
+                throw 'Windows capability installation must explicitly handle Installed and NotPresent states.'
+            }
+            if ($module -notmatch 'if \(\$result\.RestartNeeded\)\s*\{[\s\S]*?\$restartNeeded\s*=\s*\$true[\s\S]*?break\s*\}') {
+                throw 'Windows capability installation must defer remaining capabilities when a restart is required.'
+            }
+        }
+
+        It 'uses Windows PowerShell 5.1 for DISM modules in both launch paths' {
             $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
             $setup = Get-Content -LiteralPath $setupPath -Raw
 
             if ($setup -notmatch 'WindowsPowerShell\\v1\.0\\powershell\.exe') {
-                throw 'Configure-WindowsFeatures must use the in-box Windows PowerShell host for DISM cmdlets.'
+                throw 'Windows DISM modules must use the in-box Windows PowerShell host.'
             }
             if ($setup -notmatch 'Start-Process\s+-FilePath\s+\$moduleHost' -or $setup -notmatch '&\s+\$moduleHost\s+@moduleArguments') {
                 throw 'Elevated and already-elevated module launches must use the selected module host.'
             }
-            if ($setup -notmatch "else\s*\{\s*'pwsh\.exe'\s*\}") {
-                throw 'Modules other than Configure-WindowsFeatures must remain on PowerShell 7.'
+            if ($setup -notmatch "Configure-WindowsFeatures\.ps1.+Configure-WindowsCapabilities\.ps1" -or $setup -notmatch "else\s*\{\s*'pwsh\.exe'\s*\}") {
+                throw 'Only Windows DISM modules must use Windows PowerShell 5.1; other modules must remain on PowerShell 7.'
             }
         }
 
@@ -169,6 +475,20 @@ Describe 'Bootstrap reliability contracts' {
             }
         }
 
+        It 'writes an independent transcript for the elevated Windows capability module' {
+            $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsCapabilities.ps1'
+            $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
+            $module = Get-Content -LiteralPath $modulePath -Raw
+            $setup = Get-Content -LiteralPath $setupPath -Raw
+
+            if ($module -notmatch 'Start-Logging\s+-LogFilePath\s+\$LogFilePath\s+-PassThru\s+-RequireRequestedPath' -or $module -notmatch 'Stop-Logging') {
+                throw 'The elevated Windows capability module must own and close its transcript.'
+            }
+            if ($setup -notmatch "Configure-WindowsCapabilities\.ps1.+Set-UserHomeAlias\.ps1") {
+                throw 'Setup must handle Configure-WindowsCapabilities.ps1 before Set-UserHomeAlias.ps1.'
+            }
+        }
+
         It 'stops setup with the Windows reboot-required exit code before running later modules' {
             $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsFeatures.ps1'
             $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
@@ -186,6 +506,12 @@ Describe 'Bootstrap reliability contracts' {
             }
             if ($setup -notmatch 'Exit 3010') {
                 throw 'Setup must propagate the reboot-required exit code to its caller.'
+            }
+
+            $capabilityModulePath = Join-Path $script:repositoryRoot 'setup-modules/Configure-WindowsCapabilities.ps1'
+            $capabilityModule = Get-Content -LiteralPath $capabilityModulePath -Raw
+            if ($capabilityModule -notmatch 'if \(\$restartNeeded\)[\s\S]*?\$moduleExitCode\s*=\s*3010' -or $capabilityModule -notmatch 'exit \$moduleExitCode') {
+                throw 'The Windows capability module must return exit code 3010 when a reboot is required.'
             }
         }
 
@@ -387,9 +713,155 @@ Describe 'Bootstrap reliability contracts' {
                 throw 'Declarative package installs must select the Winget community source explicitly.'
             }
         }
+
+        It 'preserves existing local configuration during repeated Git-free bootstrap' {
+            $sourceRoot = Join-Path $TestDrive 'bootstrap-source'
+            $targetRoot = Join-Path $TestDrive 'persistent-clone'
+            $sourceConfig = Join-Path $sourceRoot 'dotfiles-configurations'
+            $targetConfig = Join-Path $targetRoot 'dotfiles-configurations'
+            New-Item -ItemType Directory -Path $sourceConfig -Force | Out-Null
+            New-Item -ItemType Directory -Path $targetConfig -Force | Out-Null
+
+            $preservedName = 'dotfiles-bootstrap-variables.json'
+            $preservedSourceFile = Join-Path $sourceConfig $preservedName
+            $preservedTargetFile = Join-Path $targetConfig $preservedName
+            $sourceBytes = [System.Text.Encoding]::UTF8.GetBytes('{"INSTALL_PACKAGES":["base"]}')
+            $expectedLocalBytes = [System.Text.Encoding]::UTF8.GetBytes("{`r`n  `"INSTALL_PACKAGES`": [`"base`", `"tailscale`", `"google-drive`"]`r`n}")
+            [System.IO.File]::WriteAllBytes($preservedSourceFile, $sourceBytes)
+            [System.IO.File]::WriteAllBytes($preservedTargetFile, $expectedLocalBytes)
+
+            $missingName = 'git-variables.json'
+            $missingSourceFile = Join-Path $sourceConfig $missingName
+            $missingTargetFile = Join-Path $targetConfig $missingName
+            $missingBytes = [System.Text.Encoding]::UTF8.GetBytes('{"user.name":"Local User"}')
+            [System.IO.File]::WriteAllBytes($missingSourceFile, $missingBytes)
+            Mock Write-Info { }
+
+            Sync-DotfilesLocalConfiguration -SourceRoot $sourceRoot -TargetRoot $targetRoot
+
+            [System.IO.File]::ReadAllBytes($preservedTargetFile) |
+                Should -BeExactly $expectedLocalBytes
+            [System.IO.File]::ReadAllBytes($missingTargetFile) |
+                Should -BeExactly $missingBytes
+            Should -Invoke Write-Info -Times 1 -Exactly -ParameterFilter {
+                $Message -eq "Skipped existing local configuration '$preservedName' in cloned repository."
+            }
+            Should -Invoke Write-Info -Times 1 -Exactly -ParameterFilter {
+                $Message -eq "Copied local configuration '$missingName' to cloned repository."
+            }
+        }
+
+        It 'fails when an existing local configuration target is not a file' {
+            $sourceRoot = Join-Path $TestDrive 'invalid-target-source'
+            $targetRoot = Join-Path $TestDrive 'invalid-target-clone'
+            $sourceConfig = Join-Path $sourceRoot 'dotfiles-configurations'
+            $targetConfig = Join-Path $targetRoot 'dotfiles-configurations'
+            New-Item -ItemType Directory -Path $sourceConfig -Force | Out-Null
+            New-Item -ItemType Directory -Path $targetConfig -Force | Out-Null
+
+            $fileName = 'dotfiles-bootstrap-variables.json'
+            $sourceFile = Join-Path $sourceConfig $fileName
+            $targetFile = Join-Path $targetConfig $fileName
+            [System.IO.File]::WriteAllText($sourceFile, '{}')
+            New-Item -ItemType Directory -Path $targetFile | Out-Null
+            Mock Write-Info { }
+
+            { Sync-DotfilesLocalConfiguration -SourceRoot $sourceRoot -TargetRoot $targetRoot } |
+                Should -Throw -ExpectedMessage "Local configuration target '$targetFile' exists but is not a file."
+            Test-Path -LiteralPath $targetFile -PathType Container | Should -BeTrue
+            Should -Invoke Write-Info -Times 0 -Exactly
+        }
+
+        It 'does not overwrite local configuration created during synchronization' {
+            $sourceRoot = Join-Path $TestDrive 'race-source'
+            $targetRoot = Join-Path $TestDrive 'race-target'
+            $sourceConfig = Join-Path $sourceRoot 'dotfiles-configurations'
+            $targetConfig = Join-Path $targetRoot 'dotfiles-configurations'
+            New-Item -ItemType Directory -Path $sourceConfig -Force | Out-Null
+            New-Item -ItemType Directory -Path $targetConfig -Force | Out-Null
+
+            $fileName = 'dotfiles-bootstrap-variables.json'
+            $sourceFile = Join-Path $sourceConfig $fileName
+            $script:raceTargetFile = Join-Path $targetConfig $fileName
+            $sourceBytes = [System.Text.Encoding]::UTF8.GetBytes('{"source":true}')
+            $script:raceTargetBytes = [System.Text.Encoding]::UTF8.GetBytes('{"created-during-sync":true}')
+            [System.IO.File]::WriteAllBytes($sourceFile, $sourceBytes)
+            $script:raceTargetChecks = 0
+            Mock Test-Path {
+                if ($LiteralPath -eq $script:raceTargetFile) {
+                    $script:raceTargetChecks++
+                    if ($script:raceTargetChecks -eq 1) {
+                        [System.IO.File]::WriteAllBytes($script:raceTargetFile, $script:raceTargetBytes)
+                        return $false
+                    }
+                }
+                return $true
+            }
+            Mock Write-Info { }
+
+            Sync-DotfilesLocalConfiguration -SourceRoot $sourceRoot -TargetRoot $targetRoot
+
+            [System.IO.File]::ReadAllBytes($script:raceTargetFile) |
+                Should -BeExactly $script:raceTargetBytes
+            @(Get-ChildItem -LiteralPath $targetConfig -Filter '*.tmp' -File -Force) |
+                Should -HaveCount 0
+            Should -Invoke Write-Info -Times 1 -Exactly -ParameterFilter {
+                $Message -eq "Skipped existing local configuration '$fileName' in cloned repository."
+            }
+        }
+
+        It 'fails when a non-file local configuration target appears during synchronization' {
+            $sourceRoot = Join-Path $TestDrive 'invalid-race-source'
+            $targetRoot = Join-Path $TestDrive 'invalid-race-target'
+            $sourceConfig = Join-Path $sourceRoot 'dotfiles-configurations'
+            $targetConfig = Join-Path $targetRoot 'dotfiles-configurations'
+            New-Item -ItemType Directory -Path $sourceConfig -Force | Out-Null
+            New-Item -ItemType Directory -Path $targetConfig -Force | Out-Null
+
+            $fileName = 'dotfiles-bootstrap-variables.json'
+            $sourceFile = Join-Path $sourceConfig $fileName
+            $script:invalidRaceTargetFile = Join-Path $targetConfig $fileName
+            [System.IO.File]::WriteAllText($sourceFile, '{}')
+            $script:invalidRaceTargetChecks = 0
+            Mock Test-Path {
+                if ($LiteralPath -eq $script:invalidRaceTargetFile) {
+                    $script:invalidRaceTargetChecks++
+                    if ($script:invalidRaceTargetChecks -eq 1) {
+                        New-Item -ItemType Directory -Path $script:invalidRaceTargetFile | Out-Null
+                        return $false
+                    }
+                    if ($PathType -eq 'Leaf') {
+                        return $false
+                    }
+                }
+                return $true
+            }
+            Mock Write-Info { }
+
+            { Sync-DotfilesLocalConfiguration -SourceRoot $sourceRoot -TargetRoot $targetRoot } |
+                Should -Throw -ExpectedMessage "Local configuration target '$script:invalidRaceTargetFile' exists but is not a file."
+            Test-Path -LiteralPath $script:invalidRaceTargetFile -PathType Container | Should -BeTrue
+            @(Get-ChildItem -LiteralPath $targetConfig -Filter '*.tmp' -File -Force) |
+                Should -HaveCount 0
+            Should -Invoke Write-Info -Times 0 -Exactly
+        }
     }
 
     Context 'Default configuration consistency' {
+        It 'orders the RSAT Server Manager prerequisite before the Active Directory capability' {
+            $capabilitiesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/windows-capabilities.json.example'
+            $capabilities = Get-Content -LiteralPath $capabilitiesPath -Raw | ConvertFrom-Json
+            $rsatActiveDirectory = @($capabilities.'rsat-active-directory')
+            $expected = @(
+                'Rsat.ServerManager.Tools~~~~0.0.1.0',
+                'Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0'
+            )
+
+            if (($rsatActiveDirectory -join ',') -ne ($expected -join ',')) {
+                throw "The RSAT Active Directory group must preserve dependency order, got '$($rsatActiveDirectory -join ',')'."
+            }
+        }
+
         It 'uses only VirtualMachinePlatform for the WSL 2 feature group' {
             $featuresPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/windows-features.json.example'
             $features = Get-Content -LiteralPath $featuresPath -Raw | ConvertFrom-Json

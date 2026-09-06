@@ -12,7 +12,11 @@
     "WORKSPACE_FOLDER": "workspace",
     "INSTALL_FEATURES": [
         "hyperv",
-        "wsl"
+        "wsl",
+        "sandbox"
+    ],
+    "INSTALL_CAPABILITIES": [
+        "rsat-active-directory"
     ],
     "INSTALL_PACKAGES": [
         "base",
@@ -23,7 +27,8 @@
         "multimedia",
         "PowerBI",
         "productivity",
-        "pwsh"
+        "pwsh",
+        "poweruser"
     ],
     "INSTALL_SETTINGS": [
         "base",
