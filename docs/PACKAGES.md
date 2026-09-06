@@ -87,12 +87,13 @@ Existing local configurations are preserved during updates. Rename `PowerBI` to 
 local `winget-packages.json` and `INSTALL_PACKAGES`; remove `azure` and `powerbi` from the local
 `INSTALL_PACKAGES` array to adopt the new default selection.
 
-The former `development` group is split into `dev` and `azure`; both are selected in the
-shared bootstrap defaults to preserve the previous package set. The `developer` settings
-group requires `dev` for Git configuration. Packages shared by selected groups are deduplicated.
-For existing local configurations, refresh `winget-packages.json` and `setup-modules.json`
-from their templates, preserving any customizations, and replace `development` in
-`dotfiles-bootstrap-variables.json`'s `INSTALL_PACKAGES` with `dev` and/or `azure` as needed.
+The former `development` group is split into `dev` and `azure`. Only `dev` is selected in the
+shared bootstrap defaults; add `azure` explicitly when Azure tooling is required. The `developer`
+settings group requires `dev` for Git configuration. Packages shared by selected groups are
+deduplicated. For existing local configurations, refresh `winget-packages.json` and
+`setup-modules.json` from their templates, preserving any customizations, and replace
+`development` in `dotfiles-bootstrap-variables.json`'s `INSTALL_PACKAGES` with `dev` and,
+optionally, `azure`.
 
 ## Selected package scopes and elevation
 
