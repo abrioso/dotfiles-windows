@@ -27,40 +27,60 @@ $logFile = "$logDir/$scriptName-$dateTime.txt"
 # Start logging
 Start-Logging -LogFilePath $logFile
 
-$nerdFontUrl    = "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/CascadiaCode.zip"
-$zipFilePath    = "$env:TEMP\CascadiaCode.zip"
-$extractPath    = "$env:TEMP\CascadiaCode"
-$userFontsDir   = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
-$fontRegistryPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+function Test-DotfilesNerdFontInstallation {
+    param([string]$StatePath, [string]$FontsDirectory, [string]$RegistryPath)
+    try {
+        if (-not (Test-Path -LiteralPath $StatePath -PathType Leaf)) { return $false }
+        $state = Get-Content -LiteralPath $StatePath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        if ($state.Version -ne 1 -or @($state.Fonts).Count -eq 0) { return $false }
+        $registration = Get-ItemProperty -LiteralPath $RegistryPath -ErrorAction Stop
+        foreach ($font in $state.Fonts) {
+            if ([string]::IsNullOrWhiteSpace($font.Name) -or
+                [IO.Path]::GetFileName($font.Name) -ne $font.Name -or
+                $font.Name -notlike '*.ttf') { return $false }
+            $path = Join-Path $FontsDirectory $font.Name
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $false }
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256 -ErrorAction Stop).Hash -ne $font.Hash) { return $false }
+            $registryName = '{0} (TrueType)' -f [IO.Path]::GetFileNameWithoutExtension($font.Name)
+            if ($registration.$registryName -ne $path) { return $false }
+        }
+        return $true
+    } catch {
+        return $false
+    }
+}
 
-# Check if font is already installed (user fonts directory)
-$userInstalledFonts = Get-ChildItem -Path $userFontsDir -Filter "*CaskaydiaCove*" -ErrorAction SilentlyContinue
-# Check system fonts directory too (installed by another process or admin)
-$systemInstalledFonts = Get-ChildItem -Path "$env:SystemRoot\Fonts" -Filter "*CaskaydiaCove*" -ErrorAction SilentlyContinue
-
-if (($userInstalledFonts -and $userInstalledFonts.Count -gt 0) -or ($systemInstalledFonts -and $systemInstalledFonts.Count -gt 0)) {
-    Write-Info "CaskaydiaCove Nerd Font is already installed. Skipping."
+$ErrorActionPreference = 'Stop'
+$nerdFontUrl = 'https://github.com/ryanoasis/nerd-fonts/releases/latest/download/CascadiaCode.zip'
+$userFontsDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+$fontRegistryPath = 'HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts'
+$statePath = Join-Path $userFontsDir 'dotfiles-cascadiacode-state.json'
+if (Test-DotfilesNerdFontInstallation -StatePath $statePath -FontsDirectory $userFontsDir -RegistryPath $fontRegistryPath) {
+    Write-Info 'CaskaydiaCove Nerd Font files and registration are complete. Skipping.'
     Stop-Logging
     Exit 0
 }
 
-# Ensure user fonts directory exists
-if (-not (Test-Path $userFontsDir)) {
-    Write-Info "Creating user fonts directory: $userFontsDir"
-    New-Item -ItemType Directory -Path $userFontsDir -Force | Out-Null
-}
+# Own only this invocation's temporary files, including concurrent runs.
+$invocationDirectory = Join-Path $env:TEMP ('dotfiles-font-' + [guid]::NewGuid().ToString('N'))
+$zipFilePath = Join-Path $invocationDirectory 'CascadiaCode.zip'
+$extractPath = Join-Path $invocationDirectory 'extracted'
 
 try {
+    New-Item -ItemType Directory -Path $invocationDirectory -ErrorAction Stop | Out-Null
+    New-Item -ItemType Directory -Path $userFontsDir -Force -ErrorAction Stop | Out-Null
+    if (-not (Test-Path -LiteralPath $fontRegistryPath)) {
+        New-Item -Path $fontRegistryPath -Force -ErrorAction Stop | Out-Null
+    }
     Write-Info "Downloading CascadiaCode Nerd Font from $nerdFontUrl..."
     Invoke-WebRequest -Uri $nerdFontUrl -OutFile $zipFilePath -UseBasicParsing
 
     Write-Info "Extracting font archive..."
-    if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
     Expand-Archive -Path $zipFilePath -DestinationPath $extractPath -Force
 
     # Install TTF files, excluding legacy Windows-compatible variants
-    $fontFiles = Get-ChildItem -Path $extractPath -Filter "*.ttf" -Recurse |
-        Where-Object { $_.Name -notlike "*WindowsCompatible*" }
+    $fontFiles = @(Get-ChildItem -Path $extractPath -Filter "*.ttf" -Recurse |
+        Where-Object { $_.Name -notlike "*WindowsCompatible*" })
 
     if ($fontFiles.Count -eq 0) {
         Write-WarningMessage "No .ttf font files found in the archive."
@@ -69,6 +89,7 @@ try {
     }
 
     Write-Info "Installing $($fontFiles.Count) font file(s) to $userFontsDir..."
+    $installedFonts = @()
     foreach ($fontFile in $fontFiles) {
         $destPath = Join-Path $userFontsDir $fontFile.Name
         Copy-Item -Path $fontFile.FullName -Destination $destPath -Force
@@ -76,9 +97,19 @@ try {
         # Register font in the current-user registry
         $registryName = "$($fontFile.BaseName) (TrueType)"
         New-ItemProperty -Path $fontRegistryPath -Name $registryName -Value $destPath -PropertyType String -Force | Out-Null
+        $installedFonts += @{ Name = $fontFile.Name; Hash = (Get-FileHash -LiteralPath $destPath -Algorithm SHA256).Hash }
         Write-Info "Installed font: $($fontFile.Name)"
     }
 
+    # Publish completion only after every copy and registry operation succeeds.
+    $temporaryState = Join-Path $userFontsDir ('.dotfiles-font-' + [guid]::NewGuid().ToString('N') + '.tmp')
+    try {
+        @{ Version = 1; Fonts = $installedFonts } | ConvertTo-Json -Depth 4 |
+            Set-Content -LiteralPath $temporaryState -Encoding UTF8
+        Move-Item -LiteralPath $temporaryState -Destination $statePath -Force
+    } finally {
+        if (Test-Path -LiteralPath $temporaryState) { Remove-Item -LiteralPath $temporaryState -Force }
+    }
     Write-Info "CaskaydiaCove Nerd Font installed successfully."
 } catch {
     Write-ErrorMessage "Failed to install CaskaydiaCove Nerd Font: $($_.Exception.Message)"
@@ -86,8 +117,9 @@ try {
     Exit 1
 } finally {
     # Cleanup temp files
-    if (Test-Path $zipFilePath) { Remove-Item $zipFilePath -Force -ErrorAction SilentlyContinue }
-    if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue }
+    if (Test-Path -LiteralPath $invocationDirectory) {
+        Remove-Item -LiteralPath $invocationDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 Stop-Logging

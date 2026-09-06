@@ -107,6 +107,10 @@ git config --global user.name "Your Name"
 git config --global user.email "your.email@example.com"
 ```
 
+Nerd Font setup records installed file hashes and verifies registration before skipping.
+Legacy installations without this record are refreshed once; partial installations are repaired.
+`tests/NerdFontRepair.Tests.ps1` covers missing/corrupt files and missing registration.
+
 ## Customization
 
 ### Forking
