@@ -49,6 +49,9 @@ times on the same machine. It will only install or change things that are not al
 state. Repeated Git-free bootstrap invocation is a separate transport/configuration scenario and
 must not be treated as equivalent to rerunning the persistent setup.
 
+Profile stubs resolve `LOCALAPPDATA` at load time, so the same synced stub works across
+machines. `tests/PortableProfile.Tests.ps1` verifies this with different local paths.
+
 ### Core Components
 
 #### `setup-scripts`
