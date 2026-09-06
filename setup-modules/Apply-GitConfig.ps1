@@ -39,13 +39,20 @@ try {
 
         # git config exits with 1 when the key does not exist; $currentValue will be $null in that case.
         $currentValue = git config --global $key 2>$null
-        if ($LASTEXITCODE -ne 0) { $currentValue = $null }
+        $readExitCode = $LASTEXITCODE
+        if ($readExitCode -eq 1) { $currentValue = $null }
+        elseif ($readExitCode -ne 0) {
+            throw "Failed to read Git config '$key' (exit code $readExitCode)."
+        }
 
         if ($currentValue -eq $desiredValue) {
             Write-Host "Git config '$key' is already set to '$desiredValue'. Skipping."
         } else {
             Write-Host "Setting Git config '$key' to '$desiredValue'..."
             git config --global $key $desiredValue
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to write Git config '$key' (exit code $LASTEXITCODE)."
+            }
             Write-Host "Successfully set Git config '$key'."
         }
     }

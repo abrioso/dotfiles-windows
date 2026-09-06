@@ -91,7 +91,8 @@ try {
         $targetPath = Join-Path $profileDirectory $profileFile.Name
         $stubContent = @(
             $stubMarker
-            ". `"$localStore\$($profileFile.Name)`""
+            '$localProfile = Join-Path $env:LOCALAPPDATA ''dotfiles\powershell-profiles\' + $profileFile.Name.Replace("'", "''") + "'"
+            'if (Test-Path -LiteralPath $localProfile -PathType Leaf) { . $localProfile }'
             ''
         ) -join [Environment]::NewLine
 
