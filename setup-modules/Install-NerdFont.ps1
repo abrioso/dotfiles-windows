@@ -50,6 +50,32 @@ function Test-DotfilesNerdFontInstallation {
     }
 }
 
+function Install-DotfilesNerdFontFile {
+    param([IO.FileInfo]$FontFile, [string]$FontsDirectory, [string]$RegistryPath)
+
+    $destPath = Join-Path $FontsDirectory $FontFile.Name
+    $sourceHash = (Get-FileHash -LiteralPath $FontFile.FullName -Algorithm SHA256 -ErrorAction Stop).Hash
+    $contentMatches = (Test-Path -LiteralPath $destPath -PathType Leaf) -and
+        (Get-FileHash -LiteralPath $destPath -Algorithm SHA256 -ErrorAction Stop).Hash -eq $sourceHash
+    # Windows may hold installed fonts open. Identical files need no write access,
+    # including when adopting a legacy installation without a completion record.
+    if (-not $contentMatches) {
+        try {
+            Copy-Item -LiteralPath $FontFile.FullName -Destination $destPath -Force -ErrorAction Stop
+        } catch {
+            if (($_.Exception.HResult -band 0xffff) -in 32, 33) {
+                throw "Font '$($FontFile.Name)' needs replacement but is in use. Close applications using this font (including Windows Terminal), then rerun setup from a console using another font. If it remains locked, restart Windows and retry. Original error: $($_.Exception.Message)"
+            }
+            throw
+        }
+    }
+
+    # Repair registration even when the file itself was already correct.
+    $registryName = "$($FontFile.BaseName) (TrueType)"
+    New-ItemProperty -Path $RegistryPath -Name $registryName -Value $destPath -PropertyType String -Force -ErrorAction Stop | Out-Null
+    return @{ Name = $FontFile.Name; Hash = $sourceHash }
+}
+
 $ErrorActionPreference = 'Stop'
 $nerdFontUrl = 'https://github.com/ryanoasis/nerd-fonts/releases/latest/download/CascadiaCode.zip'
 $userFontsDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
@@ -91,13 +117,7 @@ try {
     Write-Info "Installing $($fontFiles.Count) font file(s) to $userFontsDir..."
     $installedFonts = @()
     foreach ($fontFile in $fontFiles) {
-        $destPath = Join-Path $userFontsDir $fontFile.Name
-        Copy-Item -Path $fontFile.FullName -Destination $destPath -Force
-
-        # Register font in the current-user registry
-        $registryName = "$($fontFile.BaseName) (TrueType)"
-        New-ItemProperty -Path $fontRegistryPath -Name $registryName -Value $destPath -PropertyType String -Force | Out-Null
-        $installedFonts += @{ Name = $fontFile.Name; Hash = (Get-FileHash -LiteralPath $destPath -Algorithm SHA256).Hash }
+        $installedFonts += Install-DotfilesNerdFontFile -FontFile $fontFile -FontsDirectory $userFontsDir -RegistryPath $fontRegistryPath
         Write-Info "Installed font: $($fontFile.Name)"
     }
 
