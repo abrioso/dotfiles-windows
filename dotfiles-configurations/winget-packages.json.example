@@ -135,6 +135,14 @@
     ],
     "pwsh": [
         {
+            "id": "Microsoft.PowerShell",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.WindowsTerminal",
+            "scope": "user"
+        },
+        {
             "id": "JanDeDobbeleer.OhMyPosh",
             "scope": "user"
         }

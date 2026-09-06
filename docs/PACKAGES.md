@@ -71,7 +71,7 @@ required UAC elevation itself while the package module continues running as the 
 - `poweruser` — package-management and power-user tooling
 - `PowerBI` — Power BI Desktop, installed with machine scope
 - `productivity` — Microsoft Office, OneDrive and Teams
-- `pwsh` — Oh My Posh
+- `pwsh` — PowerShell, Windows Terminal and Oh My Posh (all with `user` scope)
 - `tailscale` — optional Tailscale client and system service for mesh VPN connectivity
 - `wsl` — WSL and Ubuntu
 
