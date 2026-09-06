@@ -92,6 +92,9 @@ This folder contains tracked `*.json.example` templates and local gitignored `*.
 
 The setup deploys per-machine PowerShell profiles: the real profile files live in `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced), and a small marker stub in the profile directory dot-sources them. This keeps your profile configuration tracked in this repository while staying personal to each machine, even when Documents is synchronised by OneDrive. The profile is composed of several files located in the `powershell-profiles` directory.
 
+Profile stubs resolve `LOCALAPPDATA` at load time, so the same synced stub works across
+machines. `tests/PortableProfile.Tests.ps1` verifies this with different local paths.
+
 ### Private files and Secrets
 
 For any private settings, such as API tokens or Git credentials that you don't want to commit to the repository, create an `extra.ps1` file within the `powershell-profiles` directory and source it explicitly from your profile (for example from a machine-local copy under `%LOCALAPPDATA%\dotfiles\powershell-profiles`). Files in that directory are copied to the local store by `Install-LocalPowerShellProfiles.ps1`, so anything you keep there stays per-machine. The `extra.ps1` name is included in `.gitignore` so it won't be tracked by Git.
