@@ -1,6 +1,10 @@
 {
     "base": [
         {
+            "id": "7zip.7zip",
+            "scope": "machine"
+        },
+        {
             "id": "Git.Git",
             "scope": "user"
         },
@@ -59,6 +63,10 @@
     ],
     "productivity": [
         {
+            "id": "Microsoft.365Copilot",
+            "scope": "user"
+        },
+        {
             "id": "Microsoft.Office",
             "scope": "machine"
         },
@@ -96,6 +104,10 @@
         },
         {
             "id": "Python.Python.3.13",
+            "scope": "user"
+        },
+        {
+            "id": "Yaak.app",
             "scope": "user"
         }
     ],
@@ -160,6 +172,26 @@
     "tailscale": [
         {
             "id": "Tailscale.Tailscale",
+            "scope": "machine"
+        }
+    ],
+    "delinea": [
+        {
+            "id": "Delinea.DelineaConnectionManager",
+            "scope": "machine"
+        }
+    ],
+    "yubico": [
+        {
+            "id": "Yubico.Authenticator",
+            "scope": "machine"
+        },
+        {
+            "id": "Yubico.YubikeyManager",
+            "scope": "machine"
+        },
+        {
+            "id": "Yubico.YubiKeyManagerCLI",
             "scope": "machine"
         }
     ],
