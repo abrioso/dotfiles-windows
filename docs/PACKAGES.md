@@ -72,15 +72,20 @@ required UAC elevation itself while the package module continues running as the 
 - `google-drive` — optional Google Drive for desktop, providing machine-wide Drive integration
 - `multimedia` — OBS Studio and VLC
 - `poweruser` — package-management and power-user tooling
-- `PowerBI` — Power BI Desktop, installed with machine scope
+- `powerbi` — optional Power BI Desktop, installed with machine scope
 - `productivity` — Microsoft 365 Copilot, Microsoft Office, OneDrive and Teams
 - `pwsh` — PowerShell, Windows Terminal and Oh My Posh (all with `user` scope)
 - `tailscale` — optional Tailscale client and system service for mesh VPN connectivity
 - `wsl` — WSL and Ubuntu
 - `yubico` — optional Yubico Authenticator, YubiKey Manager and YubiKey Manager CLI
 
-The `delinea` and `yubico` groups are available in the configuration TUI but are not selected
-in the shared bootstrap defaults. Select them in `INSTALL_PACKAGES` when required.
+The `azure`, `powerbi`, `delinea` and `yubico` groups are available in the configuration TUI
+but are not selected in the shared bootstrap defaults. Select them in `INSTALL_PACKAGES` when
+required.
+
+Existing local configurations are preserved during updates. Rename `PowerBI` to `powerbi` in
+local `winget-packages.json` and `INSTALL_PACKAGES`; remove `azure` and `powerbi` from the local
+`INSTALL_PACKAGES` array to adopt the new default selection.
 
 The former `development` group is split into `dev` and `azure`; both are selected in the
 shared bootstrap defaults to preserve the previous package set. The `developer` settings

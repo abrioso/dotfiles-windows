@@ -127,7 +127,7 @@ $bootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
 $bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
 $expectedPackageGroups = @(
     'base', 'browsers', 'dev', 'azure', 'wsl', 'docker', 'multimedia',
-    'PowerBI', 'productivity', 'pwsh', 'poweruser', 'tailscale', 'google-drive'
+    'powerbi', 'productivity', 'pwsh', 'poweruser', 'tailscale', 'delinea', 'yubico', 'google-drive'
 )
 $bootstrap.INSTALL_PACKAGES = $expectedPackageGroups
 $bootstrap | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $bootstrapPath -Encoding utf8

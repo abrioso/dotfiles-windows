@@ -927,7 +927,7 @@ Stop-Logging
 
         }
 
-        It 'keeps excluded packages out and Power BI in its machine-scoped group' {
+        It 'keeps excluded packages out and Power BI in its optional machine-scoped group' {
             $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
             $bootstrapPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/dotfiles-bootstrap-variables.json.example'
             $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
@@ -942,15 +942,17 @@ Stop-Logging
                 }
             }
 
-            if ($packages.PSObject.Properties.Name -cnotcontains 'PowerBI') {
-                throw "The PowerBI package group must be defined with exact casing."
+            if ($packages.PSObject.Properties.Name -cnotcontains 'powerbi') {
+                throw "The powerbi package group must be defined with exact casing."
             }
-            $powerBiPackages = @($packages.PowerBI)
+            $powerBiPackages = @($packages.powerbi)
             if ($powerBiPackages.Count -ne 1 -or $powerBiPackages[0].id -ne 'Microsoft.PowerBI' -or $powerBiPackages[0].scope -ne 'machine') {
-                throw "The PowerBI group must contain only Microsoft.PowerBI with machine scope."
+                throw "The powerbi group must contain only Microsoft.PowerBI with machine scope."
             }
-            if ($bootstrap.INSTALL_PACKAGES -notcontains 'PowerBI') {
-                throw "The default package selection must include the PowerBI group."
+            foreach ($optionalGroup in @('azure', 'powerbi')) {
+                if ($bootstrap.INSTALL_PACKAGES -contains $optionalGroup) {
+                    throw "The default package selection must not include optional group '$optionalGroup'."
+                }
             }
         }
 
