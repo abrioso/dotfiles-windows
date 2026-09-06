@@ -49,9 +49,6 @@ times on the same machine. It will only install or change things that are not al
 state. Repeated Git-free bootstrap invocation is a separate transport/configuration scenario and
 must not be treated as equivalent to rerunning the persistent setup.
 
-Profile stubs resolve `LOCALAPPDATA` at load time, so the same synced stub works across
-machines. `tests/PortableProfile.Tests.ps1` verifies this with different local paths.
-
 ### Core Components
 
 #### `setup-scripts`
@@ -91,6 +88,9 @@ This folder contains tracked `*.json.example` templates and local gitignored `*.
 ### PowerShell Profile
 
 The setup deploys per-machine PowerShell profiles: the real profile files live in `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced), and a small marker stub in the profile directory dot-sources them. This keeps your profile configuration tracked in this repository while staying personal to each machine, even when Documents is synchronised by OneDrive. The profile is composed of several files located in the `powershell-profiles` directory.
+
+Profile stubs resolve `LOCALAPPDATA` at load time, so the same synced stub works across
+machines. `tests/PortableProfile.Tests.ps1` verifies this with different local paths.
 
 ### Private files and Secrets
 
