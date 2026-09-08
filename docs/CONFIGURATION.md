@@ -119,9 +119,9 @@ Examples:
 
 `INSTALL_PACKAGES` in `dotfiles-bootstrap-variables.json` controls which package groups are installed from `winget-packages.json`.
 
-The tracked defaults deliberately leave `tailscale` and `google-drive` unselected. Both are
-machine-scoped, optional integrations: add either group to `INSTALL_PACKAGES` through the TUI or
-local JSON only on machines where it is required.
+The tracked defaults deliberately leave `azure`, `powerbi`, `tailscale`, `delinea`, `yubico`
+and `google-drive` unselected. These are optional toolsets or integrations: add any required group
+to `INSTALL_PACKAGES` through the TUI or local JSON.
 
 Package object entries contain an `id` and may constrain `scope` (`user` or `machine`) and
 `installerType` (currently `wix`). Omit scope when the selected upstream manifest does not declare
@@ -133,7 +133,6 @@ installer`. Duplicate package IDs across selected groups must use identical meta
   "INSTALL_PACKAGES": [
     "base",
     "dev",
-    "azure",
     "wsl"
   ]
 }

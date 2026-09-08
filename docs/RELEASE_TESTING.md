@@ -107,11 +107,13 @@ $expectedPackageGroups = @(
     'wsl',
     'docker',
     'multimedia',
-    'PowerBI',
+    'powerbi',
     'productivity',
     'pwsh',
     'poweruser',
     'tailscale',
+    'delinea',
+    'yubico',
     'google-drive'
 )
 $bootstrap.INSTALL_PACKAGES = $expectedPackageGroups

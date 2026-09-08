@@ -79,7 +79,7 @@
             "scope": "machine"
         }
     ],
-    "PowerBI": [
+    "powerbi": [
         {
             "id": "Microsoft.PowerBI",
             "scope": "machine"
