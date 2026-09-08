@@ -11,8 +11,8 @@ it; completed evidence and raw artifacts must not modify the release candidate u
 Use a disposable Windows 11 Pro or Enterprise machine or VM with snapshots. An Entra ID joined
 machine whose real profile path contains non-ASCII characters is required for the `HOME` alias
 scenario. Use the default package, feature, capability, and setting selections unless a scenario
-says otherwise. Tailscale and Google Drive remain opt-in; select both explicitly for the package
-acceptance scenario without adding them to the tracked defaults.
+says otherwise. Azure, Power BI, Tailscale, Delinea, Yubico and Google Drive remain opt-in; select
+all six explicitly for the package acceptance scenario without adding them to the tracked defaults.
 
 The three main interactions do **not** all use the Git-free entry point:
 
@@ -80,6 +80,10 @@ For the final release-candidate retest, replace `develop` in both URL and `-Bran
 - [ ] The clone checks out the requested `develop` or `release/vYYYY.MM.N` branch and its HEAD is
       the expected commit.
 - [ ] Local gitignored JSON from the bootstrap copy reaches the persistent clone.
+- [ ] The generated `INSTALL_PACKAGES` value exactly matches the tracked defaults: `base`,
+      `browsers`, `dev`, `wsl`, `docker`, `multimedia`, `productivity`, `pwsh`, `poweruser`.
+- [ ] None of `azure`, `powerbi`, `tailscale`, `delinea`, `yubico` or `google-drive` is selected
+      before the package acceptance override.
 - [ ] The Windows feature module runs under Windows PowerShell 5.1 and requests elevation once.
 - [ ] Enabling the selected features returns exit code `3010` when a reboot is required.
 - [ ] The Git-free wrapper returns the same `3010` exit code.
@@ -93,8 +97,8 @@ Restart Windows before interaction 2.
 ## Interaction 2: post-reboot continuation
 
 Open PowerShell in the persistent clone. Before the first post-reboot setup run, set the exact
-ordered package selection for this acceptance scenario: the tracked defaults followed by the two
-opt-in groups. This deliberately edits only the local, gitignored bootstrap configuration:
+ordered package selection for this acceptance scenario: the tracked defaults plus all six opt-in
+groups. This deliberately edits only the local, gitignored bootstrap configuration:
 
 ```powershell
 $bootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
@@ -152,9 +156,13 @@ git rev-parse HEAD
 - [ ] No package reports `No applicable installer`, `0x8A150010`, hash mismatch, or an ignored
       non-zero Winget exit code.
 - [ ] `Microsoft.PowerShell` and `Microsoft.WindowsTerminal` remain user-scoped MSIX packages.
+- [ ] `Microsoft.365Copilot` and `Yaak.app` install at user scope.
+- [ ] `7zip.7zip` installs at machine scope.
 - [ ] Packages declared with machine scope request UAC only when installation is required.
-- [ ] With the opt-in `tailscale` and `google-drive` groups selected, both packages install using
-      their machine-scoped installers and are detected as installed on the idempotency run.
+- [ ] `azure` installs `Microsoft.Azd` and `Microsoft.AzureCLI`; `powerbi` installs
+      `Microsoft.PowerBI`.
+- [ ] `tailscale`, `delinea`, `yubico` and `google-drive` install their declared machine-scoped
+      packages and every opt-in package is detected as installed on the idempotency run.
 - [ ] `Microsoft.WSL` installs before `Canonical.Ubuntu`, and the WSL group completes before
       Docker Desktop.
 
@@ -224,11 +232,31 @@ created by the current `main` branch, including the previous profile and Termina
    `setup-modules.json`, `windows-capabilities.json`, `windows-features.json`, and
    `winget-packages.json`.
 3. Review the new local JSON before running setup.
-4. Run `setup.ps1`, then run it again to prove the migrated state is idempotent.
+4. Migrate the package selection retained from `v2026.09.0`: replace `development` with `dev`,
+   remove the former default `PowerBI`, and leave the new optional `azure` and `powerbi` groups
+   absent. Preserve every other selected group and its order:
+   ```powershell
+   $bootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
+   $bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
+   $bootstrap.INSTALL_PACKAGES = @($bootstrap.INSTALL_PACKAGES | ForEach-Object {
+       if ($_ -ceq 'development') { 'dev' }
+       elseif ($_ -cne 'PowerBI') { $_ }
+   })
+   $bootstrap | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $bootstrapPath -Encoding utf8
+   $migratedGroups = @((Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json).INSTALL_PACKAGES)
+   if ($migratedGroups -ccontains 'development' -or $migratedGroups -ccontains 'PowerBI' -or
+       $migratedGroups -ccontains 'azure' -or $migratedGroups -ccontains 'powerbi' -or
+       $migratedGroups -cnotcontains 'dev') {
+       throw "Unexpected migrated package selection: $($migratedGroups -join ', ')."
+   }
+   ```
+5. Run `setup.ps1`, then run it again to prove the migrated state is idempotent.
 
 - [ ] Every replaced local JSON has a durable backup outside the repository.
 - [ ] Identity, endpoint, environment and Git variables are not replaced unless explicitly selected.
 - [ ] Invalid templates fail before any selected local file changes.
+- [ ] The migrated package selection contains `dev`, contains neither legacy `development` nor
+      `PowerBI`, and does not silently opt into `azure` or `powerbi`.
 - [ ] Old PowerShell profile symlinks migrate to local profile copies plus marker stubs.
 - [ ] User-authored, unmarked profile files are preserved.
 - [ ] The old Windows Terminal symlink/tracked layout migrates to an in-place LocalState file.
@@ -251,6 +279,31 @@ preserve-existing and populate-missing paths. Take a VM snapshot before changing
       configuration was copied.
 - [ ] Treat replacement of any existing machine-local JSON as a release blocker.
 - [ ] Restore the snapshot before continuing other acceptance tests.
+
+## Backup rollback drill
+
+Use the existing-install migration snapshot and one catalog backup created by `update.ps1`. Record
+the current migrated file hash, restore its matching backup, and verify that the restored bytes
+exactly match the backup. Parse the restored JSON before using it. Then rerun `update.ps1`, repeat
+the documented package-selection migration when applicable, and run `setup.ps1` twice to return to
+the release-candidate state.
+
+```powershell
+$CatalogPath = '.\dotfiles-configurations\winget-packages.json'
+$CatalogBackup = '<absolute path to the matching update.ps1 backup>'
+$MigratedHash = (Get-FileHash -LiteralPath $CatalogPath -Algorithm SHA256).Hash
+$BackupHash = (Get-FileHash -LiteralPath $CatalogBackup -Algorithm SHA256).Hash
+Copy-Item -LiteralPath $CatalogBackup -Destination $CatalogPath -Force
+$RestoredHash = (Get-FileHash -LiteralPath $CatalogPath -Algorithm SHA256).Hash
+if ($RestoredHash -cne $BackupHash) { throw 'Restored catalog does not match its backup.' }
+Get-Content -LiteralPath $CatalogPath -Raw | ConvertFrom-Json -ErrorAction Stop | Out-Null
+```
+
+- [ ] The pre-rollback migrated hash, backup hash and restored hash are recorded.
+- [ ] The restored file matches the durable backup byte-for-byte and remains valid JSON.
+- [ ] Reapplying the catalog update and package-selection migration succeeds.
+- [ ] Two subsequent setup runs converge successfully and leave the tracked tree clean.
+- [ ] Restore the migration snapshot after the drill.
 
 ## Final release-branch gate
 
