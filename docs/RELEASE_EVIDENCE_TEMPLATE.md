@@ -72,7 +72,7 @@ try {
         -File $BootstrapScript `
         -Account abrioso `
         -Repo dotfiles-windows `
-        -Branch <release-branch> `
+        -Branch '<release-branch>' `
         -NonInteractive
     $InstallExitCode = $LASTEXITCODE
     $InstallExitCode | Set-Content "$EvidenceRoot\01-clean-install-exit-code.txt"
