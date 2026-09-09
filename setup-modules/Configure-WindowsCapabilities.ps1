@@ -62,8 +62,8 @@ try {
             if ($capability.State -eq 'Installed') {
                 Write-Host "Capability '$capabilityName' is already installed. Skipping."
             }
-            elseif ($capability.State -eq 'NotPresent') {
-                Write-Host "Capability '$capabilityName' is not present. Installing..."
+            elseif ($capability.State -in @('NotPresent', 'Staged')) {
+                Write-Host "Capability '$capabilityName' is in installable state '$($capability.State)'. Installing..."
                 $result = Add-WindowsCapability -Online -Name $capabilityName -ErrorAction Stop
 
                 Write-Host "Successfully installed capability '$capabilityName'."
