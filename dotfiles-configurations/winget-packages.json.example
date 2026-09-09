@@ -63,10 +63,6 @@
     ],
     "productivity": [
         {
-            "id": "Microsoft.365Copilot",
-            "scope": "user"
-        },
-        {
             "id": "Microsoft.Office",
             "scope": "machine"
         },

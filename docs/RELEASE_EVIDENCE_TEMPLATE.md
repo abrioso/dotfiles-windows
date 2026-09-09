@@ -179,7 +179,7 @@ Checks:
 - [ ] failures stopped the remaining plan and propagated non-zero status
 - [ ] no `No applicable installer`, `0x8A150010`, or hash mismatch
 - [ ] PowerShell and Windows Terminal remained user-scoped MSIX
-- [ ] Microsoft 365 Copilot and Yaak installed at user scope
+- [ ] Yaak installed at user scope
 - [ ] 7-Zip installed at machine scope
 - [ ] Azure CLI, Azure Developer CLI and Power BI installed from their opt-in groups
 - [ ] Delinea Connection Manager and all three Yubico packages installed at machine scope
@@ -194,7 +194,6 @@ $AcceptancePackageIds = @(
     '7zip.7zip',
     'Delinea.DelineaConnectionManager',
     'Google.GoogleDrive',
-    'Microsoft.365Copilot',
     'Microsoft.Azd',
     'Microsoft.AzureCLI',
     'Microsoft.PowerBI',

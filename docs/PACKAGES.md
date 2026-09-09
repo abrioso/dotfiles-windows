@@ -73,7 +73,7 @@ required UAC elevation itself while the package module continues running as the 
 - `multimedia` — OBS Studio and VLC
 - `poweruser` — package-management and power-user tooling
 - `powerbi` — optional Power BI Desktop, installed with machine scope
-- `productivity` — Microsoft 365 Copilot, Microsoft Office, OneDrive and Teams
+- `productivity` — Microsoft Office, OneDrive and Teams
 - `pwsh` — PowerShell, Windows Terminal and Oh My Posh (all with `user` scope)
 - `tailscale` — optional Tailscale client and system service for mesh VPN connectivity
 - `wsl` — WSL and Ubuntu
@@ -82,6 +82,10 @@ required UAC elevation itself while the package module continues running as the 
 The `azure`, `powerbi`, `delinea` and `yubico` groups are available in the configuration TUI
 but are not selected in the shared bootstrap defaults. Select them in `INSTALL_PACKAGES` when
 required.
+
+`Microsoft.365Copilot` is intentionally excluded from the shared package catalog because clean
+release acceptance exposed an unreliable Winget installation path. Reconsider it only after the
+upstream package installs successfully in both clean-install and idempotency scenarios.
 
 Existing local configurations are preserved during updates. Rename `PowerBI` to `powerbi` in
 local `winget-packages.json` and `INSTALL_PACKAGES`; remove `azure` and `powerbi` from the local
@@ -107,7 +111,6 @@ affecting bootstrap installs.
 | --- | --- | --- |
 | `7zip.7zip` | `machine` | Yes when installation is required; upstream installers declare machine scope. |
 | `Delinea.DelineaConnectionManager` | `machine` | Yes when installation is required; upstream WiX installer declares machine scope. |
-| `Microsoft.365Copilot` | `user` | Upstream installer declares user scope. |
 | `Yaak.app` | `user` | Normally no; upstream NSIS installer declares user scope. |
 | `Yubico.Authenticator` | `machine` | Yes when installation is required; upstream WiX installer declares machine scope. |
 | `Yubico.YubikeyManager` | `machine` | Yes when installation is required; upstream NSIS installers declare machine scope. |
@@ -134,7 +137,6 @@ Git and PowerShell are also bootstrap prerequisites. If missing, setup installs 
 Scopes for the additions above were checked on 2026-09-06 against the Winget installer manifests:
 [7-Zip 26.02](https://github.com/microsoft/winget-pkgs/blob/master/manifests/7/7zip/7zip/26.02/7zip.7zip.installer.yaml),
 [Delinea 2.9.0.33](https://github.com/microsoft/winget-pkgs/blob/master/manifests/d/Delinea/DelineaConnectionManager/2.9.0.33/Delinea.DelineaConnectionManager.installer.yaml),
-[Microsoft 365 Copilot 19.2607.33010](https://github.com/microsoft/winget-pkgs/blob/master/manifests/m/Microsoft/365Copilot/19.2607.33010/Microsoft.365Copilot.installer.yaml),
 [Yaak 2026.7.1](https://github.com/microsoft/winget-pkgs/blob/master/manifests/y/Yaak/app/2026.7.1/Yaak.app.installer.yaml),
 [Yubico Authenticator 7.4.1](https://github.com/microsoft/winget-pkgs/blob/master/manifests/y/Yubico/Authenticator/7.4.1/Yubico.Authenticator.installer.yaml),
 [YubiKey Manager 1.2.6](https://github.com/microsoft/winget-pkgs/blob/master/manifests/y/Yubico/YubikeyManager/1.2.6/Yubico.YubikeyManager.installer.yaml), and

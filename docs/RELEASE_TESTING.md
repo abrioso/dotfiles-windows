@@ -156,7 +156,7 @@ git rev-parse HEAD
 - [ ] No package reports `No applicable installer`, `0x8A150010`, hash mismatch, or an ignored
       non-zero Winget exit code.
 - [ ] `Microsoft.PowerShell` and `Microsoft.WindowsTerminal` remain user-scoped MSIX packages.
-- [ ] `Microsoft.365Copilot` and `Yaak.app` install at user scope.
+- [ ] `Yaak.app` installs at user scope.
 - [ ] `7zip.7zip` installs at machine scope.
 - [ ] Packages declared with machine scope request UAC only when installation is required.
 - [ ] `azure` installs `Microsoft.Azd` and `Microsoft.AzureCLI`; `powerbi` installs

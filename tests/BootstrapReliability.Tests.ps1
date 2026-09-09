@@ -936,7 +936,7 @@ Stop-Logging
                 $_ | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.id } }
             })
 
-            foreach ($excludedPackageId in @('Microsoft.Sysinternals.Suite')) {
+            foreach ($excludedPackageId in @('Microsoft.365Copilot', 'Microsoft.Sysinternals.Suite')) {
                 if ($allPackageIds -contains $excludedPackageId) {
                     throw "Excluded package '$excludedPackageId' must not be in the install pool."
                 }
