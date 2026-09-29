@@ -429,8 +429,8 @@ Stop-Logging
             if ($module -match '\$LASTEXITCODE') {
                 throw 'PowerShell cmdlet failures must not be inferred from LASTEXITCODE.'
             }
-            if ($module -notmatch "State -eq 'Installed'" -or $module -notmatch "State -eq 'NotPresent'") {
-                throw 'Windows capability installation must explicitly handle Installed and NotPresent states.'
+            if ($module -notmatch "State -eq 'Installed'" -or $module -notmatch "State -in @\('NotPresent', 'Staged'\)") {
+                throw 'Windows capability installation must explicitly handle Installed, NotPresent, and Staged states.'
             }
             if ($module -notmatch 'if \(\$result\.RestartNeeded\)\s*\{[\s\S]*?\$restartNeeded\s*=\s*\$true[\s\S]*?break\s*\}') {
                 throw 'Windows capability installation must defer remaining capabilities when a restart is required.'
@@ -927,7 +927,7 @@ Stop-Logging
 
         }
 
-        It 'keeps excluded packages out and Power BI in its machine-scoped group' {
+        It 'keeps excluded packages out and Power BI in its optional machine-scoped group' {
             $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
             $bootstrapPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/dotfiles-bootstrap-variables.json.example'
             $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
@@ -942,15 +942,17 @@ Stop-Logging
                 }
             }
 
-            if ($packages.PSObject.Properties.Name -cnotcontains 'PowerBI') {
-                throw "The PowerBI package group must be defined with exact casing."
+            if ($packages.PSObject.Properties.Name -cnotcontains 'powerbi') {
+                throw "The powerbi package group must be defined with exact casing."
             }
-            $powerBiPackages = @($packages.PowerBI)
+            $powerBiPackages = @($packages.powerbi)
             if ($powerBiPackages.Count -ne 1 -or $powerBiPackages[0].id -ne 'Microsoft.PowerBI' -or $powerBiPackages[0].scope -ne 'machine') {
-                throw "The PowerBI group must contain only Microsoft.PowerBI with machine scope."
+                throw "The powerbi group must contain only Microsoft.PowerBI with machine scope."
             }
-            if ($bootstrap.INSTALL_PACKAGES -notcontains 'PowerBI') {
-                throw "The default package selection must include the PowerBI group."
+            foreach ($optionalGroup in @('azure', 'powerbi')) {
+                if ($bootstrap.INSTALL_PACKAGES -contains $optionalGroup) {
+                    throw "The default package selection must not include optional group '$optionalGroup'."
+                }
             }
         }
 

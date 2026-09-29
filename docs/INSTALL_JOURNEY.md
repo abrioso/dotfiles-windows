@@ -32,8 +32,8 @@ The Git-free path downloads a ZIP archive into `%TEMP%\dotfiles`, extracts it, a
 The archive is the initial bootstrap transport. Once setup creates the persistent workspace clone,
 post-reboot continuation and later idempotency runs execute `setup.ps1` from that clone rather than
 downloading a new archive. A repeated Git-free invocation preserves JSON already present in the
-persistent clone and populates only missing files, but the current invocation still uses bootstrap
-variables loaded from its fresh archive configuration. That behavior is documented in
+persistent clone and populates only missing files, then reloads the saved bootstrap variables
+before planning modules. Repository discovery still uses transport settings. This is documented in
 [Configuration](CONFIGURATION.md#git-free-install-parameters) and tested independently in
 [Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
 
@@ -159,7 +159,7 @@ Enables the selected Windows optional features. The shared WSL 2 configuration e
 
 ### `Configure-WindowsCapabilities.ps1`
 
-Installs explicitly selected Windows capability groups. The default `rsat-active-directory` group installs Server Manager before the dependent Active Directory Domain Services and Lightweight Directory Services tools. Already installed capabilities are skipped; unavailable capabilities and unsupported states fail the module. If an installation requires a restart, the module returns code `3010` immediately and defers the remaining capabilities until setup is re-run after Windows restarts.
+Installs explicitly selected Windows capability groups. The default `rsat-active-directory` group installs Server Manager before the dependent Active Directory Domain Services and Lightweight Directory Services tools. Already installed capabilities are skipped; capabilities in the `NotPresent` or `Staged` state are installed; unavailable capabilities and unsupported states fail the module. If an installation requires a restart, the module returns code `3010` immediately and defers the remaining capabilities until setup is re-run after Windows restarts.
 
 ### `Install-WingetPackages.ps1`
 

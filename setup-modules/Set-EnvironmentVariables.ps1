@@ -8,8 +8,11 @@
     This script is designed to be idempotent.
 #>
 param (
-    [string]$ConfigPath = "$PSScriptRoot/../dotfiles-configurations/env-variables.json"
+    [string]$ConfigPath = "$PSScriptRoot/../dotfiles-configurations/env-variables.json",
+    [switch]$MachineOnly
 )
+
+$ErrorActionPreference = 'Stop'
 
 function Test-IsElevated {
     $id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -40,27 +43,26 @@ try {
 
     Write-Host "Found $($variables.Count) environment variables to process."
 
+    # Validate the whole file before applying any values.
+    foreach ($entry in $variables) {
+        if ([string]::IsNullOrWhiteSpace($entry.Name) -or $null -eq $entry.Value -or
+            $entry.Scope -notin @('User', 'Machine')) {
+            throw "Invalid environment entry: Name, Value and User/Machine Scope are required."
+        }
+    }
+    $pendingMachineChanges = $false
     foreach ($variable in $variables) {
+        if ($MachineOnly -and $variable.Scope -ne 'Machine') { continue }
         $name = $variable.Name
         $value = $variable.Value
         $scope = $variable.Scope
 
-        if (-not $name -or -not $value -or -not $scope) {
-            Write-Warning "Skipping invalid variable entry. 'Name', 'Value', and 'Scope' are required."
-            continue
-        }
-
-        if ($scope -notin @('User', 'Machine')) {
-            Write-Warning "Skipping variable '$name'. Invalid scope '$scope'. Must be 'User' or 'Machine'."
-            continue
-        }
-
-        if ($scope -eq 'Machine' -and -not (Test-IsElevated)) {
-            Write-Warning "Skipping machine-level variable '$name' because the script is not running with Administrator privileges."
-            continue
-        }
-
         $currentValue = [System.Environment]::GetEnvironmentVariable($name, $scope)
+        if ($scope -eq 'Machine' -and $currentValue -ne $value -and -not (Test-IsElevated)) {
+            if ($MachineOnly) { throw 'Machine environment changes require elevation.' }
+            $pendingMachineChanges = $true
+            continue
+        }
 
         if ($currentValue -eq $value) {
             Write-Host "Environment variable '$name' is already set correctly in the '$scope' scope. Skipping."
@@ -70,9 +72,18 @@ try {
             Write-Host "Successfully set environment variable '$name'."
         }
     }
+    if ($pendingMachineChanges) {
+        $resolvedConfigPath = (Resolve-Path -LiteralPath $ConfigPath).Path
+        $hostPath = (Get-Process -Id $PID).Path
+        $arguments = '-NoProfile -File "{0}" -ConfigPath "{1}" -MachineOnly' -f $PSCommandPath, $resolvedConfigPath
+        $child = Start-Process -FilePath $hostPath -ArgumentList $arguments -Verb RunAs -Wait -PassThru -ErrorAction Stop
+        if ($null -eq $child -or $child.ExitCode -ne 0) {
+            throw 'Elevated machine environment configuration failed.'
+        }
+    }
 }
 catch {
-    Write-Error "An error occurred while setting environment variables: $_"
+    Write-Error "An error occurred while setting environment variables: $_" -ErrorAction Continue
     exit 1
 }
 

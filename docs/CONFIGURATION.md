@@ -119,9 +119,9 @@ Examples:
 
 `INSTALL_PACKAGES` in `dotfiles-bootstrap-variables.json` controls which package groups are installed from `winget-packages.json`.
 
-The tracked defaults deliberately leave `tailscale` and `google-drive` unselected. Both are
-machine-scoped, optional integrations: add either group to `INSTALL_PACKAGES` through the TUI or
-local JSON only on machines where it is required.
+The tracked defaults deliberately leave `azure`, `powerbi`, `tailscale`, `delinea`, `yubico`
+and `google-drive` unselected. These are optional toolsets or integrations: add any required group
+to `INSTALL_PACKAGES` through the TUI or local JSON.
 
 Package object entries contain an `id` and may constrain `scope` (`user` or `machine`) and
 `installerType` (currently `wix`). Omit scope when the selected upstream manifest does not declare
@@ -132,7 +132,7 @@ installer`. Duplicate package IDs across selected groups must use identical meta
 {
   "INSTALL_PACKAGES": [
     "base",
-    "development",
+    "dev",
     "wsl"
   ]
 }
@@ -185,7 +185,7 @@ If enabling a selected Windows feature requires a reboot, setup exits with Windo
 
 An explicit empty array skips Windows capability configuration. Because capabilities were added after the original configuration format, an absent property also skips them; existing machines therefore do not begin installing new capabilities merely because their checkout was updated.
 
-The `rsat-active-directory` group installs `Rsat.ServerManager.Tools~~~~0.0.1.0` before `Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0`, preserving the prerequisite-before-dependent order. `Configure-WindowsCapabilities.ps1` checks for the `Installed` state and calls `Add-WindowsCapability` only for capabilities in the `NotPresent` state. Unknown states and unavailable capability names fail the module instead of being silently skipped.
+The `rsat-active-directory` group installs `Rsat.ServerManager.Tools~~~~0.0.1.0` before `Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0`, preserving the prerequisite-before-dependent order. `Configure-WindowsCapabilities.ps1` skips capabilities in the `Installed` state and calls `Add-WindowsCapability` for the installable `NotPresent` and `Staged` states. Unknown states and unavailable capability names fail the module instead of being silently skipped.
 
 Like the Windows feature module, the capability module uses the in-box Windows PowerShell 5.1 host for DISM cmdlets, owns an independent log, and returns code `3010` when Windows reports that a reboot is required. It immediately defers any remaining capabilities so dependent components are not installed across a pending restart; restart Windows and run setup again to continue. Its read-only preflight fails closed: if capability state cannot be established without elevation, setup runs the administrative module, which validates the state again before making changes.
 
@@ -221,9 +221,10 @@ The branch override is persisted to the local bootstrap JSON and therefore remai
 After the Git-free bootstrap creates the persistent workspace clone, post-reboot continuation and
 normal reruns should execute `setup-scripts\setup.ps1` from that clone. A new Git-free invocation
 extracts a fresh archive and recreates missing local JSON there. Synchronization copies only JSON
-missing from the persistent clone and preserves existing machine-local files. The current
-invocation nevertheless uses bootstrap variables already loaded from the archive configuration,
-so it is not the safe continuation path when the first run's active choices must remain in effect.
+missing from the persistent clone and preserves existing machine-local files. Setup then reloads
+that clone's bootstrap variables before planning modules. `-Branch` selects this invocation's
+checkout without changing an existing saved branch preference. Repository location and endpoint
+selection still use the transport configuration.
 The release acceptance matrix tests preservation and missing-file population separately; see
 [Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
 

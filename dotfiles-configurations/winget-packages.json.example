@@ -1,6 +1,10 @@
 {
     "base": [
         {
+            "id": "7zip.7zip",
+            "scope": "machine"
+        },
+        {
             "id": "Git.Git",
             "scope": "user"
         },
@@ -71,13 +75,13 @@
             "scope": "machine"
         }
     ],
-    "PowerBI": [
+    "powerbi": [
         {
             "id": "Microsoft.PowerBI",
             "scope": "machine"
         }
     ],
-    "development": [
+    "dev": [
         {
             "id": "Git.Git",
             "scope": "user"
@@ -86,6 +90,24 @@
             "id": "GitHub.cli",
             "scope": "user"
         },
+        {
+            "id": "Microsoft.PowerShell",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.VisualStudioCode",
+            "scope": "user"
+        },
+        {
+            "id": "Python.Python.3.13",
+            "scope": "user"
+        },
+        {
+            "id": "Yaak.app",
+            "scope": "user"
+        }
+    ],
+    "azure": [
         {
             "id": "Microsoft.Azd",
             "installerType": "wix"
@@ -100,10 +122,6 @@
         },
         {
             "id": "Microsoft.VisualStudioCode",
-            "scope": "user"
-        },
-        {
-            "id": "Python.Python.3.13",
             "scope": "user"
         }
     ],
@@ -135,6 +153,14 @@
     ],
     "pwsh": [
         {
+            "id": "Microsoft.PowerShell",
+            "scope": "user"
+        },
+        {
+            "id": "Microsoft.WindowsTerminal",
+            "scope": "user"
+        },
+        {
             "id": "JanDeDobbeleer.OhMyPosh",
             "scope": "user"
         }
@@ -142,6 +168,26 @@
     "tailscale": [
         {
             "id": "Tailscale.Tailscale",
+            "scope": "machine"
+        }
+    ],
+    "delinea": [
+        {
+            "id": "Delinea.DelineaConnectionManager",
+            "scope": "machine"
+        }
+    ],
+    "yubico": [
+        {
+            "id": "Yubico.Authenticator",
+            "scope": "machine"
+        },
+        {
+            "id": "Yubico.YubikeyManager",
+            "scope": "machine"
+        },
+        {
+            "id": "Yubico.YubiKeyManagerCLI",
             "scope": "machine"
         }
     ],

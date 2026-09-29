@@ -72,7 +72,7 @@ try {
         -File $BootstrapScript `
         -Account abrioso `
         -Repo dotfiles-windows `
-        -Branch <release-branch> `
+        -Branch '<release-branch>' `
         -NonInteractive
     $InstallExitCode = $LASTEXITCODE
     $InstallExitCode | Set-Content "$EvidenceRoot\01-clean-install-exit-code.txt"
@@ -96,6 +96,18 @@ From the persistent clone:
 git rev-parse HEAD | Tee-Object "$EvidenceRoot\01-clone-head.txt"
 git status --short --branch | Tee-Object "$EvidenceRoot\01-git-status.txt"
 if ((git rev-parse HEAD) -ne $ExpectedCommit) { throw 'Unexpected release candidate commit.' }
+$BootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
+$ExpectedDefaultPackageGroups = @(
+    'base', 'browsers', 'dev', 'wsl', 'docker', 'multimedia',
+    'productivity', 'pwsh', 'poweruser'
+)
+$ActualDefaultPackageGroups = @(
+    (Get-Content -LiteralPath $BootstrapPath -Raw | ConvertFrom-Json).INSTALL_PACKAGES
+)
+$ActualDefaultPackageGroups | Set-Content "$EvidenceRoot\01-default-package-groups.txt"
+if (($ActualDefaultPackageGroups -join "`n") -cne ($ExpectedDefaultPackageGroups -join "`n")) {
+    throw "Unexpected default package groups: $($ActualDefaultPackageGroups -join ', ')."
+}
 ```
 
 Checks:
@@ -108,6 +120,8 @@ Checks:
 - [ ] setup relaunched from Windows PowerShell 5.1 into PowerShell 7
 - [ ] clone is at the expected commit
 - [ ] local gitignored JSON reached the clone
+- [ ] package defaults contain the expected nine groups in order
+- [ ] Azure, Power BI, Tailscale, Delinea, Yubico and Google Drive are absent from the defaults
 - [ ] selected Windows features requested elevation once
 - [ ] `3010` propagated through all wrappers
 - [ ] no downstream WSL/Docker/settings modules ran before reboot
@@ -126,8 +140,8 @@ Set and verify the exact package order in the persistent clone:
 $bootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
 $bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
 $expectedPackageGroups = @(
-    'base', 'browsers', 'development', 'wsl', 'docker', 'multimedia',
-    'PowerBI', 'productivity', 'pwsh', 'poweruser', 'tailscale', 'google-drive'
+    'base', 'browsers', 'dev', 'azure', 'wsl', 'docker', 'multimedia',
+    'powerbi', 'productivity', 'pwsh', 'poweruser', 'tailscale', 'delinea', 'yubico', 'google-drive'
 )
 $bootstrap.INSTALL_PACKAGES = $expectedPackageGroups
 $bootstrap | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $bootstrapPath -Encoding utf8
@@ -165,6 +179,10 @@ Checks:
 - [ ] failures stopped the remaining plan and propagated non-zero status
 - [ ] no `No applicable installer`, `0x8A150010`, or hash mismatch
 - [ ] PowerShell and Windows Terminal remained user-scoped MSIX
+- [ ] Yaak installed at user scope
+- [ ] 7-Zip installed at machine scope
+- [ ] Azure CLI, Azure Developer CLI and Power BI installed from their opt-in groups
+- [ ] Delinea Connection Manager and all three Yubico packages installed at machine scope
 - [ ] Tailscale installed machine-wide
 - [ ] Google Drive installed machine-wide
 - [ ] WSL package preceded Ubuntu and WSL completed before Docker
@@ -172,8 +190,25 @@ Checks:
 Capture state:
 
 ```powershell
-winget list --id Tailscale.Tailscale --exact | Out-File "$EvidenceRoot\02-tailscale.txt"
-winget list --id Google.GoogleDrive --exact | Out-File "$EvidenceRoot\02-google-drive.txt"
+$AcceptancePackageIds = @(
+    '7zip.7zip',
+    'Delinea.DelineaConnectionManager',
+    'Google.GoogleDrive',
+    'Microsoft.Azd',
+    'Microsoft.AzureCLI',
+    'Microsoft.PowerBI',
+    'Tailscale.Tailscale',
+    'Yaak.app',
+    'Yubico.Authenticator',
+    'Yubico.YubikeyManager',
+    'Yubico.YubiKeyManagerCLI'
+)
+foreach ($PackageId in $AcceptancePackageIds) {
+    $SafeName = $PackageId -replace '[^A-Za-z0-9.-]', '_'
+    winget list --id $PackageId --exact --source winget --accept-source-agreements |
+        Out-File "$EvidenceRoot\02-package-$SafeName.txt"
+    if ($LASTEXITCODE -ne 0) { throw "Package '$PackageId' was not detected after setup." }
+}
 wsl --version | Out-File "$EvidenceRoot\02-wsl-version.txt"
 wsl --status | Out-File "$EvidenceRoot\02-wsl-status.txt"
 wsl --list --verbose | Out-File "$EvidenceRoot\02-wsl-list.txt"
@@ -213,7 +248,7 @@ Checks:
 
 - [ ] no reboot requested
 - [ ] no Windows feature elevation
-- [ ] installed packages skipped, including Tailscale and Google Drive
+- [ ] installed packages skipped, including all six opt-in groups
 - [ ] no machine installer UAC on rerun
 - [ ] HOME junction/environment unchanged
 - [ ] no duplicate fonts, profiles, links, or settings
@@ -236,6 +271,8 @@ Follow `docs/RELEASE_TESTING.md`, section **Existing-install migration**.
 - [ ] backups stored outside the checkout
 - [ ] identity, endpoint, environment, and Git variables preserved
 - [ ] invalid templates fail before replacement
+- [ ] `development` migrated to `dev`; legacy `PowerBI` was removed
+- [ ] migration did not silently select `azure` or `powerbi`
 - [ ] old PowerShell profile links migrate without losing user-authored files
 - [ ] Windows Terminal layout migrates with recoverable backup
 - [ ] first migrated run succeeds
@@ -290,7 +327,27 @@ Exit code:
 
 Notes / deviations:
 
-## 8. Final verdict
+## 8. Backup rollback drill
+
+Use a catalog backup produced during the existing-install migration.
+
+- Catalog restored:
+- Backup path:
+- Migrated file SHA256:
+- Backup SHA256:
+- Restored file SHA256:
+
+Checks:
+
+- [ ] restored file matches its backup byte-for-byte
+- [ ] restored file parses as valid JSON
+- [ ] catalog update and package-selection migration reapply successfully
+- [ ] two subsequent setup runs converge and leave Git clean
+- [ ] migration snapshot restored after the drill
+
+Notes / deviations:
+
+## 9. Final verdict
 
 - [ ] All required scenarios passed on expected commit `<full-release-commit-sha>`
 - [ ] No tracked file changed

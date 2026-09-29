@@ -3,7 +3,7 @@
 Main bootstrap script.
 
 .DESCRIPTION
-This script installs the pre-requisites and starts the other setup scripts with Powershell 7 
+This script installs the pre-requisites and starts the other setup scripts with Powershell 7
 It also creates a symbolic link to the custom profile directory and clones the dotfiles repository
 
 .NOTES
@@ -173,6 +173,10 @@ if ($DotfilesVariables.GITHUB_DOTFILES_BRANCH) {
 # Ensure gitignored local configuration generated in the bootstrap copy follows the real clone
 # after checkout/pull, so tracked JSON files deleted by this commit cannot mask local config copies.
 Sync-DotfilesLocalConfiguration -SourceRoot $dotfileRootDir -TargetRoot $dotfilesDirectory
+
+# The persistent configuration is authoritative once the target clone is known.
+# BootstrapBranch selects this invocation's checkout; it must not rewrite saved choices.
+$DotfilesVariables = Read-DotfilesJsonFile -Path (Join-Path $dotfilesDirectory 'dotfiles-configurations/dotfiles-bootstrap-variables.json')
 
 # Run the new modular setup scripts
 Write-Info "Running the modular setup scripts from 'setup-modules'..."
