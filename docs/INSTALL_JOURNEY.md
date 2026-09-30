@@ -159,7 +159,7 @@ Enables the selected Windows optional features. The shared WSL 2 configuration e
 
 ### `Configure-WindowsCapabilities.ps1`
 
-Installs explicitly selected Windows capability groups. The default `rsat-active-directory` group installs Server Manager before the dependent Active Directory Domain Services and Lightweight Directory Services tools. Already installed capabilities are skipped; unavailable capabilities and unsupported states fail the module. If an installation requires a restart, the module returns code `3010` immediately and defers the remaining capabilities until setup is re-run after Windows restarts.
+Installs explicitly selected Windows capability groups. The default `rsat-active-directory` group installs Server Manager before the dependent Active Directory Domain Services and Lightweight Directory Services tools. Already installed capabilities are skipped; capabilities in the `NotPresent` or `Staged` state are installed; unavailable capabilities and unsupported states fail the module. If an installation requires a restart, the module returns code `3010` immediately and defers the remaining capabilities until setup is re-run after Windows restarts.
 
 ### `Install-WingetPackages.ps1`
 
