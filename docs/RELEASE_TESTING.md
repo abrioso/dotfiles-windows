@@ -222,7 +222,7 @@ git status --short
 Test this separately from the clean-install snapshot. Start with an installation and local JSON
 created by the current `main` branch, including the previous profile and Terminal layout.
 
-1. In `dotfiles-configurations\dotfiles-configuration.json`, set `GITHUB_DOTFILES_BRANCH` to
+1. In `dotfiles-configurations\dotfiles-bootstrap-variables.json`, set `GITHUB_DOTFILES_BRANCH` to
    `develop` or the release branch. Then, from inside the persistent clone, run:
    ```
    git fetch origin

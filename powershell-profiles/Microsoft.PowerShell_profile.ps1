@@ -11,6 +11,6 @@ if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
     if (Test-Path $ompConfig) {
         oh-my-posh init pwsh --config $ompConfig | Invoke-Expression
     } else {
-        Write-Warning "oh-my-posh config not found: $ompConfig`nRun setup-modules\Install-OmpConfig.ps1 (as Administrator) to create the symlink."
+        Write-Warning "oh-my-posh config not found: $ompConfig`nRun setup-modules\Install-OmpConfig.ps1 to deploy the theme."
     }
 }
