@@ -97,7 +97,7 @@ machines. `tests/PortableProfile.Tests.ps1` verifies this with different local p
 
 ### Private files and Secrets
 
-For any private settings, such as API tokens or Git credentials that you don't want to commit to the repository, create an `extra.ps1` file within the `powershell-profiles` directory and source it explicitly from your profile (for example from a machine-local copy under `%LOCALAPPDATA%\dotfiles\powershell-profiles`). Files in that directory are copied to the local store by `Install-LocalPowerShellProfiles.ps1`, so anything you keep there stays per-machine. The `extra.ps1` name is included in `.gitignore` so it won't be tracked by Git.
+For any private settings, such as API tokens or Git credentials that you don't want to commit to the repository, create an `extra.ps1` file within the `powershell-profiles` directory and source it explicitly from your profile (for example from a machine-local copy under `%LOCALAPPDATA%\dotfiles\powershell-profiles`). Files in that directory are copied to the local store by `Install-LocalPowerShellProfiles.ps1`, so anything you keep there stays per-machine. The `extra.ps1` name is included in `.gitignore` so it won't be tracked by Git. It is not loaded automatically.
 
 Example `extra.ps1`:
 

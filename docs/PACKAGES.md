@@ -79,9 +79,9 @@ required UAC elevation itself while the package module continues running as the 
 - `wsl` — WSL and Ubuntu
 - `yubico` — optional Yubico Authenticator, YubiKey Manager and YubiKey Manager CLI
 
-The `azure`, `powerbi`, `delinea` and `yubico` groups are available in the configuration TUI
-but are not selected in the shared bootstrap defaults. Select them in `INSTALL_PACKAGES` when
-required.
+The `azure`, `powerbi`, `tailscale`, `delinea`, `yubico` and `google-drive` groups are available
+in the configuration TUI but are not selected in the shared bootstrap defaults. Select them in
+`INSTALL_PACKAGES` when required.
 
 `Microsoft.365Copilot` is intentionally excluded from the shared package catalog because clean
 release acceptance exposed an unreliable Winget installation path. Reconsider it only after the

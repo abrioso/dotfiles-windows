@@ -50,7 +50,7 @@ git pull origin develop
 git checkout -b feature/short-description   # or fix/short-description
 
 # ...make changes, commit with conventional commits...
-git add <files>
+git add path/to/file.ps1
 git commit -m "feat: describe the change"
 
 git push -u origin feature/short-description
