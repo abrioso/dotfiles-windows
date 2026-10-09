@@ -3,8 +3,8 @@
 Main bootstrap script.
 
 .DESCRIPTION
-This script installs the pre-requisites and starts the other setup scripts with Powershell 7
-It also creates a symbolic link to the custom profile directory and clones the dotfiles repository
+This script installs the prerequisites, prepares the persistent repository clone and starts the
+configured setup modules with PowerShell 7. Profile deployment is handled by the module plan.
 
 .NOTES
 To make this work, you need to set your execution policy to unrestricted (or at least bypass) by running Set-ExecutionPolicy Unrestricted -Scope CurrentUser from a PowerShell.

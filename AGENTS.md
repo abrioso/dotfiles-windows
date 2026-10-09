@@ -31,7 +31,7 @@ git pull origin develop
 git checkout -b feature/add-docker-config
 
 # Work, commit
-git add <relevant-files>
+git add path/to/file.ps1
 git commit -m "feat: add docker daemon config"
 
 # Push and create PR

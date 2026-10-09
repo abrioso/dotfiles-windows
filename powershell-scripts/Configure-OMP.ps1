@@ -3,5 +3,5 @@ oh-my-posh font install --user CascadiaCode
 Install-Module -Name Terminal-Icons -Repository PSGallery -Force
 Import-Module -Name Terminal-Icons
 
-# NOTE: The oh-my-posh theme symlink is created by setup-modules\Install-OmpConfig.ps1 (run as Administrator).
-# It links poshthemes\jandedobbeleer.omp.json -> $env:USERPROFILE\.config\oh-my-posh\poshthemes\jandedobbeleer.omp.json
+# NOTE: Theme deployment is handled without elevation by setup-modules\Install-OmpConfig.ps1.
+# It creates hard links when possible and falls back to regular copies across volumes.

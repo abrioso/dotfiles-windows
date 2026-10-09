@@ -15,7 +15,10 @@ This repository contains scripts and configuration files for automating the setu
 
 Use `install.ps1` for the initial Git-free bootstrap. After it creates the persistent workspace clone, run `setup.ps1` from that clone for post-reboot continuation and idempotent reruns. Configuration is template-driven: tracked `dotfiles-configurations/*.json.example` files are copied to local gitignored `*.json` files by `setup-scripts/configure.ps1` when needed. The setup process applies administrative and user configuration modules and installs selected tools via WinGet.
 
-Create an `extra.ps1` file to store private commands or secrets that you do not want to commit. This file is loaded by the PowerShell profiles if present.
+Create an ignored `powershell-profiles/extra.ps1` file to store private commands or secrets that
+you do not want to commit. The installer copies PowerShell profile files into the machine-local
+profile store, but it does not load `extra.ps1` automatically; dot-source it explicitly from a
+profile you control.
 
 ## Next Steps
 

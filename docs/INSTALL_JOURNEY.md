@@ -220,7 +220,7 @@ After a successful run, the user ends up with:
 - selected packages installed
 - selected Windows features enabled
 - global Git settings applied
-- repo-managed PowerShell profiles linked into place
+- repo-managed PowerShell profiles copied into the machine-local store and loaded through marker stubs
 - repo-managed Windows Terminal baseline generated into the Terminal package state
 - Oh My Posh themes deployed
 - the Nerd Font installed for terminal rendering
