@@ -20,6 +20,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Native exit statuses are checked below; no-index returns 1 for a clean added file.
+$PSNativeCommandUseErrorActionPreference = $false
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $validationModules = [ordered]@{
     Pester = '5.7.1'
@@ -77,6 +79,13 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Working-tree whitespace validation failed.' }
     git diff --cached --check
     if ($LASTEXITCODE -ne 0) { throw 'Index whitespace validation failed.' }
+    $untrackedFiles = @(git -c core.quotepath=false ls-files --others --exclude-standard)
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to enumerate untracked whitespace validation files.' }
+    foreach ($file in $untrackedFiles) {
+        git diff --no-index --check -- /dev/null $file
+        # --no-index implies --exit-code: 1 means added content, 3 includes check errors.
+        if ($LASTEXITCODE -notin @(0, 1)) { throw "Untracked-file whitespace validation failed: $file." }
+    }
     if (-not [string]::IsNullOrWhiteSpace($BaseRef)) {
         git diff --check $BaseRef HEAD
         if ($LASTEXITCODE -ne 0) { throw "Committed whitespace validation failed for '$BaseRef' through HEAD." }

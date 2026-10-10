@@ -15,7 +15,8 @@ Describe 'Validation process failure propagation' {
     }
     BeforeEach {
         $fixtureRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
-        $fixtureModules = Join-Path $fixtureRoot 'modules'
+        # Development dependencies live outside the repository being validated.
+        $fixtureModules = Join-Path $TestDrive ('modules-' + [guid]::NewGuid().ToString('N'))
         $fixtureTests = Join-Path $fixtureRoot 'tests'
         New-Item -ItemType Directory -Path $fixtureTests -Force | Out-Null
         $fixtureRunner = Join-Path $fixtureTests 'Invoke-Validation.ps1'
@@ -94,5 +95,15 @@ Export-ModuleMember -Function Invoke-ScriptAnalyzer
         $result = Invoke-ValidationFixture -Mode Success
         $result.ExitCode | Should -Be 1
         $result.Output | Should -Match 'Invalid JSON in new.json.example'
+    }
+    It 'rejects whitespace in untracked <FileName> before git add' -ForEach @(
+        @{FileName='new document.md';Content="new document `n"},
+        @{FileName='new-script.ps1';Content="Write-Host 'fixture' `n"}
+    ) {
+        [IO.File]::WriteAllText((Join-Path $fixtureRoot $FileName), $Content)
+        $result = Invoke-ValidationFixture -Mode Success
+        $result.ExitCode | Should -Be 1
+        $result.Output | Should -Match 'Untracked-file whitespace validation failed'
+        $result.Output | Should -Match 'trailing whitespace'
     }
 }

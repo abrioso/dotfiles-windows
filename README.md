@@ -149,7 +149,8 @@ pwsh -NoProfile -File .\tests\Invoke-Validation.ps1 -InstallDependencies
 `tests/Invoke-Validation.ps1` pins Pester 5.7.1 and PSScriptAnalyzer 1.25.0. The optional
 `-InstallDependencies` flag installs missing versions from PSGallery for the current user;
 omit it once they are available. Analyzer warnings remain visible, while errors fail validation.
-Checks include tracked and non-ignored new files, excluding private ignored JSON configuration.
+Parsing and analysis include tracked and non-ignored new files, excluding private ignored JSON
+configuration. Whitespace checks also inspect all non-ignored untracked files before `git add`.
 Use `-BaseRef origin/develop` to check whitespace across the full proposed commit range as well
 as unstaged and staged changes. CI passes the PR base SHA or the previous push SHA.
 
