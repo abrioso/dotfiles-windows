@@ -58,6 +58,21 @@ the persistent clone's configuration again before executing modules. Unknown sel
 with the available choices; explicit empty arrays continue to opt out, and legacy single-string
 selectors and package ID strings remain supported. See [Configuration](docs/CONFIGURATION.md#setup-preflight).
 
+### Previewing setup
+
+After creating local configuration with `setup-scripts\configure.ps1`, preview it without applying changes:
+
+```pwsh
+.\setup-scripts\setup.ps1 -Plan
+.\setup-scripts\setup.ps1 -Plan -PlanFormat Json
+```
+
+Planning validates the existing local files and lists selected groups, Windows features/capabilities,
+unique packages with scope/installer metadata, and modules in execution order. It reports possible
+elevation and restart requirements. It does not create configuration or logs, install prerequisites,
+contact package sources, update Git, request UAC, or execute modules. Windows PowerShell 5.1 and
+PowerShell 7 are supported. See [Setup plan](docs/CONFIGURATION.md#setup-plan) for its scope and limitations.
+
 ### Core Components
 
 #### `setup-scripts`
@@ -68,6 +83,7 @@ This folder contains the main scripts that kick off the installation and setup p
 -   `update.ps1`: Safely fast-forwards the current dotfiles branch and optionally replaces selected local JSON files from the latest `*.json.example` templates. Existing local files are backed up first; it never runs setup modules or applies configuration. When the Windows Terminal template is refreshed, shows a diff against the live `settings.json` and can move it to the backup directory so the next setup regenerates it (`-RegenerateTerminalSettings` for unattended runs).
 -   `setup.ps1`: The main bootstrap and orchestrator script. It initializes local configuration when missing, clones/updates the configured repository branch, syncs gitignored local config into the real clone, and then runs the selected modules from `setup-modules` in the order defined by the setup module catalog.
 -   `setup-functions.ps1`: Contains helper functions used by the other scripts, including repository endpoint resolution and local config initialization.
+-   `setup-plan.ps1`: Read-only preview helpers used by `setup.ps1 -Plan`; `tests/SetupPlan.Tests.ps1` covers ordering, selectors and planning without mutations in both supported entry hosts.
 
 #### `setup-modules`
 

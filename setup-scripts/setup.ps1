@@ -6,6 +6,12 @@ Main bootstrap script.
 This script installs the prerequisites, prepares the persistent repository clone and starts the
 configured setup modules with PowerShell 7. Profile deployment is handled by the module plan.
 
+.PARAMETER Plan
+Validates existing local configuration and previews the ordered setup declarations without changes.
+
+.PARAMETER PlanFormat
+Selects readable Text (default) or machine-readable Json output for -Plan.
+
 .NOTES
 To make this work, you need to set your execution policy to unrestricted (or at least bypass) by running Set-ExecutionPolicy Unrestricted -Scope CurrentUser from a PowerShell.
 
@@ -16,13 +22,36 @@ param (
     [string]$BootstrapBranch,
     [string]$LogFilePath,
     [switch]$AppendLog,
-    [switch]$NonInteractive
+    [switch]$NonInteractive,
+    [switch]$Plan,
+    [ValidateSet('Text', 'Json')]
+    [string]$PlanFormat = 'Text'
 )
 
 # dotfileRootDir is the root directory of the dotfiles repository
 $dotfileRootDir = Split-Path -Parent $PSScriptRoot
 
 . "$dotfileRootDir\setup-scripts\setup-functions.ps1"
+
+# Planning returns before logging, configuration initialization, prerequisites or Git operations.
+if ($Plan) {
+    try {
+        . "$dotfileRootDir\setup-scripts\setup-plan.ps1"
+        $preview = Get-DotfilesSetupPreview -RepositoryRoot $dotfileRootDir -BootstrapBranch $BootstrapBranch
+        if ($PlanFormat -eq 'Json') {
+            $preview | ConvertTo-Json -Depth 12
+        } else {
+            Write-DotfilesSetupPreview -Preview $preview
+        }
+    } catch {
+        Write-Error -Message "Setup plan failed: $($_.Exception.Message) Run setup-scripts\configure.ps1 to create or correct local configuration." -ErrorAction Continue
+        exit 1
+    }
+    return
+}
+if ($PSBoundParameters.ContainsKey('PlanFormat')) {
+    throw '-PlanFormat requires -Plan.'
+}
 
 # Variables for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"

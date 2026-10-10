@@ -57,6 +57,46 @@ defaults; single-string selectors and package ID strings remain supported. Fix i
 and rerun setup; preflight does not install or apply machine settings. It validates declarations,
 not whether a package exists in the remote WinGet source or a feature is available on this OS.
 
+## Setup plan
+
+Create or edit local JSON with `setup-scripts\configure.ps1`, then preview the invoked checkout:
+
+```pwsh
+.\setup-scripts\setup.ps1 -Plan
+.\setup-scripts\setup.ps1 -Plan -PlanFormat Json
+.\setup-scripts\setup.ps1 -Plan -BootstrapBranch develop
+```
+
+`-Plan` validates all seven existing local files using the setup preflight and reuses the same
+module resolver as apply. Missing files or invalid configuration fail with exit code `1`; missing
+files are never generated, even with `-NonInteractive`. Success returns exit code `0`.
+No transcript, configuration write, prerequisite installation, Git operation, network request,
+UAC prompt, module execution or automatic PowerShell relaunch occurs. `-LogFilePath` and
+`-AppendLog` have no effect in plan mode. `-BootstrapBranch` changes only the preview's branch,
+without saving it or reading that branch's remote contents. `-PlanFormat` requires `-Plan`.
+
+Text output lists groups, expanded features/capabilities, unique packages in catalog order,
+scope and installer type, and ordered modules. JSON output is a single object with `SchemaVersion`,
+`Source`, `Branch`, `Limitations`, `Selections`, `Features`, `Capabilities`, `Packages` and `Modules`.
+Collection fields remain arrays when empty or containing one item. Module entries include
+`Order`, `Script`, `RequiresAdmin` (catalog declaration), `Elevation` and `MayRequireRestart`.
+Personal Git values, environment values, workspace paths and repository URLs are omitted.
+
+This is a declaration preview, not an installed-state check: it does not determine which packages
+or Windows components are already present, whether an OS feature/package is available, or whether
+a reboot is currently pending. Elevation is conditional; setup may skip already satisfied Windows
+components and home aliases, while package installers and pending Machine environment changes
+may request it independently of the module catalog. Restart flags identify known potential
+requirements; custom modules can introduce others.
+
+Apply prepares/updates the persistent workspace clone and reloads its saved configuration before
+resolving modules. An update or existing persistent choices can therefore change the applied plan.
+For later runs, preview from the persistent clone that holds your machine's configuration.
+Missing selectors retain apply's legacy defaults (all feature/package/setting groups, no capabilities);
+explicit empty arrays opt out, and scalar selectors remain supported. Package IDs are deduplicated
+case-insensitively; conflicting metadata fails in preflight. Planning does not export an executable
+or locked plan for a later apply.
+
 ## Updating the checkout and local JSON files
 
 Run the updater when new shared templates are available:
