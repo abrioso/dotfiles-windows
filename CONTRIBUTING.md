@@ -38,6 +38,10 @@ This project uses **gitflow**. See [docs/GITFLOW.md](docs/GITFLOW.md) for the fu
 - Use functions for logical grouping
 - Add comment-based help for user-facing scripts
 
+Run `pwsh -NoProfile -File .\tests\Invoke-Validation.ps1 -InstallDependencies -BaseRef origin/develop`
+before committing. This is the same validation entry point used in CI. Omit
+`-InstallDependencies` after the pinned development modules have been installed.
+
 ### Documentation
 - Update `README.md` when adding features
 - Document new packages in `docs/PACKAGES.md` and add them to `dotfiles-configurations/winget-packages.json.example`
