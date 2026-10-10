@@ -140,6 +140,20 @@ The TUI creates local gitignored JSON files from `*.json.example` templates when
 
 Pull requests and pushes to `develop` or `main` run Pester, PSScriptAnalyzer, PowerShell syntax parsing, JSON parsing, and whitespace checks on Windows through GitHub Actions.
 
+Run the same checks locally with PowerShell 7.2 or later:
+
+```pwsh
+pwsh -NoProfile -File .\tests\Invoke-Validation.ps1 -InstallDependencies
+```
+
+`tests/Invoke-Validation.ps1` pins Pester 5.7.1 and PSScriptAnalyzer 1.25.0. The optional
+`-InstallDependencies` flag installs missing versions from PSGallery for the current user;
+omit it once they are available. Analyzer warnings remain visible, while errors fail validation.
+Parsing and analysis include tracked and non-ignored new files, excluding private ignored JSON
+configuration. Whitespace checks also inspect all non-ignored untracked files before `git add`.
+Use `-BaseRef origin/develop` to check whitespace across the full proposed commit range as well
+as unstaged and staged changes. CI passes the PR base SHA or the previous push SHA.
+
 Before promoting `develop` to `main`, run the clean-install, post-reboot, idempotency, migration,
 and rollback checks in [Release testing](docs/RELEASE_TESTING.md). Copy the reusable
 [release evidence template](docs/RELEASE_EVIDENCE_TEMPLATE.md) outside the repository and fill it
