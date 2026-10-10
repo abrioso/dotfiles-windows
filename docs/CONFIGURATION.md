@@ -34,6 +34,29 @@ For non-interactive bootstrap flows, the TUI can create local files from templat
 
 The TUI automatically adds package groups required by selected setting groups. Setup validates the same dependency metadata before running any module, including when local JSON files are edited manually.
 
+## Setup preflight
+
+`setup.ps1` validates configuration before installing PowerShell/Git prerequisites or requesting
+elevation. Missing local files are still initialized by the configuration TUI first. The persistent
+clone is validated again after checkout and configuration synchronization, before module execution.
+
+The preflight requires JSON objects for all seven local configuration files and checks:
+
+- non-empty string values for `WORKSPACE_FOLDER`, `GITHUB_ACCOUNT`, and `GITHUB_DOTFILES_REPO`;
+- supported repository endpoint settings;
+- selectors against their package, feature, capability and setting catalogs;
+- package ID syntax, supported `scope`/`installerType` metadata, and conflicting duplicate
+  package declarations across selected groups (IDs are compared case-insensitively);
+- module arrays, existing `.ps1` filenames without directory components, boolean `requiresAdmin`,
+  valid selectors, and package dependencies;
+- scalar Git setting values and valid environment entries with `User` or `Machine` scope.
+
+Unknown selections, such as `bsae` instead of `base`, fail with the available group names.
+Explicit empty selector arrays mean "select nothing". Missing selectors retain the legacy
+defaults; single-string selectors and package ID strings remain supported. Fix invalid files
+and rerun setup; preflight does not install or apply machine settings. It validates declarations,
+not whether a package exists in the remote WinGet source or a feature is available on this OS.
+
 ## Updating the checkout and local JSON files
 
 Run the updater when new shared templates are available:

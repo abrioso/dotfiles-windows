@@ -52,6 +52,12 @@ must not be treated as equivalent to rerunning the persistent setup.
 The setup reloads persistent bootstrap choices after configuration synchronization.
 `tests/EffectiveBootstrap.Tests.ps1` covers preservation of saved opt-outs.
 
+Setup validates local JSON objects, group selections, package metadata, environment entries,
+module filenames and dependencies before installing prerequisites or requesting UAC. It checks
+the persistent clone's configuration again before executing modules. Unknown selections fail
+with the available choices; explicit empty arrays continue to opt out, and legacy single-string
+selectors and package ID strings remain supported. See [Configuration](docs/CONFIGURATION.md#setup-preflight).
+
 ### Core Components
 
 #### `setup-scripts`
