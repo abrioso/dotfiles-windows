@@ -105,6 +105,43 @@ Describe 'Setup configuration preflight' {
         Save-PreflightFixture windows-features ([pscustomobject]@{wsl=$false})
         { Invoke-PreflightFixture } | Should -Throw '*windows-features.json.wsl*'
     }
+    It 'rejects conflicting selected duplicate packages: <Label>' -ForEach @(
+        @{Label='scope';Package=[pscustomobject]@{id='Git.Git';scope='machine'}},
+        @{Label='installer';Package=[pscustomobject]@{id='Git.Git';scope='user';installerType='wix'}},
+        @{Label='case-insensitive ID';Package=[pscustomobject]@{id='git.git';scope='machine'}},
+        @{Label='legacy string versus scoped object';Package='Git.Git'}
+    ) {
+        $packages = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'winget-packages.json')
+        $packages | Add-Member extra @($Package)
+        Save-PreflightFixture winget-packages $packages
+        $bootstrap.INSTALL_PACKAGES = @('base','extra')
+        $bootstrap.INSTALL_SETTINGS = @()
+        { Invoke-PreflightFixture } | Should -Throw '*conflicting metadata across selected groups*'
+    }
+    It 'normalizes empty metadata and accepts equivalent duplicates' {
+        $packages = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'winget-packages.json')
+        $packages | Add-Member extra @([pscustomobject]@{id='git.git';scope='USER';installerType=' '})
+        Save-PreflightFixture winget-packages $packages
+        $bootstrap.INSTALL_PACKAGES = @('base','extra')
+        $bootstrap.INSTALL_SETTINGS = @()
+        { Invoke-PreflightFixture } | Should -Not -Throw
+    }
+    It 'checks duplicate conflicts when missing selectors mean all packages' {
+        $packages = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'winget-packages.json')
+        $packages | Add-Member extra @([pscustomobject]@{id='Git.Git';scope='machine'})
+        Save-PreflightFixture winget-packages $packages
+        $bootstrap.PSObject.Properties.Remove('INSTALL_PACKAGES')
+        { Invoke-PreflightFixture } | Should -Throw '*conflicting metadata across selected groups*'
+    }
+    It 'ignores duplicate conflicts in unselected groups and explicit opt-outs' {
+        $packages = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'winget-packages.json')
+        $packages | Add-Member extra @([pscustomobject]@{id='Git.Git';scope='machine'})
+        Save-PreflightFixture winget-packages $packages
+        { Invoke-PreflightFixture } | Should -Not -Throw
+        $bootstrap.INSTALL_PACKAGES = @()
+        $bootstrap.INSTALL_SETTINGS = @()
+        { Invoke-PreflightFixture } | Should -Not -Throw
+    }
     It 'rejects missing module scripts even in unselected groups' {
         Save-PreflightFixture setup-modules ([pscustomobject]@{settings=[pscustomobject]@{base=@([pscustomobject]@{script='Missing.ps1'})}})
         $bootstrap.INSTALL_SETTINGS = @()
@@ -163,9 +200,11 @@ Describe 'Setup configuration preflight' {
         { . $handoff } | Should -Throw "*Unknown selection 'bsae'*"
         [IO.File]::ReadAllText("$moduleConfigDirectory/dotfiles-bootstrap-variables.json") | Should -BeExactly $savedBytes
     }
-    It 'stops invalid setup before prerequisite installation in <HostName>' -ForEach @(
-        @{HostName='PowerShell 7';HostCommand='pwsh'},
-        @{HostName='Windows PowerShell 5.1';HostCommand='powershell'}
+    It 'stops <InvalidCase> before prerequisite installation in <HostName>' -ForEach @(
+        @{HostName='PowerShell 7';HostCommand='pwsh';InvalidCase='unknown selector'},
+        @{HostName='Windows PowerShell 5.1';HostCommand='powershell';InvalidCase='unknown selector'},
+        @{HostName='PowerShell 7';HostCommand='pwsh';InvalidCase='duplicate metadata'},
+        @{HostName='Windows PowerShell 5.1';HostCommand='powershell';InvalidCase='duplicate metadata'}
     ) {
         $hostExecutable = (Get-Command $HostCommand -ErrorAction Stop).Source
         $fixtureRoot = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
@@ -184,11 +223,22 @@ function Install-DotfilesPrerequisites {
 '@ | Add-Content "$fixtureRoot/setup-scripts/setup-functions.ps1"
         $fixtureBootstrapPath = "$fixtureRoot/dotfiles-configurations/dotfiles-bootstrap-variables.json"
         $invalidBootstrap = Read-DotfilesConfigurationObject $fixtureBootstrapPath
-        $invalidBootstrap.INSTALL_PACKAGES = @('bsae')
+        if ($InvalidCase -eq 'unknown selector') {
+            $invalidBootstrap.INSTALL_PACKAGES = @('bsae')
+            $expectedError = "Unknown selection 'bsae'"
+        } else {
+            $invalidBootstrap.INSTALL_PACKAGES = @('base','extra')
+            $invalidBootstrap.INSTALL_SETTINGS = @()
+            $fixturePackagesPath = "$fixtureRoot/dotfiles-configurations/winget-packages.json"
+            $fixturePackages = Read-DotfilesConfigurationObject $fixturePackagesPath
+            $fixturePackages | Add-Member extra @([pscustomobject]@{id='Git.Git';scope='machine'})
+            $fixturePackages | ConvertTo-Json -Depth 20 | Set-Content $fixturePackagesPath
+            $expectedError = 'conflicting metadata across selected groups'
+        }
         $invalidBootstrap | ConvertTo-Json -Depth 20 | Set-Content $fixtureBootstrapPath
         $output = & $hostExecutable -NoProfile -File "$fixtureRoot/setup-scripts/setup.ps1" -NonInteractive 2>&1
         $LASTEXITCODE | Should -Be 1
-        ($output -join "`n") | Should -Match "Unknown selection 'bsae'"
+        ($output -join "`n") | Should -Match $expectedError
         Test-Path "$fixtureRoot/prerequisites-reached.txt" | Should -BeFalse
         # A valid control must reach the sentinel; no real prerequisite installation is run.
         $bootstrap | ConvertTo-Json -Depth 20 | Set-Content $fixtureBootstrapPath

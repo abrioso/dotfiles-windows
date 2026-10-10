@@ -45,7 +45,8 @@ The preflight requires JSON objects for all seven local configuration files and 
 - non-empty string values for `WORKSPACE_FOLDER`, `GITHUB_ACCOUNT`, and `GITHUB_DOTFILES_REPO`;
 - supported repository endpoint settings;
 - selectors against their package, feature, capability and setting catalogs;
-- package ID syntax and supported `scope`/`installerType` metadata;
+- package ID syntax, supported `scope`/`installerType` metadata, and conflicting duplicate
+  package declarations across selected groups (IDs are compared case-insensitively);
 - module arrays, existing `.ps1` filenames without directory components, boolean `requiresAdmin`,
   valid selectors, and package dependencies;
 - scalar Git setting values and valid environment entries with `User` or `Machine` scope.

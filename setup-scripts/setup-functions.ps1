@@ -1066,6 +1066,31 @@ function Assert-DotfilesSetupConfiguration {
             throw "Unknown bootstrap selector '$($property.Name)'. Available selectors: INSTALL_FEATURES, INSTALL_CAPABILITIES, INSTALL_PACKAGES, INSTALL_SETTINGS."
         }
     }
+    # Match the package installer's case-insensitive deduplication and metadata normalization.
+    $selectedPackageGroups = if (Test-DotfilesObjectProperty $DotfilesVariables 'INSTALL_PACKAGES') {
+        @($DotfilesVariables.INSTALL_PACKAGES)
+    } else {
+        @($catalogs['winget-packages'].PSObject.Properties.Name)
+    }
+    $seenPackages = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($group in $catalogs['winget-packages'].PSObject.Properties) {
+        if ($selectedPackageGroups -notcontains $group.Name) { continue }
+        foreach ($package in $group.Value) {
+            $id = if ($package -is [string]) { $package } else { $package.id }
+            $scope = if ($package -is [string]) { $null } else { [string]$package.scope }
+            $installerType = if ($package -is [string]) { $null } else { [string]$package.installerType }
+            if ([string]::IsNullOrWhiteSpace($scope)) { $scope = $null }
+            if ([string]::IsNullOrWhiteSpace($installerType)) { $installerType = $null }
+            if ($seenPackages.ContainsKey($id)) {
+                $existing = $seenPackages[$id]
+                if ($existing.Scope -ne $scope -or $existing.InstallerType -ne $installerType) {
+                    throw "Package '$id' has conflicting metadata across selected groups. Use matching scope and installerType declarations before running setup."
+                }
+            } else {
+                $seenPackages[$id] = [pscustomobject]@{ Scope = $scope; InstallerType = $installerType }
+            }
+        }
+    }
     if ((Test-DotfilesObjectProperty $setupConfig 'settings') -and $setupConfig.settings -isnot [pscustomobject]) {
         throw 'setup-modules.json.settings must be an object of setting groups.'
     }
