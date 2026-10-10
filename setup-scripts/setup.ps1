@@ -49,6 +49,13 @@ if ($currentPolicy -in @("Restricted", "AllSigned")) {
     Write-Warning "Consider running: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser or Set-ExecutionPolicy Unrestricted -Scope CurrentUser"
 }
 
+# Initialize local choices and validate them before installing prerequisites or requesting UAC.
+Write-Info "Applying dotfiles bootstrap variables..."
+$DotfilesVariables = Get-DotfilesBootstrapVariables -NonInteractive:$NonInteractive
+Assert-DotfilesSetupConfiguration -DotfilesVariables $DotfilesVariables `
+    -ConfigDirectory (Join-Path $dotfileRootDir 'dotfiles-configurations') `
+    -ModuleDirectory (Join-Path $dotfileRootDir 'setup-modules')
+
 Write-Host "Installing the pre-requisites for the dotfiles setup:"
 $prerequisitesInstalled = Install-DotfilesPrerequisites
 
@@ -93,23 +100,6 @@ if ($PSVersionTable.PSEdition -ne "Core") {
     $childExitCode = $LASTEXITCODE
     $finalizeLogging = $false
     Exit $childExitCode
-}
-
-# Apply the dotfiles bootstrap variables
-Write-Info "Applying dotfiles bootstrap variables..."
-$DotfilesVariables = Get-DotfilesBootstrapVariables -NonInteractive:$NonInteractive
-if (-not $DotfilesVariables) {
-    Write-WarningMessage "No dotfiles bootstrap variables found."
-    Exit 1
-}
-
-# Validate required configuration values
-$requiredVars = @("WORKSPACE_FOLDER", "GITHUB_ACCOUNT", "GITHUB_DOTFILES_REPO")
-$missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
-
-if ($missingVars) {
-    Write-ErrorMessage "Missing required configuration variables: $($missingVars -join ', ')"
-    Exit 1
 }
 
 if (-not [string]::IsNullOrWhiteSpace($BootstrapBranch)) {
@@ -176,7 +166,7 @@ Sync-DotfilesLocalConfiguration -SourceRoot $dotfileRootDir -TargetRoot $dotfile
 
 # The persistent configuration is authoritative once the target clone is known.
 # BootstrapBranch selects this invocation's checkout; it must not rewrite saved choices.
-$DotfilesVariables = Read-DotfilesJsonFile -Path (Join-Path $dotfilesDirectory 'dotfiles-configurations/dotfiles-bootstrap-variables.json')
+$DotfilesVariables = Read-DotfilesConfigurationObject -Path (Join-Path $dotfilesDirectory 'dotfiles-configurations/dotfiles-bootstrap-variables.json')
 
 # Run the new modular setup scripts
 Write-Info "Running the modular setup scripts from 'setup-modules'..."
@@ -184,6 +174,7 @@ Write-Info "Running the modular setup scripts from 'setup-modules'..."
 $moduleScriptsPath = Join-Path $dotfilesDirectory "setup-modules"
 $moduleConfigDirectory = Join-Path $dotfilesDirectory "dotfiles-configurations"
 $moduleLogDirectory = Join-Path $dotfilesDirectory "logs"
+Assert-DotfilesSetupConfiguration -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory -ModuleDirectory $moduleScriptsPath
 Assert-DotfilesSetupDependencies -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 $modulesToRun = Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 $windowsDismModules = @('Configure-WindowsFeatures.ps1', 'Configure-WindowsCapabilities.ps1')

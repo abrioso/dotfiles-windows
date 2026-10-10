@@ -936,6 +936,190 @@ function Assert-DotfilesSetupDependencies {
     }
 }
 
+function Assert-DotfilesConfigurationStringList {
+    param(
+        [AllowNull()]$Value,
+        [Parameter(Mandatory)][string]$Context,
+        [switch]$AllowScalar
+    )
+    if ($Value -isnot [array] -and -not ($AllowScalar -and $Value -is [string])) {
+        throw "$Context must be an array of non-empty strings$(if ($AllowScalar) { ' or a single string' })."
+    }
+    foreach ($item in @($Value)) {
+        if ($item -isnot [string] -or [string]::IsNullOrWhiteSpace($item)) {
+            throw "$Context must contain only non-empty strings."
+        }
+    }
+}
+
+function Read-DotfilesConfigurationObject {
+    param([Parameter(Mandatory)][string]$Path)
+    $fileName = Split-Path -Leaf $Path
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Required configuration file not found: $fileName. Run setup-scripts/configure.ps1."
+    }
+    try {
+        $content = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
+        if ([string]::IsNullOrWhiteSpace($content)) { throw 'Empty configuration.' }
+        $config = $content | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        # Do not include parser excerpts that could expose private configuration values.
+        throw "Cannot read valid JSON from $fileName. Correct the file before running setup."
+    }
+    if (-not $content.TrimStart().StartsWith('{') -or $config -isnot [pscustomobject]) {
+        throw "$fileName must contain a JSON object."
+    }
+    return $config
+}
+
+function Assert-DotfilesConfigurationSelection {
+    param(
+        [Parameter(Mandatory)][string]$Context,
+        [AllowNull()]$Value,
+        [AllowEmptyCollection()][string[]]$Available
+    )
+    Assert-DotfilesConfigurationStringList -Value $Value -Context $Context -AllowScalar
+    foreach ($selection in @($Value)) {
+        if ($Available -notcontains $selection) {
+            throw "Unknown selection '$selection' in $Context. Available values: $($Available -join ', ')."
+        }
+    }
+}
+
+function Assert-DotfilesSetupConfiguration {
+    <#
+    .SYNOPSIS
+    Validates local configuration and module files without installing or applying settings.
+    #>
+    param(
+        [Parameter(Mandatory)]$DotfilesVariables,
+        [string]$ConfigDirectory = (Get-DotfilesConfigDirectory),
+        [string]$ModuleDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'setup-modules')
+    )
+    if ($DotfilesVariables -isnot [pscustomobject]) {
+        throw 'dotfiles-bootstrap-variables.json must contain a JSON object.'
+    }
+    foreach ($name in @('WORKSPACE_FOLDER', 'GITHUB_ACCOUNT', 'GITHUB_DOTFILES_REPO')) {
+        if ($DotfilesVariables.$name -isnot [string] -or [string]::IsNullOrWhiteSpace($DotfilesVariables.$name)) {
+            throw "dotfiles-bootstrap-variables.json requires a non-empty string for $name."
+        }
+    }
+    foreach ($name in @('GITHUB_DOTFILES_BRANCH', 'REPOSITORY_ENDPOINT_TYPE', 'CUSTOM_REPOSITORY_URL')) {
+        if ((Test-DotfilesObjectProperty $DotfilesVariables $name) -and $DotfilesVariables.$name -isnot [string]) {
+            throw "dotfiles-bootstrap-variables.json.$name must be a string."
+        }
+    }
+    $null = Resolve-DotfilesRepositoryUrl -DotfilesVariables $DotfilesVariables
+
+    $catalogs = @{}
+    foreach ($file in @('winget-packages', 'windows-features', 'windows-capabilities', 'setup-modules', 'git-variables', 'env-variables')) {
+        $catalogs[$file] = Read-DotfilesConfigurationObject -Path (Join-Path $ConfigDirectory "$file.json")
+    }
+    foreach ($file in @('windows-features', 'windows-capabilities')) {
+        foreach ($group in $catalogs[$file].PSObject.Properties) {
+            Assert-DotfilesConfigurationStringList -Value $group.Value -Context "$file.json.$($group.Name)" -AllowScalar
+        }
+    }
+    $packageIdPattern = '^[^\.\s\\/:*?"<>|\x01-\x1f]{1,32}(\.[^\.\s\\/:*?"<>|\x01-\x1f]{1,32}){1,7}$'
+    foreach ($group in $catalogs['winget-packages'].PSObject.Properties) {
+        if ($group.Value -isnot [array]) { throw "winget-packages.json.$($group.Name) must be an array." }
+        foreach ($package in $group.Value) {
+            if ($package -isnot [string] -and $package -isnot [pscustomobject]) {
+                throw "winget-packages.json.$($group.Name) entries must be package ID strings or objects."
+            }
+            $id = if ($package -is [string]) { $package } else { $package.id }
+            if ($id -isnot [string] -or $id.Length -gt 128 -or $id -notmatch $packageIdPattern) {
+                throw "winget-packages.json.$($group.Name) contains an invalid package ID; use Publisher.Package syntax."
+            }
+            if ($package -is [pscustomobject]) {
+                foreach ($field in @('scope', 'installerType')) {
+                    if (-not (Test-DotfilesObjectProperty $package $field) -or $null -eq $package.$field) { continue }
+                    $supported = if ($field -eq 'scope') { @('user', 'machine') } else { @('wix') }
+                    if ($package.$field -isnot [string] -or
+                        (-not [string]::IsNullOrWhiteSpace($package.$field) -and $supported -notcontains $package.$field)) {
+                        throw "winget-packages.json.$($group.Name).$field must be a string with one of: $($supported -join ', ')."
+                    }
+                }
+            }
+        }
+    }
+
+    $setupConfig = $catalogs['setup-modules']
+    foreach ($property in $setupConfig.PSObject.Properties) {
+        if ($property.Name -notin @('features', 'capabilities', 'packages', 'settings')) {
+            throw "Unknown setup-modules.json section '$($property.Name)'. Available sections: features, capabilities, packages, settings."
+        }
+    }
+    $availableGroups = @{
+        INSTALL_FEATURES = @($catalogs['windows-features'].PSObject.Properties.Name)
+        INSTALL_CAPABILITIES = @($catalogs['windows-capabilities'].PSObject.Properties.Name)
+        INSTALL_PACKAGES = @($catalogs['winget-packages'].PSObject.Properties.Name)
+        INSTALL_SETTINGS = @($setupConfig.settings.PSObject.Properties.Name)
+    }
+    foreach ($selector in $availableGroups.Keys) {
+        if (Test-DotfilesObjectProperty $DotfilesVariables $selector) {
+            Assert-DotfilesConfigurationSelection -Context $selector -Value $DotfilesVariables.$selector -Available $availableGroups[$selector]
+        }
+    }
+    foreach ($property in $DotfilesVariables.PSObject.Properties) {
+        if ($property.Name -like 'INSTALL_*' -and $availableGroups.Keys -notcontains $property.Name) {
+            throw "Unknown bootstrap selector '$($property.Name)'. Available selectors: INSTALL_FEATURES, INSTALL_CAPABILITIES, INSTALL_PACKAGES, INSTALL_SETTINGS."
+        }
+    }
+    if ((Test-DotfilesObjectProperty $setupConfig 'settings') -and $setupConfig.settings -isnot [pscustomobject]) {
+        throw 'setup-modules.json.settings must be an object of setting groups.'
+    }
+    $moduleGroups = [System.Collections.Generic.List[object]]::new()
+    foreach ($section in @('features', 'capabilities', 'packages')) {
+        if (Test-DotfilesObjectProperty $setupConfig $section) {
+            $moduleGroups.Add([pscustomobject]@{ Context = $section; Entries = $setupConfig.$section; Selector = "INSTALL_$($section.ToUpperInvariant())" })
+        }
+    }
+    foreach ($group in $setupConfig.settings.PSObject.Properties) {
+        $moduleGroups.Add([pscustomobject]@{ Context = "settings.$($group.Name)"; Entries = $group.Value; Selector = $null })
+    }
+    foreach ($group in $moduleGroups) {
+        if ($group.Entries -isnot [array]) { throw "setup-modules.json.$($group.Context) must be an array." }
+        foreach ($entry in $group.Entries) {
+            if ($entry -isnot [pscustomobject] -or $entry.script -isnot [string] -or
+                $entry.script -notmatch '^[^\\/:*?"<>|]+\.ps1$' -or $entry.script -in @('.ps1', '..ps1')) {
+                throw "setup-modules.json.$($group.Context) requires a script filename ending in .ps1, without directory components."
+            }
+            if (-not (Test-Path -LiteralPath (Join-Path $ModuleDirectory $entry.script) -PathType Leaf)) {
+                throw "Setup module script not found: $($entry.script). Correct setup-modules.json or restore the script."
+            }
+            if ((Test-DotfilesObjectProperty $entry 'requiresAdmin') -and $entry.requiresAdmin -isnot [bool]) {
+                throw "setup-modules.json.$($group.Context).requiresAdmin must be a JSON boolean."
+            }
+            if (Test-DotfilesObjectProperty $entry 'whenSelected') {
+                if (-not $group.Selector) { throw 'whenSelected is supported only in feature, capability and package module sections.' }
+                Assert-DotfilesConfigurationSelection -Context "setup-modules.json.$($group.Context).whenSelected" -Value $entry.whenSelected -Available $availableGroups[$group.Selector]
+            }
+            if (Test-DotfilesObjectProperty $entry 'requiresPackageGroups') {
+                Assert-DotfilesConfigurationSelection -Context "setup-modules.json.$($group.Context).requiresPackageGroups" -Value $entry.requiresPackageGroups -Available $availableGroups.INSTALL_PACKAGES
+            }
+        }
+    }
+    foreach ($property in $catalogs['git-variables'].PSObject.Properties) {
+        if ($null -eq $property.Value -or $property.Value -is [array] -or $property.Value -is [pscustomobject]) {
+            throw 'git-variables.json must map Git setting names to scalar, non-null values.'
+        }
+    }
+    $environmentConfig = $catalogs['env-variables']
+    if (Test-DotfilesObjectProperty $environmentConfig 'EnvironmentVariables') {
+        if ($environmentConfig.EnvironmentVariables -isnot [array]) { throw 'env-variables.json.EnvironmentVariables must be an array.' }
+        foreach ($entry in $environmentConfig.EnvironmentVariables) {
+            if ($entry -isnot [pscustomobject] -or $entry.Name -isnot [string] -or
+                [string]::IsNullOrWhiteSpace($entry.Name) -or $entry.Name -match '[=\x00]' -or
+                $null -eq $entry.Value -or $entry.Value -is [array] -or $entry.Value -is [pscustomobject] -or
+                $entry.Scope -isnot [string] -or $entry.Scope -notin @('User', 'Machine')) {
+                throw 'env-variables.json requires entries with a valid Name, scalar Value and User/Machine Scope.'
+            }
+        }
+    }
+    Assert-DotfilesSetupDependencies -DotfilesVariables $DotfilesVariables -ConfigDirectory $ConfigDirectory
+}
+
 function Initialize-DotfilesConfiguration {
     param (
         [switch]$NonInteractive
@@ -1068,7 +1252,7 @@ function Get-DotfilesBootstrapVariables {
         $DotfilesVariablesFile = Get-ChildItem -LiteralPath $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json" -ErrorAction Stop
 
         if ($DotfilesVariablesFile) {
-            $DotfilesVariables = Get-Content -LiteralPath $DotfilesVariablesFile.FullName | ConvertFrom-Json
+            $DotfilesVariables = Read-DotfilesConfigurationObject -Path $DotfilesVariablesFile.FullName
         } else {
             throw "The dotfiles-bootstrap-variables.json file was not found in $DotfilesConfigFolder"
         }
