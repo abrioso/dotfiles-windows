@@ -181,4 +181,17 @@ function winget { throw 'FORBIDDEN: package operation' }
             Get-PlanFixtureSnapshot | Should -Be $before
         }
     }
+    It 'rejects an invalid saved branch even with a valid invocation override in both hosts' {
+        $bootstrap.GITHUB_DOTFILES_BRANCH = 42
+        Save-PlanBootstrap
+        $before = Get-PlanFixtureSnapshot
+        foreach ($hostPath in $hosts) {
+            $output = & $hostPath -NoProfile -File "$fixtureRoot/setup-scripts/setup.ps1" -Plan -PlanFormat Json `
+                -BootstrapBranch preview-branch 2>&1
+            $LASTEXITCODE | Should -Be 1
+            ($output -join "`n") | Should -Match 'GITHUB_DOTFILES_BRANCH must be a string'
+            ($output -join "`n") | Should -Not -Match 'FORBIDDEN'
+            Get-PlanFixtureSnapshot | Should -Be $before
+        }
+    }
 }

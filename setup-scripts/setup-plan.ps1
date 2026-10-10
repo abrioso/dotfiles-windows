@@ -13,11 +13,12 @@ function Get-DotfilesSetupPreview {
     $configDirectory = Join-Path $RepositoryRoot 'dotfiles-configurations'
     $bootstrapPath = Join-Path $configDirectory 'dotfiles-bootstrap-variables.json'
     $variables = Read-DotfilesConfigurationObject -Path $bootstrapPath
+    # Apply validates saved choices before considering the invocation's branch override.
+    Assert-DotfilesSetupConfiguration -DotfilesVariables $variables -ConfigDirectory $configDirectory `
+        -ModuleDirectory (Join-Path $RepositoryRoot 'setup-modules')
     if (-not [string]::IsNullOrWhiteSpace($BootstrapBranch)) {
         $variables | Add-Member -MemberType NoteProperty -Name GITHUB_DOTFILES_BRANCH -Value $BootstrapBranch -Force
     }
-    Assert-DotfilesSetupConfiguration -DotfilesVariables $variables -ConfigDirectory $configDirectory `
-        -ModuleDirectory (Join-Path $RepositoryRoot 'setup-modules')
 
     $catalog = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'setup-modules.json')
     $packages = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'winget-packages.json')
