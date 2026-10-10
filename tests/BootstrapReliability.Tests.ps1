@@ -168,7 +168,7 @@ Stop-Logging
             [string]$output[-1] | Should -Be $durablePath
         }
 
-        It 'finalizes and reports logging for every setup exit including failure and 3010' {
+        It 'finalizes logging for every apply exit, while plan exits before logging starts' {
             $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
             $tokens = $null
             $parseErrors = $null
@@ -182,10 +182,25 @@ Stop-Logging
             $exitStatements.Count | Should -BeGreaterThan 0
             @($exitStatements | Where-Object { $_.Pipeline.Extent.Text -eq '3010' }).Count | Should -BeGreaterThan 0
 
+            $loggingStart = $setupAst.Find({
+                param($node)
+                $node -is [System.Management.Automation.Language.CommandAst] -and
+                    $node.GetCommandName() -eq 'Start-Logging'
+            }, $true)
+            $loggingStart | Should -Not -BeNullOrEmpty
+
             foreach ($exitStatement in $exitStatements) {
                 $ancestor = $exitStatement.Parent
                 $isProtected = $false
                 while ($ancestor) {
+                    # Plan never opens a transcript; only its explicit early branch is exempt.
+                    if ($exitStatement.Extent.StartOffset -lt $loggingStart.Extent.StartOffset -and
+                        $ancestor -is [System.Management.Automation.Language.IfStatementAst] -and
+                        $ancestor.Clauses[0].Item1.Extent.Text -eq '$Plan' -and
+                        $ancestor.Extent.EndOffset -lt $loggingStart.Extent.StartOffset) {
+                        $isProtected = $true
+                        break
+                    }
                     if ($ancestor -is [System.Management.Automation.Language.TryStatementAst] -and
                         $ancestor.Finally -and
                         $ancestor.Finally.Extent.Text -match 'Complete-DotfilesSetupLogging') {
