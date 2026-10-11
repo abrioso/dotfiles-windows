@@ -29,11 +29,15 @@ Describe 'Installed-state diagnostic' {
         $report.Checks | Should -HaveCount 1
         ($report | ConvertTo-Json -Depth 8) | Should -Not -Match 'private-secret'
     }
-    It 'distinguishes enabled, disabled and unavailable Windows features' {
-        $script:diagnosticFixturePreview.Features = @('Enabled', 'Disabled', 'Unavailable')
-        Mock Get-CimInstance { @([pscustomobject]@{Name='Enabled';InstallState=1}, [pscustomobject]@{Name='Disabled';InstallState=2}) }
+    It 'distinguishes enabled, disabled, absent and indeterminate Windows features' {
+        $script:diagnosticFixturePreview.Features = @('Enabled', 'Disabled', 'Absent', 'Indeterminate', 'Unavailable')
+        Mock Get-CimInstance { @(
+            [pscustomobject]@{Name='Enabled';InstallState=1},
+            [pscustomobject]@{Name='Disabled';InstallState=2},
+            [pscustomobject]@{Name='Absent';InstallState=3},
+            [pscustomobject]@{Name='Indeterminate';InstallState=4}) }
         $report = Get-TestDiagnostic
-        ($report.Checks | Where-Object Category -EQ WindowsFeature).Status -join ',' | Should -Be 'Passed,Drift,Unknown'
+        ($report.Checks | Where-Object Category -EQ WindowsFeature).Status -join ',' | Should -Be 'Passed,Drift,Drift,Unknown,Unknown'
         $report.ExitCode | Should -Be 1
     }
     It 'keeps denied feature queries inconclusive' {

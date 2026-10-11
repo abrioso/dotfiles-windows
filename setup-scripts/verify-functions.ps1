@@ -98,7 +98,7 @@ function Get-DotfilesSetupDiagnostic {
                     $matches = @($featureStates | Where-Object Name -IEQ $name)
                     if ($matches.Count -ne 1) { return New-DotfilesDiagnosticResult Unknown 'Requested component was not identified on this OS.' }
                     if ([uint32]$matches[0].InstallState -eq 1) { New-DotfilesDiagnosticResult Passed 'Enabled.' }
-                    elseif ([uint32]$matches[0].InstallState -eq 2) { New-DotfilesDiagnosticResult Drift 'Disabled.' }
+                    elseif ([uint32]$matches[0].InstallState -in @(2, 3)) { New-DotfilesDiagnosticResult Drift 'Disabled or absent.' }
                     else { New-DotfilesDiagnosticResult Unknown 'Component state is inconclusive.' }
                 }
             }
