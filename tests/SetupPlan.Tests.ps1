@@ -80,7 +80,7 @@ function winget { throw 'FORBIDDEN: package operation' }
         $bootstrap.INSTALL_PACKAGES = 'base'
         $bootstrap.INSTALL_SETTINGS = 'base'
         Save-PlanBootstrap
-        '{"TEST_PRIVATE":{"Value":"do-not-print-env","Scope":"Machine"}}' | Set-Content (Join-Path $configDirectory 'env-variables.json')
+        '{"EnvironmentVariables":[{"Name":"TEST_PRIVATE","Value":"do-not-print-env","Scope":"Machine"}]}' | Set-Content (Join-Path $configDirectory 'env-variables.json')
         $preview = Get-DotfilesSetupPreview -RepositoryRoot $fixtureRoot
         @($preview.Selections.Packages) | Should -HaveCount 1
         ($preview.Modules | Where-Object Script -eq 'Set-EnvironmentVariables.ps1').Elevation | Should -BeLike '*Machine*'
@@ -92,7 +92,7 @@ function winget { throw 'FORBIDDEN: package operation' }
         $bootstrap.CUSTOM_REPOSITORY_URL = 'https://do-not-print-repository.example/repo.git'
         Save-PlanBootstrap
         '{"user.name":"do-not-print-git"}' | Set-Content (Join-Path $configDirectory 'git-variables.json')
-        '{"TEST_PRIVATE":{"Value":"do-not-print-env","Scope":"User"}}' | Set-Content (Join-Path $configDirectory 'env-variables.json')
+        '{"EnvironmentVariables":[{"Name":"TEST_PRIVATE","Value":"do-not-print-env","Scope":"User"}]}' | Set-Content (Join-Path $configDirectory 'env-variables.json')
         $before = Get-PlanFixtureSnapshot
         foreach ($hostPath in $hosts) {
             $output = & $hostPath -NoProfile -File "$fixtureRoot/setup-scripts/setup.ps1" -Plan -PlanFormat Json -BootstrapBranch preview-branch -NonInteractive 2>&1
@@ -191,6 +191,25 @@ function winget { throw 'FORBIDDEN: package operation' }
             $LASTEXITCODE | Should -Be 1
             ($output -join "`n") | Should -Match 'GITHUB_DOTFILES_BRANCH must be a string'
             ($output -join "`n") | Should -Not -Match 'FORBIDDEN'
+            Get-PlanFixtureSnapshot | Should -Be $before
+        }
+    }
+    It 'matches environment elevation to the supported array: <Label>' -ForEach @(
+        @{ Label = 'absent array with unrelated Machine object'; ExpectedMachine = $false; Json = '{"Unrelated":{"Scope":"Machine","Value":"private-fixture"}}' },
+        @{ Label = 'empty array with unrelated Machine object'; ExpectedMachine = $false; Json = '{"EnvironmentVariables":[],"Unrelated":{"Scope":"Machine","Value":"private-fixture"}}' },
+        @{ Label = 'User-only array with unrelated Machine object'; ExpectedMachine = $false; Json = '{"EnvironmentVariables":[{"Name":"TEST_USER","Value":"private-fixture","Scope":"User"}],"Unrelated":{"Scope":"Machine"}}' },
+        @{ Label = 'mixed User and Machine array'; ExpectedMachine = $true; Json = '{"EnvironmentVariables":[{"Name":"TEST_USER","Value":"private-fixture","Scope":"User"},{"Name":"TEST_MACHINE","Value":"private-fixture","Scope":"Machine"}]}' }
+    ) {
+        $Json | Set-Content -LiteralPath (Join-Path $configDirectory 'env-variables.json') -Encoding UTF8
+        $before = Get-PlanFixtureSnapshot
+        foreach ($hostPath in $hosts) {
+            $output = & $hostPath -NoProfile -File "$fixtureRoot/setup-scripts/setup.ps1" -Plan -PlanFormat Json 2>&1
+            $LASTEXITCODE | Should -Be 0
+            $text = $output -join "`n"
+            $text | Should -Not -Match 'private-fixture|FORBIDDEN'
+            $preview = $text | ConvertFrom-Json
+            $entry = $preview.Modules | Where-Object Script -eq 'Set-EnvironmentVariables.ps1'
+            ($entry.Elevation -match 'pending Machine') | Should -Be $ExpectedMachine
             Get-PlanFixtureSnapshot | Should -Be $before
         }
     }

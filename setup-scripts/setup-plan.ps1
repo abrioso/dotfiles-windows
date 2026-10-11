@@ -55,7 +55,7 @@ function Get-DotfilesSetupPreview {
         if ($module.Script -eq 'Install-WingetPackages.ps1') {
             $elevation = 'Possible: machine-scope packages or installer requirements.'
         } elseif ($module.Script -eq 'Set-EnvironmentVariables.ps1') {
-            $machineEntries = @($environment.PSObject.Properties | Where-Object { $_.Value.Scope -eq 'Machine' })
+            $machineEntries = @($environment.EnvironmentVariables | Where-Object { $_.Scope -eq 'Machine' })
             if ($machineEntries.Count -gt 0) { $elevation = 'Possible: pending Machine environment changes.' }
         }
         $modules.Add([pscustomobject]@{
