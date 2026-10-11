@@ -57,6 +57,53 @@ defaults; single-string selectors and package ID strings remain supported. Fix i
 and rerun setup; preflight does not install or apply machine settings. It validates declarations,
 not whether a package exists in the remote WinGet source or a feature is available on this OS.
 
+## Installed-state diagnostic
+
+After applying setup, diagnose the selected state from this checkout in PowerShell 7.2 or later:
+
+```powershell
+.\setup-scripts\verify.ps1
+.\setup-scripts\verify.ps1 -Format Json
+.\setup-scripts\verify.ps1 -Format Json -CheckPackages
+```
+
+The command validates existing local configuration using the same preflight and selection resolver
+as setup. It does not initialize configuration, update the checkout, apply modules, request elevation,
+start transcripts or save reports. It checks executable availability, selected Windows features and
+capabilities, persistent environment values, global Git values, profile copies and portable stubs,
+theme content and Terminal settings. Profiles are checked for the invoking PowerShell host only.
+Terminal settings only need to exist and parse as JSON: setup preserves local customizations.
+User-authored profiles are skipped because setup intentionally preserves them.
+
+Each check has one of four statuses:
+
+| Status | Meaning |
+| --- | --- |
+| `Passed` | The stated check succeeded; this is not a complete certification of setup. |
+| `Drift` | A difference or missing required artifact was confirmed. |
+| `Unknown` | State could not be established, including permissions, unsupported OS components or unavailable probes. |
+| `Skipped` | The apply contract intentionally excludes this item. |
+
+Exit codes are `0` for passed/skipped checks only, `1` if any drift was found, and `2` if
+checks are inconclusive without confirmed drift. Invalid configuration produces an inconclusive
+report and prevents state probes. JSON includes `SchemaVersion`, `Checks`, `Counts`, `ExitCode`
+and `Limitations`. Environment and Git checks use anonymous labels and never report configured
+or observed values, personal paths, repository endpoints, native stderr or exception details.
+Component IDs and source filenames remain visible.
+Git and environment value comparisons are case-sensitive. Existing apply modules compare values
+case-insensitively, so a case-only difference may require a manual correction.
+
+WinGet presence checks require `-CheckPackages`: native WinGet may contact package sources and
+write its own cache/logs. The diagnostic never accepts source agreements or installs/updates packages.
+A failed query is inconclusive, not evidence of absence. A successful exact-ID query does not verify
+requested scope or installer type; those constraints remain `Unknown`. Package versions are not
+constrained by the current catalog. Native queries time out after 15 seconds per item.
+
+This first diagnostic does not probe Nerd Font registration, HOME alias correctness or WSL distro
+state. Selected modules without probes are explicitly `Unknown`. With default selections and without
+package opt-in, expect an inconclusive report even when the implemented checks pass. Use the check
+messages to assess coverage; do not treat `Unknown` as a successful installation.
+
 ## Setup plan
 
 Create or edit local JSON with `setup-scripts\configure.ps1`, then preview the invoked checkout:

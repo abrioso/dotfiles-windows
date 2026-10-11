@@ -73,6 +73,17 @@ elevation and restart requirements. It does not create configuration or logs, in
 contact package sources, update Git, request UAC, or execute modules. Windows PowerShell 5.1 and
 PowerShell 7 are supported. See [Setup plan](docs/CONFIGURATION.md#setup-plan) for its scope and limitations.
 
+After setup, check installed state in PowerShell 7.2 or later:
+
+```powershell
+.\setup-scripts\verify.ps1
+.\setup-scripts\verify.ps1 -Format Json
+```
+
+The diagnostic reports confirmed drift and inconclusive checks without applying changes. Package
+queries require opt-in. See [Installed-state diagnostic](docs/CONFIGURATION.md#installed-state-diagnostic)
+for coverage, exit codes and limitations.
+
 ### Core Components
 
 #### `setup-scripts`
@@ -84,6 +95,7 @@ This folder contains the main scripts that kick off the installation and setup p
 -   `setup.ps1`: The main bootstrap and orchestrator script. It initializes local configuration when missing, clones/updates the configured repository branch, syncs gitignored local config into the real clone, and then runs the selected modules from `setup-modules` in the order defined by the setup module catalog.
 -   `setup-functions.ps1`: Contains helper functions used by the other scripts, including repository endpoint resolution and local config initialization.
 -   `setup-plan.ps1`: Read-only preview helpers used by `setup.ps1 -Plan`; `tests/SetupPlan.Tests.ps1` covers ordering, selectors and planning without mutations in both supported entry hosts.
+-   `verify.ps1` and `verify-functions.ps1`: PowerShell 7 installed-state diagnostics using the same local preflight and selections; `tests/SetupDiagnostic.Tests.ps1` covers drift, inconclusive queries, privacy and native query boundaries.
 
 #### `setup-modules`
 
