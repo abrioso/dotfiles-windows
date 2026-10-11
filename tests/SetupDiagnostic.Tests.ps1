@@ -29,6 +29,25 @@ Describe 'Installed-state diagnostic' {
         $report.Checks | Should -HaveCount 1
         ($report | ConvertTo-Json -Depth 8) | Should -Not -Match 'private-secret'
     }
+    It 'does not require or query missing WinGet when package setup is deselected' {
+        Mock Get-Command { $null } -ParameterFilter { $Name -eq 'winget' }
+        Mock Invoke-DotfilesDiagnosticNative { throw 'Unexpected native query' }
+        $report = Get-TestDiagnostic
+        $report.ExitCode | Should -Be 0
+        @($report.Checks | Where-Object Name -EQ winget) | Should -HaveCount 0
+        Should -Invoke Get-Command -Times 0 -Exactly -ParameterFilter { $Name -eq 'winget' }
+        Should -Invoke Invoke-DotfilesDiagnosticNative -Times 0 -Exactly
+    }
+    It 'reports missing WinGet as drift when package setup is selected without query opt-in' {
+        $script:diagnosticFixturePreview.Modules = @([pscustomobject]@{Script='Install-WingetPackages.ps1'})
+        $script:diagnosticFixturePreview.Packages = @([pscustomobject]@{Id='Vendor.App';Scope=$null;InstallerType=$null})
+        Mock Get-Command { $null } -ParameterFilter { $Name -eq 'winget' }
+        Mock Invoke-DotfilesDiagnosticNative { throw 'Unexpected native query' }
+        $report = Get-TestDiagnostic
+        ($report.Checks | Where-Object Name -EQ winget).Status | Should -Be Drift
+        $report.ExitCode | Should -Be 1
+        Should -Invoke Invoke-DotfilesDiagnosticNative -Times 0 -Exactly
+    }
     It 'distinguishes enabled, disabled, absent and indeterminate Windows features' {
         $script:diagnosticFixturePreview.Features = @('Enabled', 'Disabled', 'Absent', 'Indeterminate', 'Unavailable')
         Mock Get-CimInstance { @(

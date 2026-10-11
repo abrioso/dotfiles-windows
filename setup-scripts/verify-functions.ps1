@@ -82,7 +82,10 @@ function Get-DotfilesSetupDiagnostic {
     }
     if ($preview) {
         $configDirectory = Join-Path $RepositoryRoot 'dotfiles-configurations'
-        foreach ($command in @('pwsh', 'git', 'winget')) {
+        $scripts = @($preview.Modules.Script)
+        $prerequisites = @('pwsh', 'git')
+        if ($scripts -contains 'Install-WingetPackages.ps1') { $prerequisites += 'winget' }
+        foreach ($command in $prerequisites) {
             Add-DotfilesDiagnosticCheck $checks Prerequisite $command {
                 if (Get-Command $command -CommandType Application -ErrorAction SilentlyContinue) {
                     New-DotfilesDiagnosticResult Passed 'Executable is available; version compatibility is not assessed.'
@@ -112,7 +115,6 @@ function Get-DotfilesSetupDiagnostic {
                 else { New-DotfilesDiagnosticResult Unknown 'Capability is pending or its state is inconclusive.' }
             }
         }
-        $scripts = @($preview.Modules.Script)
         if ($scripts -contains 'Install-WingetPackages.ps1') {
             foreach ($package in $preview.Packages) {
                 Add-DotfilesDiagnosticCheck $checks Package $package.Id {
