@@ -73,6 +73,7 @@ start transcripts or save reports. It checks executable availability, selected W
 capabilities, persistent environment values, global Git values, profile copies and portable stubs,
 theme content and Terminal settings. Profiles are checked for the invoking PowerShell host only.
 Terminal settings only need to exist and parse as JSON: setup preserves local customizations.
+Readable empty or malformed settings are `Drift`; access and read failures remain `Unknown`.
 User-authored profiles are skipped because setup intentionally preserves them.
 
 Each check has one of four statuses:

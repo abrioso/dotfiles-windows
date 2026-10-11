@@ -205,7 +205,11 @@ function Get-DotfilesSetupDiagnostic {
             Add-DotfilesDiagnosticCheck $checks Terminal 'Settings' {
                 $target = Join-Path $LocalAppData 'Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json'
                 if (-not (Test-Path -LiteralPath $target -PathType Leaf -ErrorAction Stop)) { return New-DotfilesDiagnosticResult Drift 'Terminal settings file is missing.' }
-                $null = Get-Content -LiteralPath $target -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+                # Read failures remain Unknown via the outer wrapper; malformed readable JSON is drift.
+                $content = Get-Content -LiteralPath $target -Raw -ErrorAction Stop
+                if ([string]::IsNullOrWhiteSpace($content)) { return New-DotfilesDiagnosticResult Drift 'Terminal settings file is empty.' }
+                try { $null = ConvertFrom-Json -InputObject $content -ErrorAction Stop }
+                catch [System.ArgumentException] { return New-DotfilesDiagnosticResult Drift 'Terminal settings file contains malformed JSON.' }
                 New-DotfilesDiagnosticResult Passed 'Settings exist and parse as JSON; local customizations are not compared to the template.'
             }
         }

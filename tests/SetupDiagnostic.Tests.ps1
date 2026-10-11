@@ -163,7 +163,28 @@ Describe 'Installed-state diagnostic' {
         '{"custom":true}' | Set-Content "$directory/settings.json"
         ((Get-TestDiagnostic).Checks | Where-Object Category -EQ Terminal).Status | Should -Be Passed
         '{invalid}' | Set-Content "$directory/settings.json"
-        ((Get-TestDiagnostic).Checks | Where-Object Category -EQ Terminal).Status | Should -Be Unknown
+        $report = Get-TestDiagnostic
+        ($report.Checks | Where-Object Category -EQ Terminal).Status | Should -Be Drift
+        $report.ExitCode | Should -Be 1
+        ($report | ConvertTo-Json -Depth 8) | Should -Not -Match '\{invalid\}|Unexpected character'
+        '' | Set-Content "$directory/settings.json"
+        ((Get-TestDiagnostic).Checks | Where-Object Category -EQ Terminal).Status | Should -Be Drift
+    }
+    It 'keeps Terminal access and read failures inconclusive without leaking error details' {
+        $script:diagnosticFixturePreview.Modules = @([pscustomobject]@{Script='Install-WindowsTerminalSettings.ps1'})
+        $directory = Join-Path $TestDrive 'Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState'
+        New-Item -ItemType Directory $directory -Force | Out-Null
+        '{"custom":true}' | Set-Content "$directory/settings.json"
+        Mock Get-Content { throw [UnauthorizedAccessException]::new('private-secret') } -ParameterFilter { $LiteralPath -like '*LocalState*settings.json' }
+        $report = Get-TestDiagnostic
+        ($report.Checks | Where-Object Category -EQ Terminal).Status | Should -Be Unknown
+        $report.ExitCode | Should -Be 2
+        ($report | ConvertTo-Json -Depth 8) | Should -Not -Match 'private-secret'
+        Mock Get-Content { throw [IO.IOException]::new('private-read-error') } -ParameterFilter { $LiteralPath -like '*LocalState*settings.json' }
+        $report = Get-TestDiagnostic
+        ($report.Checks | Where-Object Category -EQ Terminal).Status | Should -Be Unknown
+        $report.ExitCode | Should -Be 2
+        ($report | ConvertTo-Json -Depth 8) | Should -Not -Match 'private-read-error'
     }
     It 'bounds native execution and captures stderr without returning it' {
         # Use the real application resolver for the subprocess contract.
