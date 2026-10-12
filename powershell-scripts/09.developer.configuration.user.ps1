@@ -1,10 +1,9 @@
-# Equivalent PowerShell script for 09.developer.configuration.user.yaml
-# Minimum OS version check
-# (No MinVersion specified, just check for OS presence)
+<#
+.SYNOPSIS
+Retired setup entry point; stops without changing the machine.
+.DESCRIPTION
+Review the dev package group using setup-scripts/configure.ps1 and setup-scripts/setup.ps1 -Plan before applying setup.
+See powershell-scripts/README.md. No commands are forwarded automatically.
+#>
 
-# Install Visual Studio Code
-winget install --id vscode --accept-source-agreements --accept-package-agreements
-
-# Install VS Code Extensions (uncomment to enable)
-# code --install-extension github.copilot
-# code --install-extension devcenter.ms-devbox
+throw 'Retired legacy entry point: 09.developer.configuration.user.ps1. Review the dev package group using setup-scripts/configure.ps1 and setup-scripts/setup.ps1 -Plan before applying setup. See powershell-scripts/README.md for migration details.'

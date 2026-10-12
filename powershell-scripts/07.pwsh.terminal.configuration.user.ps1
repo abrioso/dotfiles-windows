@@ -1,32 +1,9 @@
-# Equivalent PowerShell script for 07.pwsh.terminal.dsc.configuration.user.dsc.yaml
-# Minimum OS version check
-# (No MinVersion specified, just check for OS presence)
+<#
+.SYNOPSIS
+Retired setup entry point; stops without changing the machine.
+.DESCRIPTION
+Review base/pwsh setup selections using setup-scripts/setup.ps1 -Plan. Profile deployment is owned by setup-modules/Install-LocalPowerShellProfiles.ps1 and preserves user-authored profiles.
+See powershell-scripts/README.md. No commands are forwarded automatically.
+#>
 
-# Install Windows Terminal
-winget install --id Microsoft.WindowsTerminal --accept-source-agreements --accept-package-agreements
-
-# Install PowerShell
-winget install --id Powershell.Powershell --accept-source-agreements --accept-package-agreements
-
-# Install Oh My Posh
-winget install --id JanDeDobbeleer.OhMyPosh --accept-source-agreements --accept-package-agreements
-
-          $customProfileDirectory = [System.IO.Path]::Combine($env:USERPROFILE, 'PowerShell-Custom')
-          # Ensure the directory exists
-          if (-not (Test-Path $customProfileDirectory)) {
-              New-Item -ItemType Directory -Path $customProfileDirectory | Out-Null
-              # Link PowerShell profile to custom directory
-              $profilePath = $PROFILE
-              $customProfilePath = Join-Path $customProfileDirectory 'Microsoft.PowerShell_profile.ps1'
-              if (-not (Test-Path $customProfilePath)) {
-                  New-Item -ItemType File -Path $customProfilePath | Out-Null
-              }
-              if (Test-Path $profilePath) {
-                  Remove-Item $profilePath -Force
-              }
-              New-Item -ItemType SymbolicLink -Path $profilePath -Target $customProfilePath | Out-Null
-              Write-Output "Created directory $customProfileDirectory and linked PowerShell profile"
-
-          } else  {
-              Write-Output "The directory $customProfileDirectory already exists"
-          }
+throw 'Retired legacy entry point: 07.pwsh.terminal.configuration.user.ps1. Review base/pwsh setup selections using setup-scripts/setup.ps1 -Plan. Profile deployment is owned by setup-modules/Install-LocalPowerShellProfiles.ps1 and preserves user-authored profiles. See powershell-scripts/README.md for migration details.'

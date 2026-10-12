@@ -1,22 +1,9 @@
-# Equivalent PowerShell script for 06.base.configuration.user.dsc.yaml
-# Minimum OS version check
-# (No MinVersion specified, just check for OS presence)
+<#
+.SYNOPSIS
+Retired setup entry point; stops without changing the machine.
+.DESCRIPTION
+Use setup-scripts/configure.ps1, then review setup-scripts/setup.ps1 -Plan before running setup-scripts/setup.ps1.
+See powershell-scripts/README.md. No commands are forwarded automatically.
+#>
 
-# Create workspace directory if it doesn't exist
-$workspaceDir = Join-Path $env:USERPROFILE "workspace"
-if (-not (Test-Path $workspaceDir)) {
-    New-Item -ItemType Directory -Path $workspaceDir | Out-Null
-}
-
-# Install Git
-winget install --id git --accept-source-agreements --accept-package-agreements
-
-# Clone dotfiles repository (uncomment to enable)
-# git clone https://github.com/abrioso/dotfiles-windows $workspaceDir\dotfiles-windows
-
-
-$workspacePath = "$env:USERPROFILE\workspace"
-          if (-not (Test-Path $workspacePath)) {
-          New-Item -ItemType Directory -Path $workspacePath | Out-Null
-          }
-          
+throw 'Retired legacy entry point: 06.base.configuration.user.ps1. Use setup-scripts/configure.ps1, then review setup-scripts/setup.ps1 -Plan before running setup-scripts/setup.ps1. See powershell-scripts/README.md for migration details.'

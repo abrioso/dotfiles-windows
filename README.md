@@ -122,6 +122,16 @@ This folder contains tracked `*.json.example` templates and local gitignored `*.
 -   `git-variables.json.example`: Template for global Git configuration settings, such as name, email, and aliases.
 -   `dotfiles-bootstrap-variables.json.example`: Template for bootstrap variables, install groups, and repository endpoint type (`github-https`, `github-ssh`, or `custom`).
 
+### Legacy setup entry points
+
+Historical provisioning scripts in `powershell-scripts` now stop with migration instructions
+without applying changes. Use `setup-scripts/setup.ps1 -Plan` and the current orchestrator/modules.
+The old `tests/Verify-PowerShellProfiles.ps1` path delegates to the full installed-state diagnostic;
+it no longer prints profile content or writes reports automatically. See the
+[migration table and compatibility changes](powershell-scripts/README.md).
+`tests/LegacyEntryPoints.Tests.ps1` covers non-mutating retirement in both entry hosts and
+diagnostic delegation, options, exit codes and report privacy in PowerShell 7.
+
 ### PowerShell Profile
 
 The setup deploys per-machine PowerShell profiles: the real profile files live in `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced), and a small marker stub in the profile directory dot-sources them. This keeps your profile configuration tracked in this repository while staying personal to each machine, even when Documents is synchronised by OneDrive. The profile is composed of several files located in the `powershell-profiles` directory.
