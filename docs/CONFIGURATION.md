@@ -38,7 +38,7 @@ The TUI automatically adds package groups required by selected setting groups. S
 
 `setup.ps1` validates configuration before installing PowerShell/Git prerequisites or requesting
 elevation. Missing local files are still initialized by the configuration TUI first. The persistent
-clone is validated again after checkout and configuration synchronization, before module execution.
+clone is validated again after local checkout selection and configuration synchronization, before module execution.
 
 The preflight requires JSON objects for all seven local configuration files and checks:
 
@@ -140,8 +140,10 @@ components and home aliases, while package installers and pending Machine enviro
 may request it independently of the module catalog. Restart flags identify known potential
 requirements; custom modules can introduce others.
 
-Apply prepares/updates the persistent workspace clone and reloads its saved configuration before
-resolving modules. An update or existing persistent choices can therefore change the applied plan.
+Apply uses the invoked Git working tree, or prepares the persistent clone from a Git-free transport,
+and reloads its saved configuration before resolving modules. Setup does not fetch, pull or switch
+existing branches. Existing persistent choices can still change a transport's previewed module plan.
+The preview's `Branch` is a declared bootstrap preference, not a verification of local Git HEAD.
 For later runs, preview from the persistent clone that holds your machine's configuration.
 Missing selectors retain apply's legacy defaults (all feature/package/setting groups, no capabilities);
 explicit empty arrays opt out, and scalar selectors remain supported. Package IDs are deduplicated
@@ -149,6 +151,19 @@ case-insensitively; conflicting metadata fails in preflight. Planning does not e
 or locked plan for a later apply.
 
 ## Updating the checkout and local JSON files
+
+Repository updating and configuration application are separate operations. For a repository-only
+fast-forward followed by a preview and apply from the same checkout:
+
+```powershell
+.\setup-scripts\update.ps1 -NonInteractive -UpdateRepository
+.\setup-scripts\setup.ps1 -Plan
+.\setup-scripts\setup.ps1
+```
+
+This updater invocation changes no local JSON because it names no templates. It refuses tracked
+changes, detached HEAD or a non-fast-forward; setup itself can apply an intentionally edited working
+tree or detached commit when no `-BootstrapBranch` is requested. Review local edits before applying.
 
 Run the updater when new shared templates are available:
 
@@ -329,16 +344,21 @@ An explicit empty array skips setting modules. If the property is absent, setup 
 iex "& { $(irm 'https://raw.githubusercontent.com/YourGitHubAccount/YourDotfilesRepoName/main/setup-scripts/install.ps1') } -Account YourGitHubAccount -Repo YourDotfilesRepoName -Branch main"
 ```
 
-The `-Branch` value is used for both the downloaded archive and the repository checkout, so a bootstrap started from `develop` or another branch does not switch back to the template's default branch.
-The branch override is persisted to the local bootstrap JSON and therefore remains active on later setup runs.
+The `-Branch` value selects the downloaded archive and the initial clone branch. For an existing
+clone it is a requirement, not permission to switch or update the branch. A mismatch, including
+detached HEAD, stops setup with instructions to select the branch explicitly. The selected initial
+branch is saved only when the clone is newly created; existing saved preferences are preserved.
 
 After the Git-free bootstrap creates the persistent workspace clone, post-reboot continuation and
 normal reruns should execute `setup-scripts\setup.ps1` from that clone. A new Git-free invocation
 extracts a fresh archive and recreates missing local JSON there. Synchronization copies only JSON
 missing from the persistent clone and preserves existing machine-local files. Setup then reloads
-that clone's bootstrap variables before planning modules. `-Branch` selects this invocation's
-checkout without changing an existing saved branch preference. Repository location and endpoint
-selection still use the transport configuration.
+that clone's bootstrap variables before planning modules. `-Branch` verifies the existing clone's
+branch without changing its HEAD or saved branch preference. Repository location and endpoint
+selection use transport configuration only for Git-free invocation. In a Git checkout (including
+a worktree), setup uses the invoked root rather than another configured workspace directory.
+The saved branch preference does not redirect normal local apply; an explicit `-BootstrapBranch`
+must match the local branch. Use `update.ps1` to refresh code before applying new templates/modules.
 The release acceptance matrix tests preservation and missing-file population separately; see
 [Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
 
@@ -363,9 +383,9 @@ During setup:
 1. Missing Git and PowerShell prerequisites are installed for the current user.
 2. A bootstrap started from Windows PowerShell 5.1 relaunches itself in PowerShell 7 before running Git commands.
 3. Missing local config files are created from the `.json.example` templates.
-4. The repository is cloned, if needed, using the selected endpoint type.
-5. The configured branch is fetched, checked out, and fast-forward pulled.
-6. Local gitignored configuration generated during git-free bootstrap is copied into the real workspace clone after branch checkout.
+4. A Git invocation selects its current checkout. A Git-free invocation creates the missing persistent clone using the selected endpoint and branch.
+5. Existing checkouts retain HEAD, branch and local edits; no fetch, checkout, switch or pull is performed. Explicit branch requirements are verified locally and a mismatch stops setup.
+6. Local gitignored configuration generated during Git-free bootstrap populates only missing files in the persistent clone. A newly cloned branch override is saved there; existing saved files are preserved.
 7. Setup validates package-group dependencies declared by selected settings.
 8. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_CAPABILITIES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
 9. Setup modules consume the local `*.json` files and setup stops if a configured module is missing or fails.

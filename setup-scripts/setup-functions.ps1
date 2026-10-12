@@ -543,6 +543,48 @@ function Read-DotfilesJsonFile {
     return $content | ConvertFrom-Json
 }
 
+function Get-DotfilesApplyCheckout {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$TargetRoot,
+        [Parameter(Mandatory)][string]$RepositoryUrl,
+        [string]$Branch,
+        [switch]$RequireBranch
+    )
+
+    # A .git file also identifies a worktree. Existing checkouts are never updated or switched.
+    $invokedCheckout = Test-Path -LiteralPath (Join-Path $SourceRoot '.git')
+    $root = if ($invokedCheckout) { $SourceRoot } else { $TargetRoot }
+    $wasCloned = $false
+    if (-not (Test-Path -LiteralPath $root)) {
+        $parent = Split-Path -Parent $root
+        if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force -ErrorAction Stop | Out-Null }
+        $cloneArguments = @('clone')
+        if (-not [string]::IsNullOrWhiteSpace($Branch)) { $cloneArguments += @('--branch', $Branch) }
+        $cloneArguments += @('--', $RepositoryUrl, $root)
+        $cloneOutput = @(git @cloneArguments 2>&1)
+        if ($LASTEXITCODE -ne 0) { throw "Initial clone failed. Review the selected endpoint/branch and any partial directory before retrying.`n$($cloneOutput -join "`n")" }
+        $wasCloned = $true
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $root '.git'))) {
+        throw 'The apply directory is not a Git checkout. Setup will not overwrite it; review the directory before retrying.'
+    }
+    $commit = @(git -C $root rev-parse --verify HEAD 2>&1)
+    if ($LASTEXITCODE -ne 0 -or $commit.Count -ne 1) { throw 'Could not read the local checkout HEAD. Setup will not repair or update it automatically.' }
+    # rev-parse returns HEAD successfully for detached checkouts; do not leave a native failure
+    # status behind or trigger strict native-error preferences for this supported local state.
+    $currentBranch = @(git -C $root rev-parse --abbrev-ref HEAD 2>&1)
+    $branchExitCode = $LASTEXITCODE
+    if ($branchExitCode -ne 0 -or $currentBranch.Count -ne 1) { throw 'Could not inspect the local checkout branch.' }
+    if (($RequireBranch -or -not $invokedCheckout) -and -not [string]::IsNullOrWhiteSpace($Branch)) {
+        if ($currentBranch[0] -ceq 'HEAD' -or $currentBranch[0] -cne $Branch) {
+            throw "The checkout is not on requested branch '$Branch'. Select that branch explicitly with Git, then use setup-scripts/update.ps1 if an update is needed. Setup does not switch branches or fetch/pull."
+        }
+    }
+    [pscustomobject]@{ Root = $root; WasCloned = $wasCloned; Commit = [string]$commit[0] }
+}
+
 function Set-DotfilesBootstrapBranch {
     param (
         [Parameter(Mandatory)]
