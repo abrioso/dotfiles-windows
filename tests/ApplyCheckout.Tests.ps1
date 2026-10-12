@@ -91,6 +91,36 @@ Describe 'Local apply checkout selection' {
         Get-Content "$target/existing.txt" | Should -Be preserve
         $script:applyTestGitCalls | Should -HaveCount 0
     }
+    It 'rejects a wrong pinned HEAD and dirty files without switching an existing checkout' {
+        New-ApplyTestRepository $source
+        $head = Invoke-ApplyTestGit $source @('rev-parse', 'HEAD')
+        { Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl unused -ExpectedCommit ('0' * 40) } | Should -Throw '*does not match BootstrapCommit*'
+        (Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl unused -ExpectedCommit $head -Branch main -RequireBranch).Commit | Should -Be $head
+        'untracked' | Set-Content "$source/untracked.ps1"
+        { Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl unused -ExpectedCommit $head } | Should -Throw '*clean checkout*'
+        Remove-Item "$source/untracked.ps1"
+        'dirty' | Set-Content "$source/file.txt"
+        { Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl unused -ExpectedCommit $head } | Should -Throw '*clean checkout*'
+        (Invoke-ApplyTestGit $source @('rev-parse', 'HEAD')) | Should -Be $head
+    }
+    It 'selects the pinned commit only in a newly created clone despite a newer branch tip' {
+        $remote = Join-Path $fixture 'remote'
+        New-ApplyTestRepository $remote
+        $head = Invoke-ApplyTestGit $remote @('rev-parse', 'HEAD')
+        'newer' | Set-Content "$remote/file.txt"
+        Invoke-ApplyTestGit $remote @('commit', '-am', 'newer') | Out-Null
+        New-Item -ItemType Directory $source | Out-Null
+        Mock git {
+            $output = @(& $script:applyTestGitExecutable @args 2>&1)
+            $global:LASTEXITCODE = $LASTEXITCODE
+            $output
+        }
+        $result = Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl $remote -Branch develop -ExpectedCommit $head
+        $result.WasCloned | Should -BeTrue
+        $result.Commit | Should -Be $head
+        (Invoke-ApplyTestGit $target @('rev-parse', '--abbrev-ref', 'HEAD')) | Should -Be HEAD
+        Get-Content "$target/file.txt" | Should -Be initial
+    }
     It 'reports a failed initial clone without applying or deleting the partial destination' {
         New-Item -ItemType Directory $source -Force | Out-Null
         Mock git {

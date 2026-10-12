@@ -550,7 +550,9 @@ function Get-DotfilesApplyCheckout {
         [Parameter(Mandatory)][string]$TargetRoot,
         [Parameter(Mandatory)][string]$RepositoryUrl,
         [string]$Branch,
-        [switch]$RequireBranch
+        [switch]$RequireBranch,
+        [ValidatePattern('^$|^[0-9a-fA-F]{40}$')]
+        [string]$ExpectedCommit
     )
 
     # A .git file also identifies a worktree. Existing checkouts are never updated or switched.
@@ -566,6 +568,10 @@ function Get-DotfilesApplyCheckout {
         $cloneOutput = @(git @cloneArguments 2>&1)
         if ($LASTEXITCODE -ne 0) { throw "Initial clone failed. Review the selected endpoint/branch and any partial directory before retrying.`n$($cloneOutput -join "`n")" }
         $wasCloned = $true
+        if ($ExpectedCommit) {
+            $pinOutput = @(git -C $root checkout --detach $ExpectedCommit 2>&1)
+            if ($LASTEXITCODE -ne 0) { throw "Initial clone could not select pinned commit. Review the partial directory before retrying.`n$($pinOutput -join "`n")" }
+        }
     }
     if (-not (Test-Path -LiteralPath (Join-Path $root '.git'))) {
         throw 'The apply directory is not a Git checkout. Setup will not overwrite it; review the directory before retrying.'
@@ -577,7 +583,12 @@ function Get-DotfilesApplyCheckout {
     $currentBranch = @(git -C $root rev-parse --abbrev-ref HEAD 2>&1)
     $branchExitCode = $LASTEXITCODE
     if ($branchExitCode -ne 0 -or $currentBranch.Count -ne 1) { throw 'Could not inspect the local checkout branch.' }
-    if (($RequireBranch -or -not $invokedCheckout) -and -not [string]::IsNullOrWhiteSpace($Branch)) {
+    if ($ExpectedCommit) {
+        if ($commit[0] -ne $ExpectedCommit) { throw 'The existing checkout HEAD does not match BootstrapCommit. Setup will not update or switch it.' }
+        $changes = @(git -C $root status --porcelain --untracked-files=normal 2>&1)
+        if ($LASTEXITCODE -ne 0 -or $changes.Count -gt 0) { throw 'Pinned apply requires a clean checkout, including untracked files. Review local changes before retrying.' }
+    }
+    if (-not $ExpectedCommit -and ($RequireBranch -or -not $invokedCheckout) -and -not [string]::IsNullOrWhiteSpace($Branch)) {
         if ($currentBranch[0] -ceq 'HEAD' -or $currentBranch[0] -cne $Branch) {
             throw "The checkout is not on requested branch '$Branch'. Select that branch explicitly with Git, then use setup-scripts/update.ps1 if an update is needed. Setup does not switch branches or fetch/pull."
         }
