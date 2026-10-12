@@ -4,10 +4,15 @@ Main bootstrap script.
 
 .DESCRIPTION
 This script installs the prerequisites, prepares the persistent repository clone and starts the
-configured setup modules with PowerShell 7. Profile deployment is handled by the module plan.
+configured setup modules with PowerShell 7. Existing checkouts are applied as-is; update.ps1 owns
+repository updates. Profile deployment is handled by the module plan.
 
 .PARAMETER Plan
 Validates existing local configuration and previews the ordered setup declarations without changes.
+
+.PARAMETER BootstrapBranch
+Selects the initial clone branch or verifies the existing local branch. Does not switch, fetch,
+pull or replace an existing saved branch preference. Normal local apply uses the invoked checkout.
 
 .PARAMETER PlanFormat
 Selects readable Text (default) or machine-readable Json output for -Plan.
@@ -131,67 +136,30 @@ if ($PSVersionTable.PSEdition -ne "Core") {
     Exit $childExitCode
 }
 
+# The override selects the initial clone or verifies an existing branch; it is not an update request.
 if (-not [string]::IsNullOrWhiteSpace($BootstrapBranch)) {
-    Write-Info "Using bootstrap branch override: $BootstrapBranch"
-    $DotfilesVariables.GITHUB_DOTFILES_BRANCH = $BootstrapBranch
-    $bootstrapConfigPath = Join-Path $dotfileRootDir "dotfiles-configurations\dotfiles-bootstrap-variables.json"
-    Set-DotfilesBootstrapBranch -ConfigPath $bootstrapConfigPath -Branch $BootstrapBranch
+    $DotfilesVariables | Add-Member -NotePropertyName GITHUB_DOTFILES_BRANCH -NotePropertyValue $BootstrapBranch -Force
+    Assert-DotfilesSetupConfiguration -DotfilesVariables $DotfilesVariables `
+        -ConfigDirectory (Join-Path $dotfileRootDir 'dotfiles-configurations') `
+        -ModuleDirectory (Join-Path $dotfileRootDir 'setup-modules')
 }
-
-
-# Create workspace directory if it does not exist
-Write-Info "Creating workspace directory"
 $workspaceDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.WORKSPACE_FOLDER
-if (-not (Test-Path -LiteralPath $workspaceDirectory)) {
-    #create the workspace directory
-    New-Item -ItemType Directory -Path $workspaceDirectory -Force | Out-Null
-} else {
-    Write-Info "Workspace directory already exists: $workspaceDirectory"
-}
-
-# Clone the dotfiles repository if it does not exist
-Write-Info "Cloning the dotfiles repository"
 $dotfilesRepositoryURL = Resolve-DotfilesRepositoryUrl -DotfilesVariables $DotfilesVariables
-$dotfilesDirectory = Join-Path $workspaceDirectory $DotfilesVariables.GITHUB_DOTFILES_REPO
-if (-not (Test-Path -LiteralPath $dotfilesDirectory)) {
-    # clone the dotfiles repository
-    Write-Info "Cloning repository from $dotfilesRepositoryURL"
-    $cloneOutput = git clone $dotfilesRepositoryURL $dotfilesDirectory 2>&1
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $dotfilesDirectory)) {
-        Write-ErrorMessage "Failed to clone the dotfiles repository:`n$cloneOutput"
-        Exit 1
-    }
-} else {
-    Write-Info "Dotfiles directory already exists: $dotfilesDirectory"
-}
-
-# Change the working directory to the dotfiles repository
+$checkout = Get-DotfilesApplyCheckout -SourceRoot $dotfileRootDir `
+    -TargetRoot (Join-Path $workspaceDirectory $DotfilesVariables.GITHUB_DOTFILES_REPO) `
+    -RepositoryUrl $dotfilesRepositoryURL -Branch $DotfilesVariables.GITHUB_DOTFILES_BRANCH `
+    -RequireBranch:(-not [string]::IsNullOrWhiteSpace($BootstrapBranch))
+$dotfilesDirectory = $checkout.Root
+Write-Info "Applying current working tree (HEAD $($checkout.Commit)). Repository updates require setup-scripts/update.ps1."
 Set-Location -LiteralPath $dotfilesDirectory
 
-if ($DotfilesVariables.GITHUB_DOTFILES_BRANCH) {
-    Write-Info "Ensuring dotfiles repository is on branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'..."
-    git fetch origin $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        Write-ErrorMessage "Failed to fetch branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)' from origin."
-        Exit 1
-    }
-
-    git checkout $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        Write-ErrorMessage "Failed to checkout branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'."
-        Exit 1
-    }
-
-    git pull --ff-only origin $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        Write-ErrorMessage "Failed to pull latest changes for branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'."
-        Exit 1
-    }
-}
-
 # Ensure gitignored local configuration generated in the bootstrap copy follows the real clone
-# after checkout/pull, so tracked JSON files deleted by this commit cannot mask local config copies.
+# without replacing existing saved choices or updating the checkout.
 Sync-DotfilesLocalConfiguration -SourceRoot $dotfileRootDir -TargetRoot $dotfilesDirectory
+# Save the selected initial branch only for a newly created clone, never for an existing checkout.
+if ($checkout.WasCloned -and -not [string]::IsNullOrWhiteSpace($BootstrapBranch)) {
+    Set-DotfilesBootstrapBranch -ConfigPath (Join-Path $dotfilesDirectory 'dotfiles-configurations/dotfiles-bootstrap-variables.json') -Branch $BootstrapBranch
+}
 
 # The persistent configuration is authoritative once the target clone is known.
 # BootstrapBranch selects this invocation's checkout; it must not rewrite saved choices.

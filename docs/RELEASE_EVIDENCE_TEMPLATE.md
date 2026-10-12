@@ -89,6 +89,10 @@ Record:
 - UAC prompts observed:
 - Persistent clone path:
 - Persistent clone HEAD:
+- [ ] initial clone selects the requested branch without a subsequent fetch/pull
+- [ ] post-reboot/rerun HEAD and branch are unchanged; no repository network update occurs
+- [ ] repeated Git-free invocation retains matching-branch HEAD; a different branch requirement fails before modules
+- [ ] intentional local edits and existing bootstrap JSON bytes survive orchestration
 
 From the persistent clone:
 

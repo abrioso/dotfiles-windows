@@ -92,7 +92,7 @@ This folder contains the main scripts that kick off the installation and setup p
 
 -   `install.ps1`: For Git-free installation. It downloads an archive to a temporary folder, resolves the extracted root, and then calls `setup.ps1`.
 -   `update.ps1`: Safely fast-forwards the current dotfiles branch and optionally replaces selected local JSON files from the latest `*.json.example` templates. Existing local files are backed up first; it never runs setup modules or applies configuration. When the Windows Terminal template is refreshed, shows a diff against the live `settings.json` and can move it to the backup directory so the next setup regenerates it (`-RegenerateTerminalSettings` for unattended runs).
--   `setup.ps1`: The main bootstrap and orchestrator script. It initializes local configuration when missing, clones/updates the configured repository branch, syncs gitignored local config into the real clone, and then runs the selected modules from `setup-modules` in the order defined by the setup module catalog.
+-   `setup.ps1`: Applies the invoked Git working tree without fetching, pulling or switching branches. A Git-free bootstrap creates the persistent clone on the requested branch only when absent; otherwise it verifies that branch and preserves the local HEAD. It initializes missing configuration, preserves existing local choices and runs the ordered module plan. Use `update.ps1` explicitly for repository updates.
 -   `setup-functions.ps1`: Contains helper functions used by the other scripts, including repository endpoint resolution and local config initialization.
 -   `setup-plan.ps1`: Read-only preview helpers used by `setup.ps1 -Plan`; `tests/SetupPlan.Tests.ps1` covers ordering, selectors and planning without mutations in both supported entry hosts.
 -   `verify.ps1` and `verify-functions.ps1`: PowerShell 7 installed-state diagnostics using the same local preflight and selections; `tests/SetupDiagnostic.Tests.ps1` covers drift, inconclusive queries, privacy and native query boundaries.
@@ -121,6 +121,22 @@ This folder contains tracked `*.json.example` templates and local gitignored `*.
 -   `env-variables.json.example`: Template for custom environment variables.
 -   `git-variables.json.example`: Template for global Git configuration settings, such as name, email, and aliases.
 -   `dotfiles-bootstrap-variables.json.example`: Template for bootstrap variables, install groups, and repository endpoint type (`github-https`, `github-ssh`, or `custom`).
+
+### Separate update and apply
+
+Run setup from the persistent clone for post-reboot continuation and normal reruns. It applies
+that checkout, including intentional local edits, without updating its code. To update only the
+current branch, then preview and apply:
+
+```powershell
+.\setup-scripts\update.ps1 -NonInteractive -UpdateRepository
+.\setup-scripts\setup.ps1 -Plan
+.\setup-scripts\setup.ps1
+```
+
+The non-interactive update command replaces no local JSON unless `-TemplateName` is provided.
+Setup's `-BootstrapBranch` clones that branch initially or verifies an existing branch; it never
+switches an existing checkout. Select another branch explicitly with Git before applying it.
 
 ### Legacy setup entry points
 

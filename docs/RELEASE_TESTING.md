@@ -24,8 +24,9 @@ The Git-free archive is a bootstrap transport, not the persistent checkout. Re-r
 fresh local JSON from the archive templates, copies only files missing from the persistent clone,
 and preserves existing machine-local JSON. After synchronization, setup reloads the persistent
 bootstrap configuration before validating dependencies and building the module plan. Saved choices
-therefore control both orchestration and modules. `-BootstrapBranch` selects the checkout for this
-invocation without replacing an existing persistent configuration. Initial repository location and
+therefore control both orchestration and modules. `-BootstrapBranch` selects the initial clone branch
+or verifies an existing branch without switching it or replacing saved configuration. Update code
+explicitly using `update.ps1` before apply when needed. Initial repository location and
 endpoint selection still come from the bootstrap transport. For post-reboot continuation, execute
 `setup.ps1` from the persistent clone. Test repeated Git-free invocation separately as described below.
 
@@ -90,7 +91,8 @@ For the final release-candidate retest, replace `develop` in both URL and `-Bran
 - [ ] Package modules after the Windows feature boundary do not run before reboot. Bootstrap
       prerequisites are expected; WSL, Ubuntu, Docker and settings are not.
 - [ ] Both the main and elevated module transcript paths are reported and the files exist.
-- [ ] No tracked file in the persistent clone is modified.
+- [ ] No tracked file in the persistent clone is modified. Setup created the clone directly on the
+      requested branch without a subsequent fetch/pull.
 
 Restart Windows before interaction 2.
 
@@ -196,6 +198,14 @@ docker run --rm hello-world
 - [ ] Setup exits successfully and `git status --short` is empty.
 
 ## Interaction 3: idempotency
+
+Record HEAD and the current branch before and after every rerun; both must remain unchanged.
+Make the repository origin temporarily inaccessible in the disposable VM and verify that setup
+does not attempt fetch/pull or switch branches. Module package/download activity is separate.
+For a repeated Git-free invocation, verify that an existing matching branch retains its local HEAD
+even if the remote has advanced. A requested different branch must fail before module execution;
+select/update it explicitly before retrying. Include an intentionally edited checkout scenario and
+verify that tracked/untracked edits and existing bootstrap JSON bytes are preserved by orchestration.
 
 Without changing configuration, run from the same persistent clone:
 

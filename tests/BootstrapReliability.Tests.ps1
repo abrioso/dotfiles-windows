@@ -674,7 +674,7 @@ Stop-Logging
             $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
             $setup = Get-Content -LiteralPath $setupPath -Raw
             $relaunchIndex = $setup.IndexOf('$PSVersionTable.PSEdition -ne "Core"')
-            $cloneIndex = $setup.IndexOf('git clone')
+            $cloneIndex = $setup.IndexOf('Get-DotfilesApplyCheckout')
 
             if ($relaunchIndex -lt 0 -or $cloneIndex -lt 0 -or $relaunchIndex -gt $cloneIndex) {
                 throw 'Windows PowerShell must relaunch in PowerShell 7 before Git writes progress to stderr.'
