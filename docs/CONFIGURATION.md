@@ -72,6 +72,7 @@ as setup. It does not initialize configuration, update the checkout, apply modul
 start transcripts or save reports. It checks executable availability, selected Windows features and
 capabilities, persistent environment values, global Git values, profile copies and portable stubs,
 theme content and Terminal settings. Profiles are checked for the invoking PowerShell host only.
+Selected capabilities in `NotPresent` or `Staged` state are `Drift`; pending states remain `Unknown`.
 WinGet executable availability is checked only when the package installation module is selected,
 independently of the optional `-CheckPackages` presence queries.
 Terminal settings only need to exist and parse as JSON: setup preserves local customizations.

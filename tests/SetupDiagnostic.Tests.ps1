@@ -67,14 +67,23 @@ Describe 'Installed-state diagnostic' {
         ($report.Checks | Where-Object Category -EQ WindowsFeature).Status | Should -Be Unknown
     }
     It 'distinguishes installed, absent and pending Windows capabilities' {
-        $script:diagnosticFixturePreview.Capabilities = @('Installed', 'NotPresent', 'InstallPending', 'Denied')
+        $script:diagnosticFixturePreview.Capabilities = @('Installed', 'NotPresent', 'Staged', 'InstallPending', 'UninstallPending', 'Denied')
         Mock Get-WindowsCapability {
             if ($Name -eq 'Denied') { throw 'private-secret' }
             [pscustomobject]@{State=$Name}
         }
         $report = Get-TestDiagnostic
-        ($report.Checks | Where-Object Category -EQ WindowsCapability).Status -join ',' | Should -Be 'Passed,Drift,Unknown,Unknown'
+        ($report.Checks | Where-Object Category -EQ WindowsCapability).Status -join ',' | Should -Be 'Passed,Drift,Drift,Unknown,Unknown,Unknown'
         ($report | ConvertTo-Json -Depth 8) | Should -Not -Match 'private-secret'
+    }
+    It 'returns drift exit code when a staged capability is the only mismatch' {
+        $script:diagnosticFixturePreview.Capabilities = @('Fixture.Capability')
+        Mock Get-WindowsCapability { [pscustomobject]@{State='Staged'} }
+        $report = Get-TestDiagnostic
+        ($report.Checks | Where-Object Category -EQ WindowsCapability).Status | Should -Be Drift
+        $report.ExitCode | Should -Be 1
+        $report.Counts.Drift | Should -Be 1
+        $report.Counts.Unknown | Should -Be 0
     }
     It 'compares persistent environment values without exposing names or values' {
         $script:diagnosticFixturePreview.Modules = @([pscustomobject]@{Script='Set-EnvironmentVariables.ps1'})

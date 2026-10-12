@@ -111,7 +111,7 @@ function Get-DotfilesSetupDiagnostic {
                 $states = @(Get-WindowsCapability -Online -Name $name -ErrorAction Stop)
                 if ($states.Count -ne 1) { return New-DotfilesDiagnosticResult Unknown 'Requested capability was not identified on this OS.' }
                 if ($states[0].State -eq 'Installed') { New-DotfilesDiagnosticResult Passed 'Installed.' }
-                elseif ($states[0].State -eq 'NotPresent') { New-DotfilesDiagnosticResult Drift 'Not installed.' }
+                elseif ($states[0].State -in @('NotPresent', 'Staged')) { New-DotfilesDiagnosticResult Drift 'Not installed.' }
                 else { New-DotfilesDiagnosticResult Unknown 'Capability is pending or its state is inconclusive.' }
             }
         }
