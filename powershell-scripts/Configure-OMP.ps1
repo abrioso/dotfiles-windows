@@ -1,7 +1,9 @@
-# Setup OMP
-oh-my-posh font install --user CascadiaCode
-Install-Module -Name Terminal-Icons -Repository PSGallery -Force
-Import-Module -Name Terminal-Icons
+<#
+.SYNOPSIS
+Retired setup entry point; stops without changing the machine.
+.DESCRIPTION
+Use setup-modules/Install-OmpConfig.ps1 for themes and setup-modules/Install-NerdFont.ps1 for the current terminal font. Terminal-Icons remains an optional manual module.
+See powershell-scripts/README.md. No commands are forwarded automatically.
+#>
 
-# NOTE: Theme deployment is handled without elevation by setup-modules\Install-OmpConfig.ps1.
-# It creates hard links when possible and falls back to regular copies across volumes.
+throw 'Retired legacy entry point: Configure-OMP.ps1. Use setup-modules/Install-OmpConfig.ps1 for themes and setup-modules/Install-NerdFont.ps1 for the current terminal font. Terminal-Icons remains an optional manual module. See powershell-scripts/README.md for migration details.'

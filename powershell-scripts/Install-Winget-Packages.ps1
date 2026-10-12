@@ -1,25 +1,9 @@
-## This script reads the winget-packages.json file and installs the packages using winget
+<#
+.SYNOPSIS
+Retired setup entry point; stops without changing the machine.
+.DESCRIPTION
+Use setup-modules/Install-WingetPackages.ps1 with the current grouped catalog and bootstrap selections.
+See powershell-scripts/README.md. No commands are forwarded automatically.
+#>
 
-# Get the directory path of the script
-$DotFilesRoot = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
-
-# Get the directory path of the config files
-$DotFilesConfigFolder = Join-Path $DotFilesRoot "dotfiles-configurations"
-$WingetFiles = Get-ChildItem -Path $DotFilesConfigFolder -Filter "*winget-packages.json"
-
-# For each config file, set the environment variables
-foreach ($WingetFile in $WingetFiles) {
-    Write-Host "Setting Environment Variables: $($WingetFile.FullName)"
-    
-    # read the config file
-    $WingetConfig = Get-Content -Path $WingetFile.FullName | ConvertFrom-Json
-    # for each Package, install the package
-    foreach ($Package in $WingetConfig.Packages) {
-        Write-Host "Installing Package: $($Package)"
-        winget install --id $Package
-    }
-}
-
-
-
-
+throw 'Retired legacy entry point: Install-Winget-Packages.ps1. Use setup-modules/Install-WingetPackages.ps1 with the current grouped catalog and bootstrap selections. See powershell-scripts/README.md for migration details.'
