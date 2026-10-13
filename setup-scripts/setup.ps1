@@ -18,8 +18,8 @@ pull or replace an existing saved branch preference. Normal local apply uses the
 Selects readable Text (default) or machine-readable Json output for -Plan.
 
 .PARAMETER BootstrapCommit
-Requires a clean checkout at this full commit. Only a newly created clone is detached
-at the requested commit. Existing checkouts are verified without updates or switching.
+Requires a clean checkout at this full commit. Only a newly created clone has its local
+branch positioned at the requested commit. Existing checkouts are verified without updates or switching.
 
 .NOTES
 To make this work, you need to set your execution policy to unrestricted (or at least bypass) by running Set-ExecutionPolicy Unrestricted -Scope CurrentUser from a PowerShell.

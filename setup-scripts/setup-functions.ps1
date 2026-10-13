@@ -563,13 +563,18 @@ function Get-DotfilesApplyCheckout {
         $parent = Split-Path -Parent $root
         if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force -ErrorAction Stop | Out-Null }
         $cloneArguments = @('clone')
+        if ($ExpectedCommit) { $cloneArguments += '--no-checkout' }
         if (-not [string]::IsNullOrWhiteSpace($Branch)) { $cloneArguments += @('--branch', $Branch) }
         $cloneArguments += @('--', $RepositoryUrl, $root)
         $cloneOutput = @(git @cloneArguments 2>&1)
         if ($LASTEXITCODE -ne 0) { throw "Initial clone failed. Review the selected endpoint/branch and any partial directory before retrying.`n$($cloneOutput -join "`n")" }
         $wasCloned = $true
         if ($ExpectedCommit) {
-            $pinOutput = @(git -C $root checkout --detach $ExpectedCommit 2>&1)
+            $initialBranch = @(git -C $root symbolic-ref --short HEAD 2>&1)
+            if ($LASTEXITCODE -ne 0 -or $initialBranch.Count -ne 1) { throw 'Pinned bootstrap requires an initial local branch. Select a branch rather than a tag.' }
+            # This branch belongs only to the new clone. Keep it attached for the updater,
+            # and materialize only the requested commit, never the moving remote tip.
+            $pinOutput = @(git -C $root checkout -B $initialBranch[0] $ExpectedCommit 2>&1)
             if ($LASTEXITCODE -ne 0) { throw "Initial clone could not select pinned commit. Review the partial directory before retrying.`n$($pinOutput -join "`n")" }
         }
     }

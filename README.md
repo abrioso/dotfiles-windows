@@ -206,7 +206,9 @@ $sha256 = '<trusted-64-character-archive-sha256>'
 `-Commit` requires `-ArchiveSha256`. A mismatch stops before extraction or execution.
 The archived setup must support `-BootstrapCommit`; older revisions fail explicitly.
 The persistent clone is pinned to this commit during its initial creation, even when
-the branch has advanced. An existing checkout must already have the matching HEAD
+the branch has advanced. The new clone skips the remote tip's checkout and keeps its local
+branch attached at the pin, so `update.ps1 -NonInteractive -UpdateRepository` can later
+fast-forward it when explicitly requested. An existing checkout must already have the matching HEAD
 and be clean (including untracked files); setup never switches or updates it.
 `-BootstrapCommit` is an apply constraint and cannot be combined with `-Plan`.
 Custom archive endpoints can also supply `-ArchiveSha256` and `-Commit`.
