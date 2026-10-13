@@ -24,6 +24,21 @@ Describe 'Nerd Font installation completeness' {
         Set-Content (Join-Path $TestDrive 'CaskaydiaCove.ttf') 'partial legacy install'
         Test-DotfilesNerdFontInstallation (Join-Path $TestDrive 'absent.json') $TestDrive 'test-registry' | Should -BeFalse
     }
+    It 'revalidates legacy records and changed archive pins even when installed files match' {
+        $font = Join-Path $TestDrive 'CaskaydiaCove.ttf'
+        Set-Content $font 'font bytes'
+        $state = Join-Path $TestDrive 'pinned-state.json'
+        $record = @{ Version = 1; Fonts = @(@{ Name = 'CaskaydiaCove.ttf'; Hash = (Get-FileHash $font).Hash }) }
+        Mock Get-ItemProperty { [pscustomobject]@{ 'CaskaydiaCove (TrueType)' = $font } }
+        $record | ConvertTo-Json -Depth 4 | Set-Content $state
+        Test-DotfilesNerdFontInstallation $state $TestDrive 'test-registry' 'v3.5.1' ('a' * 64) | Should -BeFalse
+        $record.Release = 'v3.5.1'
+        $record.ArchiveSha256 = 'a' * 64
+        $record | ConvertTo-Json -Depth 4 | Set-Content $state
+        Test-DotfilesNerdFontInstallation $state $TestDrive 'test-registry' 'v3.5.1' ('a' * 64) | Should -BeTrue
+        Test-DotfilesNerdFontInstallation $state $TestDrive 'test-registry' 'v3.5.2' ('a' * 64) | Should -BeFalse
+        Test-DotfilesNerdFontInstallation $state $TestDrive 'test-registry' 'v3.5.1' ('b' * 64) | Should -BeFalse
+    }
 }
 
 Describe 'Nerd Font file installation' {

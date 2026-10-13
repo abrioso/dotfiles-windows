@@ -21,10 +21,19 @@ param (
     [ValidateSet("github-archive", "custom-archive")]
     [string]$EndpointType = "github-archive",
     [string]$ArchiveUrl = "",
+    [ValidatePattern('^[0-9a-fA-F]{40}$')]
+    [string]$Commit,
+    [ValidatePattern('^[0-9a-fA-F]{64}$')]
+    [string]$ArchiveSha256,
     [switch]$NonInteractive
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($Commit -and -not $ArchiveSha256) { throw 'Commit requires ArchiveSha256 from a trusted source.' }
+if (-not $ArchiveSha256) {
+    Write-Warning 'Compatibility mode: this archive is not integrity-pinned. Use Commit and ArchiveSha256 for a reproducible bootstrap.'
+}
 
 $account = $Account
 $repo    = $Repo
@@ -104,7 +113,8 @@ if ($EndpointType -eq "custom-archive") {
     if ([string]::IsNullOrWhiteSpace($ArchiveUrl)) { throw "ArchiveUrl is required when EndpointType is custom-archive." }
     $downloadUrl = $ArchiveUrl
 } else {
-    $downloadUrl = "https://github.com/$account/$repo/archive/$branch.zip"
+    $archiveRef = if ($Commit) { $Commit } else { $branch }
+    $downloadUrl = "https://github.com/$account/$repo/archive/$archiveRef.zip"
 }
 
 $setupExitCode = 0
@@ -113,13 +123,24 @@ try {
     [System.IO.Directory]::CreateDirectory($invocationDirectory) | Out-Null
     Invoke-Download $downloadUrl $sourceFile
 
+    if ($ArchiveSha256 -and (Get-FileHash -LiteralPath $sourceFile -Algorithm SHA256).Hash -ne $ArchiveSha256) {
+        throw 'Archive SHA-256 mismatch. Nothing was extracted or executed. Obtain the expected hash from a trusted source.'
+    }
+
     $dotfilesInstallDir = Join-Path $invocationDirectory "$repo-$folderBranch"
     Expand-Zip $sourceFile $invocationDirectory
     $dotfilesInstallDir = Resolve-ExtractedDotfilesDirectory -ExpectedDirectory $dotfilesInstallDir -ExtractionRoot $invocationDirectory
 
     Push-Location -LiteralPath $dotfilesInstallDir
     try {
-        & .\setup-scripts\setup.ps1 -BootstrapBranch $branch -LogFilePath $fallbackLogFile -NonInteractive:$NonInteractive
+        $pinArguments = @{}
+        if ($Commit) {
+            if (-not (Get-Command .\setup-scripts\setup.ps1).Parameters.ContainsKey('BootstrapCommit')) {
+                throw 'This archived setup does not support BootstrapCommit. Select a revision with pinned-checkout support.'
+            }
+            $pinArguments.BootstrapCommit = $Commit
+        }
+        & .\setup-scripts\setup.ps1 -BootstrapBranch $branch -LogFilePath $fallbackLogFile -NonInteractive:$NonInteractive @pinArguments
         $setupExitCode = $LASTEXITCODE
     } finally {
         Pop-Location

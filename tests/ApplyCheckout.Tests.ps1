@@ -91,6 +91,65 @@ Describe 'Local apply checkout selection' {
         Get-Content "$target/existing.txt" | Should -Be preserve
         $script:applyTestGitCalls | Should -HaveCount 0
     }
+    It 'rejects a wrong pinned HEAD and dirty files without switching an existing checkout' {
+        New-ApplyTestRepository $source
+        $head = Invoke-ApplyTestGit $source @('rev-parse', 'HEAD')
+        { Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl unused -ExpectedCommit ('0' * 40) } | Should -Throw '*does not match BootstrapCommit*'
+        (Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl unused -ExpectedCommit $head -Branch main -RequireBranch).Commit | Should -Be $head
+        'untracked' | Set-Content "$source/untracked.ps1"
+        { Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl unused -ExpectedCommit $head } | Should -Throw '*clean checkout*'
+        Remove-Item "$source/untracked.ps1"
+        'dirty' | Set-Content "$source/file.txt"
+        { Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl unused -ExpectedCommit $head } | Should -Throw '*clean checkout*'
+        (Invoke-ApplyTestGit $source @('rev-parse', 'HEAD')) | Should -Be $head
+    }
+    It 'selects the pinned commit only in a newly created clone despite a newer branch tip' {
+        $remote = Join-Path $fixture 'remote'
+        New-ApplyTestRepository $remote
+        New-Item -ItemType Directory "$remote/dotfiles-configurations" | Out-Null
+        '{}' | Set-Content "$remote/dotfiles-configurations/fixture.json.example"
+        Invoke-ApplyTestGit $remote @('add', 'dotfiles-configurations/fixture.json.example') | Out-Null
+        Invoke-ApplyTestGit $remote @('commit', '-m', 'updater template') | Out-Null
+        $head = Invoke-ApplyTestGit $remote @('rev-parse', 'HEAD')
+        'newer' | Set-Content "$remote/file.txt"
+        Invoke-ApplyTestGit $remote @('commit', '-am', 'newer') | Out-Null
+        New-Item -ItemType Directory $source | Out-Null
+        Mock git {
+            $output = @(& $script:applyTestGitExecutable @args 2>&1)
+            $global:LASTEXITCODE = $LASTEXITCODE
+            $output
+        }
+        $result = Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl $remote -Branch develop -ExpectedCommit $head
+        $result.WasCloned | Should -BeTrue
+        $result.Commit | Should -Be $head
+        (Invoke-ApplyTestGit $target @('rev-parse', '--abbrev-ref', 'HEAD')) | Should -Be develop
+        (Invoke-ApplyTestGit $target @('rev-parse', '--abbrev-ref', '@{upstream}')) | Should -Be 'origin/develop'
+        Get-Content "$target/file.txt" | Should -Be initial
+        $updateOutput = @(& (Join-Path $PSHOME 'pwsh') -NoProfile -File "$repositoryRoot/setup-scripts/update.ps1" -RepositoryRoot $target -BackupDirectory "$fixture/backups" -NonInteractive -UpdateRepository 2>&1)
+        $LASTEXITCODE | Should -Be 0 -Because ($updateOutput -join "`n")
+        (Invoke-ApplyTestGit $target @('rev-parse', 'HEAD')) | Should -Be (Invoke-ApplyTestGit $remote @('rev-parse', 'HEAD'))
+        Get-Content "$target/file.txt" | Should -Be newer
+    }
+    It 'does not materialize a newer branch tip requiring an unavailable smudge filter' {
+        $remote = Join-Path $fixture 'remote'
+        New-ApplyTestRepository $remote
+        $head = Invoke-ApplyTestGit $remote @('rev-parse', 'HEAD')
+        '*.bad filter=apply-test-missing' | Set-Content "$remote/.gitattributes"
+        'new tip only' | Set-Content "$remote/future.bad"
+        Invoke-ApplyTestGit $remote @('add', '.gitattributes', 'future.bad') | Out-Null
+        Invoke-ApplyTestGit $remote @('commit', '-m', 'requires unavailable filter') | Out-Null
+        New-Item -ItemType Directory $source | Out-Null
+        Mock git {
+            $output = @(& $script:applyTestGitExecutable -c filter.apply-test-missing.smudge=missing-dotfiles-test-filter -c filter.apply-test-missing.required=true @args 2>&1)
+            $global:LASTEXITCODE = $LASTEXITCODE
+            $output
+        }
+        $result = Get-DotfilesApplyCheckout -SourceRoot $source -TargetRoot $target -RepositoryUrl $remote -Branch develop -ExpectedCommit $head
+        $result.Commit | Should -Be $head
+        Test-Path "$target/future.bad" | Should -BeFalse
+        Test-Path "$target/.gitattributes" | Should -BeFalse
+        Get-Content "$target/file.txt" | Should -Be initial
+    }
     It 'reports a failed initial clone without applying or deleting the partial destination' {
         New-Item -ItemType Directory $source -Force | Out-Null
         Mock git {
@@ -150,6 +209,7 @@ function Resolve-DotfilesRepositoryUrl { '$($remote.Replace("'", "''"))' }
 "@ | Add-Content "$source/setup-scripts/setup-functions.ps1"
         if ($FromArchive) {
             New-ApplyTestRepository $remote
+            Copy-Item "$repositoryRoot/.gitattributes" "$remote/.gitattributes"
             Copy-Item "$source/setup-scripts" $remote -Recurse
             Copy-Item "$source/setup-modules" $remote -Recurse
             Invoke-ApplyTestGit $remote @('add', '.') | Out-Null

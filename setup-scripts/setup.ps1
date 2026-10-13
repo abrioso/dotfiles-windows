@@ -17,6 +17,10 @@ pull or replace an existing saved branch preference. Normal local apply uses the
 .PARAMETER PlanFormat
 Selects readable Text (default) or machine-readable Json output for -Plan.
 
+.PARAMETER BootstrapCommit
+Requires a clean checkout at this full commit. Only a newly created clone has its local
+branch positioned at the requested commit. Existing checkouts are verified without updates or switching.
+
 .NOTES
 To make this work, you need to set your execution policy to unrestricted (or at least bypass) by running Set-ExecutionPolicy Unrestricted -Scope CurrentUser from a PowerShell.
 
@@ -25,6 +29,8 @@ To make this work, you need to set your execution policy to unrestricted (or at 
 [CmdletBinding()]
 param (
     [string]$BootstrapBranch,
+    [ValidatePattern('^[0-9a-fA-F]{40}$')]
+    [string]$BootstrapCommit,
     [string]$LogFilePath,
     [switch]$AppendLog,
     [switch]$NonInteractive,
@@ -41,6 +47,7 @@ $dotfileRootDir = Split-Path -Parent $PSScriptRoot
 # Planning returns before logging, configuration initialization, prerequisites or Git operations.
 if ($Plan) {
     try {
+        if ($BootstrapCommit) { throw 'BootstrapCommit is an apply constraint; use -Plan without it.' }
         . "$dotfileRootDir\setup-scripts\setup-plan.ps1"
         $preview = Get-DotfilesSetupPreview -RepositoryRoot $dotfileRootDir -BootstrapBranch $BootstrapBranch
         if ($PlanFormat -eq 'Json') {
@@ -124,6 +131,7 @@ if ($PSVersionTable.PSEdition -ne "Core") {
         $pwshArguments += @("-BootstrapBranch", $BootstrapBranch)
     }
     $pwshArguments += @("-LogFilePath", $logFile, "-AppendLog")
+    if ($BootstrapCommit) { $pwshArguments += @('-BootstrapCommit', $BootstrapCommit) }
     if ($NonInteractive) {
         $pwshArguments += "-NonInteractive"
     }
@@ -148,7 +156,7 @@ $dotfilesRepositoryURL = Resolve-DotfilesRepositoryUrl -DotfilesVariables $Dotfi
 $checkout = Get-DotfilesApplyCheckout -SourceRoot $dotfileRootDir `
     -TargetRoot (Join-Path $workspaceDirectory $DotfilesVariables.GITHUB_DOTFILES_REPO) `
     -RepositoryUrl $dotfilesRepositoryURL -Branch $DotfilesVariables.GITHUB_DOTFILES_BRANCH `
-    -RequireBranch:(-not [string]::IsNullOrWhiteSpace($BootstrapBranch))
+    -RequireBranch:(-not [string]::IsNullOrWhiteSpace($BootstrapBranch)) -ExpectedCommit $BootstrapCommit
 $dotfilesDirectory = $checkout.Root
 Write-Info "Applying current working tree (HEAD $($checkout.Commit)). Repository updates require setup-scripts/update.ps1."
 Set-Location -LiteralPath $dotfilesDirectory

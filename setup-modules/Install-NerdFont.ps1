@@ -28,11 +28,12 @@ $logFile = "$logDir/$scriptName-$dateTime.txt"
 Start-Logging -LogFilePath $logFile
 
 function Test-DotfilesNerdFontInstallation {
-    param([string]$StatePath, [string]$FontsDirectory, [string]$RegistryPath)
+    param([string]$StatePath, [string]$FontsDirectory, [string]$RegistryPath, [string]$Release, [string]$ArchiveSha256)
     try {
         if (-not (Test-Path -LiteralPath $StatePath -PathType Leaf)) { return $false }
         $state = Get-Content -LiteralPath $StatePath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
         if ($state.Version -ne 1 -or @($state.Fonts).Count -eq 0) { return $false }
+        if ($Release -and ($state.Release -ne $Release -or $state.ArchiveSha256 -ne $ArchiveSha256)) { return $false }
         $registration = Get-ItemProperty -LiteralPath $RegistryPath -ErrorAction Stop
         foreach ($font in $state.Fonts) {
             if ([string]::IsNullOrWhiteSpace($font.Name) -or
@@ -77,11 +78,18 @@ function Install-DotfilesNerdFontFile {
 }
 
 $ErrorActionPreference = 'Stop'
-$nerdFontUrl = 'https://github.com/ryanoasis/nerd-fonts/releases/latest/download/CascadiaCode.zip'
+$downloadLock = Get-Content -LiteralPath (Join-Path $dotfileRootDir 'setup-scripts/downloads.lock.json') -Raw | ConvertFrom-Json
+$fontDownload = $downloadLock.CascadiaCode
+if ($downloadLock.Version -ne 1 -or $fontDownload.Release -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$' -or
+    $fontDownload.Url -cne "https://github.com/ryanoasis/nerd-fonts/releases/download/$($fontDownload.Release)/CascadiaCode.zip" -or
+    $fontDownload.Sha256 -notmatch '^[0-9a-fA-F]{64}$') {
+    throw 'Invalid CascadiaCode download lock. Restore setup-scripts/downloads.lock.json from the trusted checkout.'
+}
+$nerdFontUrl = $fontDownload.Url
 $userFontsDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
 $fontRegistryPath = 'HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts'
 $statePath = Join-Path $userFontsDir 'dotfiles-cascadiacode-state.json'
-if (Test-DotfilesNerdFontInstallation -StatePath $statePath -FontsDirectory $userFontsDir -RegistryPath $fontRegistryPath) {
+if (Test-DotfilesNerdFontInstallation -StatePath $statePath -FontsDirectory $userFontsDir -RegistryPath $fontRegistryPath -Release $fontDownload.Release -ArchiveSha256 $fontDownload.Sha256) {
     Write-Info 'CaskaydiaCove Nerd Font files and registration are complete. Skipping.'
     Stop-Logging
     Exit 0
@@ -94,12 +102,11 @@ $extractPath = Join-Path $invocationDirectory 'extracted'
 
 try {
     New-Item -ItemType Directory -Path $invocationDirectory -ErrorAction Stop | Out-Null
-    New-Item -ItemType Directory -Path $userFontsDir -Force -ErrorAction Stop | Out-Null
-    if (-not (Test-Path -LiteralPath $fontRegistryPath)) {
-        New-Item -Path $fontRegistryPath -Force -ErrorAction Stop | Out-Null
-    }
     Write-Info "Downloading CascadiaCode Nerd Font from $nerdFontUrl..."
     Invoke-WebRequest -Uri $nerdFontUrl -OutFile $zipFilePath -UseBasicParsing
+    if ((Get-FileHash -LiteralPath $zipFilePath -Algorithm SHA256).Hash -ne $fontDownload.Sha256) {
+        throw 'CascadiaCode archive SHA-256 mismatch. No fonts were extracted, installed or registered.'
+    }
 
     Write-Info "Extracting font archive..."
     Expand-Archive -Path $zipFilePath -DestinationPath $extractPath -Force
@@ -115,6 +122,10 @@ try {
     }
 
     Write-Info "Installing $($fontFiles.Count) font file(s) to $userFontsDir..."
+    New-Item -ItemType Directory -Path $userFontsDir -Force -ErrorAction Stop | Out-Null
+    if (-not (Test-Path -LiteralPath $fontRegistryPath)) {
+        New-Item -Path $fontRegistryPath -Force -ErrorAction Stop | Out-Null
+    }
     $installedFonts = @()
     foreach ($fontFile in $fontFiles) {
         $installedFonts += Install-DotfilesNerdFontFile -FontFile $fontFile -FontsDirectory $userFontsDir -RegistryPath $fontRegistryPath
@@ -124,7 +135,7 @@ try {
     # Publish completion only after every copy and registry operation succeeds.
     $temporaryState = Join-Path $userFontsDir ('.dotfiles-font-' + [guid]::NewGuid().ToString('N') + '.tmp')
     try {
-        @{ Version = 1; Fonts = $installedFonts } | ConvertTo-Json -Depth 4 |
+        @{ Version = 1; Release = $fontDownload.Release; ArchiveSha256 = $fontDownload.Sha256; Fonts = $installedFonts } | ConvertTo-Json -Depth 4 |
             Set-Content -LiteralPath $temporaryState -Encoding UTF8
         Move-Item -LiteralPath $temporaryState -Destination $statePath -Force
     } finally {

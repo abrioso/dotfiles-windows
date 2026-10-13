@@ -168,6 +168,9 @@ git config --global user.email "your.email@example.com"
 ```
 
 Nerd Font setup records installed file hashes and verifies registration before skipping.
+The release URL and expected SHA-256 are tracked in `setup-scripts/downloads.lock.json`.
+The ZIP is verified before extraction, font copies or registry changes. Completion records
+also identify the release and archive hash, so a changed pin triggers revalidation.
 Legacy installations without this record are checked against the downloaded archive once;
 identical files are reused even when in use, and missing registration is repaired.
 If a changed font is locked, close applications using it (including Windows Terminal) and
@@ -185,6 +188,40 @@ iex "& { $(irm 'https://raw.githubusercontent.com/YourGitHubAccount/YourDotfiles
 ```
 
 For non-GitHub archive endpoints, use `-EndpointType custom-archive -ArchiveUrl <zip-url>`.
+
+### Pinned bootstrap downloads
+
+The branch-based quick-start remains a compatibility mode and prints a warning when
+no expected archive hash is supplied. For reproducible installation, obtain a full
+40-character commit and the ZIP's SHA-256 through a trusted, independent channel.
+Download and review `install.ps1` from that same immutable revision before running it:
+
+```powershell
+# Replace these placeholders with independently verified values.
+$commit = '<full-40-character-commit>'
+$sha256 = '<trusted-64-character-archive-sha256>'
+.\install.ps1 -Branch main -Commit $commit -ArchiveSha256 $sha256 -NonInteractive
+```
+
+`-Commit` requires `-ArchiveSha256`. A mismatch stops before extraction or execution.
+The archived setup must support `-BootstrapCommit`; older revisions fail explicitly.
+The persistent clone is pinned to this commit during its initial creation, even when
+the branch has advanced. The new clone skips the remote tip's checkout and keeps its local
+branch attached at the pin, so `update.ps1 -NonInteractive -UpdateRepository` can later
+fast-forward it when explicitly requested. An existing checkout must already have the matching HEAD
+and be clean (including untracked files); setup never switches or updates it.
+`-BootstrapCommit` is an apply constraint and cannot be combined with `-Plan`.
+Custom archive endpoints can also supply `-ArchiveSha256` and `-Commit`.
+Hash-only verification checks the archive, but does not pin the persistent checkout.
+Hashes detect unexpected content; they do not establish trust in a script already
+executed or in a hash obtained from the same untrusted download.
+
+To update CascadiaCode, review the official release and its asset digest, download the
+ZIP and independently confirm its SHA-256, then change the release, URL and hash together
+in `downloads.lock.json` through a PR. Existing identical locked font files are reused;
+changed locked files still require closing applications or restarting Windows.
+`tests/DownloadIntegrity.Tests.ps1` covers rejected downloads and pinned bootstrap handoff;
+`tests/ApplyCheckout.Tests.ps1` covers commit selection and existing-checkout refusal.
 
 ### Configuring your Setup
 
