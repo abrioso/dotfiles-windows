@@ -54,6 +54,48 @@ required UAC elevation itself while the package module continues running as the 
 
 `Microsoft.AppInstaller` is intentionally not part of the package pool: Winget is already a prerequisite for running the package module, so installing App Installer through Winget itself would be circular.
 
+## Installed-state verification
+
+`setup-scripts/winget-functions.ps1` provides the same state probe for package apply and
+`setup-scripts/verify.ps1 -CheckPackages`. Queries use exact IDs, the `winget` source,
+and `--scope user|machine` when declared. Display labels are not parsed; successful
+queries must also expose the exact package ID. No version policy is imposed.
+
+Only WinGet's `APPINSTALLER_CLI_ERROR_NO_APPLICATIONS_FOUND` (`0x8A150014`, signed
+`-1978335212`) establishes absence. Source/network/argument errors, a timed-out diagnostic
+query, missing executable or missing ID evidence produce an inconclusive result.
+Apply records a failure and performs no install for an inconclusive query. Diagnostics
+return `Unknown`, never a false missing/success result.
+
+If a scoped query reports absence, an unscoped query distinguishes a missing package
+from an existing installation that does not match the requested scope. The latter is
+`Drift` in diagnostics and blocks apply for that package. Review the existing installation
+and migrate it explicitly if needed; setup does not uninstall or duplicate applications.
+
+After a successful installer exit, apply repeats the presence/scope query. Missing,
+mismatched or inconclusive post-install state is a failure; setup does not treat the exit
+code alone as proof that installation completed. If registration needs a reboot or more
+time to appear, complete that step and rerun setup. Install errors and verification failures
+are collected across packages, then the module exits unsuccessfully.
+
+`installerType` constrains the new installer passed to WinGet. It does **not** certify the
+format of an existing installation: `winget list` has no installed-type filter, and
+`winget show` describes available manifest installers rather than proving installed state.
+An existing matching ID/scope is reused with a warning when an installer type was requested;
+the diagnostic remains `Unknown`. A new install with that constraint is also reported as
+type-inconclusive even after presence/scope verification. This avoids inferring WiX from MSI
+registry flags or reinstalling packages merely to manufacture evidence.
+
+Apply may accept source agreements as part of the authorized installation. Diagnostics
+remain opt-in and do not accept agreements, elevate, install, remove or upgrade packages;
+WinGet may still access its sources and write its own cache/logs.
+
+References: [WinGet list options](https://learn.microsoft.com/en-us/windows/package-manager/winget/list),
+[WinGet show metadata](https://learn.microsoft.com/en-us/windows/package-manager/winget/show),
+and [official return codes](https://github.com/microsoft/winget-cli/blob/master/doc/windows/package-manager/winget/returnCodes.md).
+`tests/WingetState.Tests.ps1` covers state classification and the production apply loop;
+`tests/SetupDiagnostic.Tests.ps1` covers report integration and privacy.
+
 ## Adding a new package
 
 1. Find the package ID: `winget search <name>`

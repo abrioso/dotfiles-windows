@@ -5,7 +5,8 @@ Diagnoses the invoked checkout's selected setup state without applying configura
 .PARAMETER Format
 Text (default) or Json output. No report or transcript is written automatically.
 .PARAMETER CheckPackages
-Opt in to WinGet presence queries. WinGet may access sources and write its own cache/logs.
+Opt in to WinGet presence/scope queries. Installed installer type remains inconclusive.
+WinGet may access sources and write its own cache/logs.
 No source agreements are accepted and no packages are installed or updated.
 .NOTES
 Exit 0: passed/skipped only; 1: detected drift; 2: inconclusive or invalid configuration.

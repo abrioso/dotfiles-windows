@@ -1,3 +1,5 @@
+. "$PSScriptRoot/winget-functions.ps1"
+
 function New-DotfilesDiagnosticResult {
     param(
         [ValidateSet('Passed', 'Drift', 'Unknown', 'Skipped')][string]$Status,
@@ -119,12 +121,9 @@ function Get-DotfilesSetupDiagnostic {
             foreach ($package in $preview.Packages) {
                 Add-DotfilesDiagnosticCheck $checks Package $package.Id {
                     if (-not $CheckPackages) { return New-DotfilesDiagnosticResult Unknown 'Package query was not enabled. Use -CheckPackages for presence checks.' }
-                    $query = Invoke-DotfilesDiagnosticNative winget @('list', '--id', $package.Id, '--exact', '--source', 'winget', '--disable-interactivity')
-                    if ($query.ExitCode -ne 0) { return New-DotfilesDiagnosticResult Unknown 'WinGet query did not succeed; absence, source errors and agreements cannot be distinguished.' }
-                    $idPattern = '(?im)(?<![\w.-])' + [regex]::Escape($package.Id) + '(?![\w.-])'
-                    if ($query.Output -notmatch $idPattern) { return New-DotfilesDiagnosticResult Unknown 'Successful query did not expose the exact ID; presence could not be verified.' }
-                    if ($package.Scope -or $package.InstallerType) { return New-DotfilesDiagnosticResult Unknown 'ID was found, but requested scope/installer conformance was not verified.' }
-                    New-DotfilesDiagnosticResult Passed 'Exact package ID was found; version is not constrained.'
+                    $query = { param($Arguments) Invoke-DotfilesDiagnosticNative winget $Arguments }
+                    $state = Get-DotfilesWingetPackageState -Id $package.Id -Scope $package.Scope -InstallerType $package.InstallerType -Query $query
+                    New-DotfilesDiagnosticResult $state.Status $state.Message
                 }
             }
         }
@@ -235,6 +234,6 @@ function Get-DotfilesSetupDiagnostic {
         Checks = $checks.ToArray()
         Counts = [pscustomobject]$counts
         ExitCode = $exitCode
-        Limitations = @('Unknown is not success. A passed probe certifies only the stated check.', 'Profile stubs are checked in the current host profile directory, not every installed PowerShell host.', 'Package queries are opt-in; scope/installer conformance and unsupported modules remain inconclusive.')
+        Limitations = @('Unknown is not success. A passed probe certifies only the stated check.', 'Profile stubs are checked in the current host profile directory, not every installed PowerShell host.', 'Package queries are opt-in; installed installer type, version policy and unsupported modules remain inconclusive.')
     }
 }

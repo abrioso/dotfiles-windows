@@ -563,8 +563,8 @@ Stop-Logging
             if ($module -match '\$listOutput\s+-match') {
                 throw 'Installed package detection must not parse Winget display text.'
             }
-            if ($module -notmatch '\$isInstalled\s*=\s*\$LASTEXITCODE\s+-eq\s+0') {
-                throw 'Installed package detection must use the Winget exit code.'
+            if ($module -notmatch 'Get-DotfilesWingetPackageState' -or $module -notmatch '\$isInstalled\s*=\s*\$packageState\.Presence\s+-eq') {
+                throw 'Installed package detection must use the shared scope-aware state probe.'
             }
         }
 

@@ -14,6 +14,8 @@ param (
     [string[]]$Groups = @()
 )
 
+. "$PSScriptRoot/../setup-scripts/winget-functions.ps1"
+
 try {
     $windowsRoot = [Environment]::GetFolderPath([Environment+SpecialFolder]::Windows)
     $programFilesRoot = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
@@ -140,12 +142,16 @@ try {
         $packageInstallerType = $packageSpec.InstallerType
         Write-Host "Processing package: $packageId"
 
-        # Winget returns a non-zero exit code when no exact installed package is found.
-        & $wingetPath list --id $packageId --exact --source winget --accept-source-agreements --disable-interactivity | Out-Null
-        $isInstalled = $LASTEXITCODE -eq 0
+        $query = { param($Arguments) Invoke-DotfilesWingetQuery -WingetPath $wingetPath -Arguments ($Arguments + '--accept-source-agreements') }
+        $packageState = Get-DotfilesWingetPackageState -Id $packageId -Scope $packageScope -InstallerType $packageInstallerType -Query $query
+        $isInstalled = $packageState.Presence -eq 'Present'
 
         if ($isInstalled) {
-            Write-Host "Package '$packageId' is already installed. Skipping."
+            Write-Host "Package '$packageId' presence and requested scope matched. Skipping."
+            if ($packageState.Status -eq 'Unknown') { Write-Warning "Package '$packageId': $($packageState.Message)" }
+        } elseif ($packageState.Presence -ne 'Missing') {
+            Write-Warning "Package '$packageId': $($packageState.Message)"
+            $failedPackages.Add($packageId)
         } else {
             $scopeDescription = if ($packageScope) { " with '$packageScope' scope" } else { '' }
             $installerTypeDescription = if ($packageInstallerType) { " using '$packageInstallerType' installer type" } else { '' }
@@ -173,7 +179,14 @@ try {
                 Write-Warning "Failed to install package '$packageId'. Winget exited with code $installExitCode."
                 $failedPackages.Add($packageId)
             } else {
-                Write-Host "Successfully installed package '$packageId'."
+                $postInstallState = Get-DotfilesWingetPackageState -Id $packageId -Scope $packageScope -InstallerType $packageInstallerType -Query $query
+                if ($postInstallState.Presence -ne 'Present') {
+                    Write-Warning "Package '$packageId' returned success, but its installed state was not verified: $($postInstallState.Message)"
+                    $failedPackages.Add($packageId)
+                } else {
+                    Write-Host "Verified installed package '$packageId' and requested scope."
+                    if ($postInstallState.Status -eq 'Unknown') { Write-Warning "Package '$packageId': $($postInstallState.Message)" }
+                }
             }
         }
     }
