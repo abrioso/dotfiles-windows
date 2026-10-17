@@ -1,3 +1,8 @@
+function Move-DotfilesDeploymentEntry {
+    param([string]$Source, [string]$Destination)
+    [IO.File]::Move($Source, $Destination, $false)
+}
+
 function Copy-DotfilesVerifiedFile {
     [CmdletBinding()]
     param(
@@ -41,6 +46,7 @@ function Copy-DotfilesVerifiedFile {
     [IO.Directory]::CreateDirectory($parent) | Out-Null
     $temporaryPath = Join-Path $parent ('.dotfiles-deploy-' + [guid]::NewGuid().ToString('N') + '.tmp')
     $backupPath = $null
+    $capturedPath = $null
     try {
         Copy-Item -LiteralPath $sourcePath -Destination $temporaryPath -ErrorAction Stop
         if ((Get-FileHash -LiteralPath $temporaryPath -Algorithm SHA256 -ErrorAction Stop).Hash -ne $sourceHash -or
@@ -58,9 +64,46 @@ function Copy-DotfilesVerifiedFile {
                 throw 'Deployment backup verification failed. The destination was not replaced.'
             }
         }
-        # Stage beside the destination, so publication is a same-volume rename.
-        # Replace the directory entry rather than writing through an existing link.
-        [IO.File]::Move($temporaryPath, $targetPath, [bool]$targetItem)
+        if ($targetItem) {
+            # Capture the actual entry at publication, including any edit made after
+            # backup verification. Never overwrite an entry recreated by another writer.
+            $capturedPath = $targetPath + '.' + [guid]::NewGuid().ToString('N') + '.captured.bak'
+            Move-DotfilesDeploymentEntry $targetPath $capturedPath
+        }
+        try { Move-DotfilesDeploymentEntry $temporaryPath $targetPath }
+        catch {
+            $publicationError = $_
+            if ($capturedPath) {
+                try { Move-DotfilesDeploymentEntry $capturedPath $targetPath }
+                catch { throw "Publication failed and the destination could not be restored without overwriting another entry. Previous file retained at '$capturedPath'. Review it before retrying." }
+            }
+            throw $publicationError
+        }
+        if ($capturedPath) {
+            try {
+                # A non-write-sharing handle stabilizes the captured bytes, including
+                # legacy hardlink aliases, while preparing an independent backup.
+                $capturedStream = [IO.File]::Open($capturedPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+                try {
+                    $hasher = [Security.Cryptography.SHA256]::Create()
+                    try { $capturedHash = [Convert]::ToHexString($hasher.ComputeHash($capturedStream)) }
+                    finally { $hasher.Dispose() }
+                    if ($capturedHash -ne $targetHash) {
+                        $backupPath = $targetPath + '.' + [guid]::NewGuid().ToString('N') + '.bak'
+                        $backupStream = [IO.File]::Open($backupPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+                        try { $capturedStream.Position = 0; $capturedStream.CopyTo($backupStream) }
+                        finally { $backupStream.Dispose() }
+                        if ((Get-FileHash -LiteralPath $backupPath -Algorithm SHA256 -ErrorAction Stop).Hash -ne $capturedHash) {
+                            throw 'Captured backup verification failed.'
+                        }
+                    }
+                } finally { $capturedStream.Dispose() }
+                # Delete only after independently retaining the captured content.
+                [IO.File]::Delete($capturedPath)
+            } catch {
+                throw "The new file was published, but captured content could not be independently retained. Previous entry remains at '$capturedPath'. Review it and backups before retrying. $($_.Exception.Message)"
+            }
+        }
         if ((Get-FileHash -LiteralPath $targetPath -Algorithm SHA256 -ErrorAction Stop).Hash -ne $sourceHash) {
             throw "Published file verification failed. Review the destination and retained backup: $backupPath"
         }

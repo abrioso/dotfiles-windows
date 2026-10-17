@@ -2,6 +2,7 @@ Describe 'Independent verified theme deployment' {
     BeforeAll {
         $repositoryRoot = Split-Path -Parent $PSScriptRoot
         . "$repositoryRoot/setup-scripts/deployment-functions.ps1"
+        $script:moveDeploymentEntry = (Get-Command Move-DotfilesDeploymentEntry).ScriptBlock
     }
     BeforeEach {
         $fixture = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
@@ -104,6 +105,44 @@ Describe 'Independent verified theme deployment' {
         finally { $handle.Dispose() }
         Get-Content -LiteralPath $target | Should -Be custom
         @(Get-ChildItem -LiteralPath $targetDirectory -Filter '*.bak') | Should -HaveCount 1
+        @(Get-ChildItem -LiteralPath $targetDirectory -Filter '*.tmp' -Force) | Should -HaveCount 0
+    }
+    It 'retains an edit made immediately after backup verification' {
+        'custom' | Set-Content -LiteralPath $target
+        Mock Move-DotfilesDeploymentEntry {
+            param($Source, $Destination)
+            if ($Source -eq $target) { 'last-moment edit' | Set-Content -LiteralPath $target }
+            & $script:moveDeploymentEntry -Source $Source -Destination $Destination
+        }
+        $result = Copy-DotfilesVerifiedFile $source $target
+        Get-Content -LiteralPath $target | Should -Be '{"version":1}'
+        Get-Content -LiteralPath $result.BackupPath | Should -Be 'last-moment edit'
+        @(Get-ChildItem -LiteralPath $targetDirectory -Filter '*.bak') | Should -HaveCount 2
+        @(Get-ChildItem -LiteralPath $targetDirectory -Filter '*.captured.bak') | Should -HaveCount 0
+    }
+    It 'restores the captured entry when publication fails before a competing write' {
+        'custom' | Set-Content -LiteralPath $target
+        Mock Move-DotfilesDeploymentEntry {
+            param($Source, $Destination)
+            if ($Source -like '*.tmp') { throw 'publication failure' }
+            & $script:moveDeploymentEntry -Source $Source -Destination $Destination
+        }
+        { Copy-DotfilesVerifiedFile $source $target } | Should -Throw '*publication failure*'
+        Get-Content -LiteralPath $target | Should -Be custom
+        @(Get-ChildItem -LiteralPath $targetDirectory -Filter '*.captured.bak') | Should -HaveCount 0
+    }
+    It 'preserves a destination recreated by another writer and retains the captured entry' {
+        'custom' | Set-Content -LiteralPath $target
+        Mock Move-DotfilesDeploymentEntry {
+            param($Source, $Destination)
+            if ($Source -like '*.tmp') { 'new entry' | Set-Content -LiteralPath $target }
+            & $script:moveDeploymentEntry -Source $Source -Destination $Destination
+        }
+        { Copy-DotfilesVerifiedFile $source $target } | Should -Throw '*Previous file retained*'
+        Get-Content -LiteralPath $target | Should -Be 'new entry'
+        $captured = @(Get-ChildItem -LiteralPath $targetDirectory -Filter '*.captured.bak')
+        $captured | Should -HaveCount 1
+        Get-Content -LiteralPath $captured[0].FullName | Should -Be custom
         @(Get-ChildItem -LiteralPath $targetDirectory -Filter '*.tmp' -Force) | Should -HaveCount 0
     }
     It 'rejects an identical path and a directory destination without mutation' {

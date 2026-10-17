@@ -410,6 +410,15 @@ publication failures stop the module; staged files are cleaned up and completed 
 Publication is per file, not a transaction across the complete theme set. Inspect the retained
 backup if final verification fails after publication. No migration runs until setup is applied.
 
+At publication, the previous directory entry is first renamed to a unique `.captured.bak`.
+The staged copy is then renamed into place without overwriting an entry created by another
+writer. A brief filename gap can occur between these renames. On failure the previous entry
+is restored only when the destination is still absent; otherwise it remains captured and the
+competing destination is preserved. Edits captured after the initial backup are copied into
+an additional independent backup under a read handle that denies writes. Captured entries are
+removed only after their contents are independently retained. A captured artifact left by a
+failure may retain legacy link metadata: copy its bytes before editing it or restoring it.
+
 Before migrating a legacy hardlink, review `git diff -- poshthemes`: edits made through that link
 may already be present in the checkout. Migration detaches the current source bytes and does not
 restore upstream contents or discard uncommitted edits. `verify.ps1` reports linked themes as

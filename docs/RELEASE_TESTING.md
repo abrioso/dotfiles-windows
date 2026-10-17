@@ -209,6 +209,9 @@ docker run --rm hello-world
 - [ ] Theme replacements create unique, independent backups. Reapplying matching regular
       files leaves their timestamps/backups unchanged. Copy failures or a locked destination
       preserve the previous file. Test source and target on different volumes when available.
+- [ ] A concurrent edit made just before theme publication is retained in an independent
+      backup; a destination recreated during publication is never overwritten. Failed recovery
+      reports the captured entry for manual review.
 - [ ] Setup exits successfully and `git status --short` is empty.
 
 ## Interaction 3: idempotency
