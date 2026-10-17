@@ -43,6 +43,21 @@ Describe 'WinGet package state' {
         $result.Presence | Should -Be Present
         $result.Status | Should -Be Unknown
     }
+    It 'handles machine access denied without elevation for <Scenario>' -ForEach @(
+        @{ Scenario = 'Missing'; GeneralCode = -1978335212; UserCode = -1978335212; Expected = 'Missing' },
+        @{ Scenario = 'MachineOnly'; GeneralCode = 0; UserCode = -1978335212; Expected = 'Present' },
+        @{ Scenario = 'Overlap'; GeneralCode = 0; UserCode = 0; Expected = 'Unknown' },
+        @{ Scenario = 'SourceFailure'; GeneralCode = 1; UserCode = -1978335212; Expected = 'Unknown' },
+        @{ Scenario = 'UserFailure'; GeneralCode = 0; UserCode = 1; Expected = 'Unknown' }
+    ) {
+        $result = Get-DotfilesWingetPackageState -Id Vendor.App -Scope machine -Query {
+            param($Arguments)
+            $code = if ($Arguments -contains 'machine') { -2147024891 } elseif ($Arguments -contains 'user') { $UserCode } else { $GeneralCode }
+            [pscustomobject]@{ ExitCode = $code; Output = 'Vendor.App' }
+        }
+        $result.Presence | Should -Be $Expected
+        $result.Status | Should -Be $(switch ($Expected) { 'Present' { 'Passed' }; 'Missing' { 'Drift' }; default { 'Unknown' } })
+    }
 }
 
 Describe 'WinGet apply state transitions' {
@@ -67,6 +82,34 @@ Describe 'WinGet apply state transitions' {
         $failedPackages.Count | Should -Be 0
         Should -Invoke Invoke-WingetTestExecutable -Times 0 -Exactly
         Should -Invoke Start-Process -Times 0 -Exactly
+    }
+    It 'keeps non-admin machine probes read-only for an existing or ambiguous package (<Overlap>)' -ForEach @(
+        @{ Overlap = $false }, @{ Overlap = $true }
+    ) {
+        $packageSpecs[0].Scope = 'machine'
+        Mock Invoke-DotfilesWingetQuery {
+            param($Arguments)
+            $code = if ($Arguments -contains 'machine') { -2147024891 } elseif ($Arguments -contains 'user' -and -not $Overlap) { -1978335212 } else { 0 }
+            [pscustomobject]@{ ExitCode = $code; Output = 'Vendor.App' }
+        }
+        & $applyLoop
+        $failedPackages.Count | Should -Be $(if ($Overlap) { 1 } else { 0 })
+        Should -Invoke Start-Process -Times 0 -Exactly
+        Should -Invoke Invoke-WingetTestExecutable -Times 0 -Exactly
+    }
+    It 'installs a missing machine package despite denied scoped queries and verifies it without query UAC' {
+        $packageSpecs[0].Scope = 'machine'
+        $script:wingetTestInstalled = $false
+        Mock Invoke-DotfilesWingetQuery {
+            param($Arguments)
+            $code = if ($Arguments -contains 'machine') { -2147024891 } elseif ($Arguments -contains 'user' -or -not $script:wingetTestInstalled) { -1978335212 } else { 0 }
+            [pscustomobject]@{ ExitCode = $code; Output = 'Vendor.App' }
+        }
+        Mock Start-Process { $script:wingetTestInstalled = $true; [pscustomobject]@{ ExitCode = 0 } }
+        & $applyLoop
+        $failedPackages.Count | Should -Be 0
+        Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter { $ArgumentList[0] -eq 'install' -and $Verb -eq 'RunAs' }
+        Should -Invoke Invoke-DotfilesWingetQuery -Times 6 -Exactly
     }
     It 'does not mutate when queries fail or the package is in the wrong scope' -ForEach @(
         @{ WrongScope = $false }, @{ WrongScope = $true }

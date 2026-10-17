@@ -61,6 +61,16 @@ required UAC elevation itself while the package module continues running as the 
 and `--scope user|machine` when declared. Display labels are not parsed; successful
 queries must also expose the exact package ID. No version policy is imposed.
 
+Some WinGet versions deny non-admin `--scope machine` queries because they enumerate
+all-user MSIX registrations. On `E_ACCESSDENIED` only, the probe compares unscoped and
+`user` inventories: an ID in the former but absent from the latter establishes machine
+ARP/font presence. Absence from both establishes absence in those inventories. Overlapping
+IDs or failed fallback queries remain `Unknown`; other-user-only MSIX registrations are
+not assessed by this fallback. It does not request UAC. An elevated diagnostic can use
+the direct machine query when overlap needs clarification. This follows the upstream
+[installed-source inventory boundaries](https://github.com/microsoft/winget-cli/blob/master/src/AppInstallerRepositoryCore/Microsoft/PredefinedInstalledSourceFactory.cpp)
+and addresses [the non-admin machine-query issue](https://github.com/microsoft/winget-cli/issues/3052).
+
 Only WinGet's `APPINSTALLER_CLI_ERROR_NO_APPLICATIONS_FOUND` (`0x8A150014`, signed
 `-1978335212`) establishes absence. Source/network/argument errors, a timed-out diagnostic
 query, missing executable or missing ID evidence produce an inconclusive result.

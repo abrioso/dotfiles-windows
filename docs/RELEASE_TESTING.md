@@ -161,6 +161,8 @@ git rev-parse HEAD
       report the mismatch without uninstalling, duplicating it or requesting an install UAC.
 - [ ] Source/query failures remain inconclusive and do not trigger installs. Requested
       installer types remain `Unknown` in the diagnostic even when presence/scope match.
+- [ ] A non-admin machine query returning access denied uses the non-elevated inventory
+      fallback for missing/machine-only packages; overlap and fallback errors remain Unknown.
 - [ ] No package reports `No applicable installer`, `0x8A150010`, hash mismatch, or an ignored
       non-zero Winget exit code.
 - [ ] `Microsoft.PowerShell` and `Microsoft.WindowsTerminal` remain user-scoped MSIX packages.

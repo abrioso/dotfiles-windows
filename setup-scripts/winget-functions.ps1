@@ -26,6 +26,24 @@ function Get-DotfilesWingetPackageState {
         # APPINSTALLER_CLI_ERROR_NO_APPLICATIONS_FOUND (0x8A150014), signed/unsigned.
         $notFoundCodes = @(-1978335212, 2316632084)
         $idPattern = '(?im)(?<![\w.-])' + [regex]::Escape($Id) + '(?![\w.-])'
+        if ($Scope -eq 'machine' -and $null -ne $result.ExitCode -and $result.ExitCode -in @(-2147024891, 2147942405)) {
+            # --scope machine also enumerates all-user MSIX and may require admin.
+            # The normal inventory includes machine ARP/fonts plus current-user apps;
+            # the user inventory excludes machine ARP/fonts. Their difference can
+            # establish machine presence without elevation. Overlap is inconclusive.
+            $unscoped = & $Query $arguments
+            $userOnly = & $Query ($arguments + @('--scope', 'user'))
+            if ($null -ne $userOnly.ExitCode -and $userOnly.ExitCode -in $notFoundCodes) {
+                if ($unscoped.ExitCode -eq 0 -and ($unscoped.Output -join "`n") -match $idPattern) {
+                    $result = $unscoped
+                } elseif ($null -ne $unscoped.ExitCode -and $unscoped.ExitCode -in $notFoundCodes) {
+                    return [pscustomobject]@{ Presence = 'Missing'; Status = 'Drift'; Message = 'Package ID was not found in the current-user and machine ARP/font inventory. Other-user MSIX registrations are not assessed.' }
+                }
+            }
+            if ($result.ExitCode -in @(-2147024891, 2147942405)) {
+                $message = 'Machine scope could not be distinguished without admin access. Run the diagnostic elevated or review overlapping user/machine installations.'
+            }
+        }
         if ($result.ExitCode -eq 0 -and ($result.Output -join "`n") -match $idPattern) {
             $presence = 'Present'
             $status = if ($InstallerType) { 'Unknown' } else { 'Passed' }
