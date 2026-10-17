@@ -87,6 +87,9 @@ Record:
 - Main transcript path:
 - Elevated feature/capability transcript path:
 - UAC prompts observed:
+- WinGet presence/scope verification evidence:
+- Missing/wrong-scope/source-error scenarios tested:
+- Installer-type checks left inconclusive (expected; list cannot certify installed type):
 - Persistent clone path:
 - Persistent clone HEAD:
 - [ ] initial clone selects the requested branch without a subsequent fetch/pull

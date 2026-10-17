@@ -142,12 +142,35 @@ Describe 'Installed-state diagnostic' {
         $report = Get-DotfilesSetupDiagnostic -RepositoryRoot $TestDrive -CheckPackages
         ($report.Checks | Where-Object Category -EQ Package).Status | Should -Be Passed
     }
-    It 'does not certify package scope from presence alone' {
+    It 'certifies package scope only through the requested scope filter' {
         $script:diagnosticFixturePreview.Modules = @([pscustomobject]@{Script='Install-WingetPackages.ps1'})
         $script:diagnosticFixturePreview.Packages = @([pscustomobject]@{Id='Vendor.App';Scope='machine';InstallerType=$null})
         Mock Invoke-DotfilesDiagnosticNative { [pscustomobject]@{ExitCode=0;Output='Vendor.App'} }
         $report = Get-DotfilesSetupDiagnostic -RepositoryRoot $TestDrive -CheckPackages
+        ($report.Checks | Where-Object Category -EQ Package).Status | Should -Be Passed
+        Should -Invoke Invoke-DotfilesDiagnosticNative -Times 1 -Exactly -ParameterFilter { $Arguments -contains '--scope' -and $Arguments -contains 'machine' }
+    }
+    It 'keeps installer type inconclusive even when requested scope matches' {
+        $script:diagnosticFixturePreview.Modules = @([pscustomobject]@{Script='Install-WingetPackages.ps1'})
+        $script:diagnosticFixturePreview.Packages = @([pscustomobject]@{Id='Vendor.App';Scope='machine';InstallerType='wix'})
+        Mock Invoke-DotfilesDiagnosticNative { [pscustomobject]@{ExitCode=0;Output='Vendor.App'} }
+        $report = Get-DotfilesSetupDiagnostic -RepositoryRoot $TestDrive -CheckPackages
         ($report.Checks | Where-Object Category -EQ Package).Status | Should -Be Unknown
+    }
+    It 'reports package drift for <State> without accepting agreements' -ForEach @(
+        @{ State = 'Missing' }, @{ State = 'ScopeMismatch' }
+    ) {
+        $script:diagnosticFixturePreview.Modules = @([pscustomobject]@{Script='Install-WingetPackages.ps1'})
+        $script:diagnosticFixturePreview.Packages = @([pscustomobject]@{Id='Vendor.App';Scope='machine';InstallerType=$null})
+        Mock Invoke-DotfilesDiagnosticNative {
+            param($Arguments)
+            if ($Arguments -contains '--scope' -or $State -eq 'Missing') { [pscustomobject]@{ ExitCode = -1978335212; Output = '' } }
+            else { [pscustomobject]@{ ExitCode = 0; Output = 'Vendor.App' } }
+        }
+        $report = Get-DotfilesSetupDiagnostic -RepositoryRoot $TestDrive -CheckPackages
+        ($report.Checks | Where-Object Category -EQ Package).Status | Should -Be Drift
+        $report.ExitCode | Should -Be 1
+        Should -Invoke Invoke-DotfilesDiagnosticNative -Times 0 -Exactly -ParameterFilter { $Arguments -contains '--accept-source-agreements' }
     }
     It 'never silently passes unsupported modules or missing source inventories' {
         $script:diagnosticFixturePreview.Modules = @([pscustomobject]@{Script='Install-NerdFont.ps1'}, [pscustomobject]@{Script='Install-LocalPowerShellProfiles.ps1'}, [pscustomobject]@{Script='Install-OmpConfig.ps1'})

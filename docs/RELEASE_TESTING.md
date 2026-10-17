@@ -155,6 +155,14 @@ git rev-parse HEAD
 ### Winget checks
 
 - [ ] Every selected package either installs or is detected as already installed.
+- [ ] Presence checks and post-install checks match each requested scope; installer success
+      alone is not reported as verified state. Run `verify.ps1 -CheckPackages` and retain evidence.
+- [ ] On a disposable snapshot, preinstall a package only in the other scope: apply must
+      report the mismatch without uninstalling, duplicating it or requesting an install UAC.
+- [ ] Source/query failures remain inconclusive and do not trigger installs. Requested
+      installer types remain `Unknown` in the diagnostic even when presence/scope match.
+- [ ] A non-admin machine query returning access denied uses the non-elevated inventory
+      fallback for missing/machine-only packages; overlap and fallback errors remain Unknown.
 - [ ] No package reports `No applicable installer`, `0x8A150010`, hash mismatch, or an ignored
       non-zero Winget exit code.
 - [ ] `Microsoft.PowerShell` and `Microsoft.WindowsTerminal` remain user-scoped MSIX packages.
