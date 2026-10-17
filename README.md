@@ -112,6 +112,11 @@ This folder contains the modular scripts that perform the actual configuration t
 -   `Set-EnvironmentVariables.ps1`: Reads local `env-variables.json` and configures environment variables. Validates entries first and elevates only pending Machine changes; the child skips User entries and propagates failures. `tests/EnvironmentElevation.Tests.ps1` covers these contracts.
 -   `Set-UserHomeAlias.ps1`: Creates an ASCII-only junction alias for the user profile directory (for Entra ID displayName paths with accents) and points the user-scope `HOME` variable at it. It prefers the signed-in UPN reported by the in-box `whoami.exe /upn`, with validated identity/`USERNAME` fallbacks. Setup requests UAC only when the junction must first be created under `C:\Users`; an ASCII-only profile, a fully satisfied rerun, or a rerun that only needs a user-scope `HOME` update does not prompt. The elevated child receives the original profile and alias paths explicitly and performs only the junction mutation; the non-elevated parent updates `HOME` for the invoking user, even when UAC uses different Administrator credentials.
 -   `Install-LocalPowerShellProfiles.ps1`: Copies repo profiles to `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced) and writes a marker stub into the profile directory that dot-sources the local copy, so profiles stay per-machine even when Documents is OneDrive-synced.
+-   `Install-OmpConfig.ps1`: Deploys independent theme copies using `setup-scripts/deployment-functions.ps1`.
+    SHA-256 is checked before and after publication. Legacy hardlinks are detached even when their
+    contents match; replacements retain independent, unique `.bak` files. Updating the checkout does
+    not change a deployed theme until setup is applied again. `tests/ThemeDeployment.Tests.ps1`
+    covers migration, idempotency, backups and failure preservation.
 -   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config. Read/write failures stop setup; `tests/GitConfigFailure.Tests.ps1` covers malformed configuration and held locks.
 
 #### `dotfiles-configurations`

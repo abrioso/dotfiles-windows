@@ -390,4 +390,39 @@ During setup:
 8. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_CAPABILITIES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
 9. Setup modules consume the local `*.json` files and setup stops if a configured module is missing or fails.
 
-The `pwsh` setting deploys Oh My Posh themes using non-elevated hard links when source and target are on the same volume, with a regular copy fallback across volumes. The CaskaydiaCove Nerd Font is installed by the `base` settings group, since it is required for terminal rendering regardless of the Oh My Posh selection.
+### Theme deployment
+
+The `pwsh` setting deploys Oh My Posh themes as independent copies without elevation. Copies are
+staged in the destination directory, checked with SHA-256 and published by rename; the final
+file is checked again. A matching regular file is left untouched. Legacy hardlinks and file
+symlinks are replaced even when their contents match, so editing a deployed theme cannot edit
+the tracked file. Existing content is first retained in a unique `<theme>.<guid>.bak` regular
+file; earlier backups, including old `.bak` files, are not overwritten.
+
+Updating Git does not automatically update the deployed copy: apply setup again to adopt theme
+changes. As before, local edits to a managed theme are backed up and replaced on apply. Keep a
+separately named, unmanaged theme if you want to retain customizations permanently; untracked
+theme names are not removed. No automatic backup cleanup is performed.
+
+Linked destination directories require manual review because they can redirect writes into the
+checkout. Broken or unreadable file links also fail without replacement. Copy, verification or
+publication failures stop the module; staged files are cleaned up and completed backups remain.
+Publication is per file, not a transaction across the complete theme set. Inspect the retained
+backup if final verification fails after publication. No migration runs until setup is applied.
+
+At publication, the previous directory entry is first renamed to a unique `.captured.bak`.
+The staged copy is then renamed into place without overwriting an entry created by another
+writer. A brief filename gap can occur between these renames. On failure the previous entry
+is restored only when the destination is still absent; otherwise it remains captured and the
+competing destination is preserved. Edits captured after the initial backup are copied into
+an additional independent backup under a read handle that denies writes. Captured entries are
+removed only after their contents are independently retained. A captured artifact left by a
+failure may retain legacy link metadata: copy its bytes before editing it or restoring it.
+
+Before migrating a legacy hardlink, review `git diff -- poshthemes`: edits made through that link
+may already be present in the checkout. Migration detaches the current source bytes and does not
+restore upstream contents or discard uncommitted edits. `verify.ps1` reports linked themes as
+`Drift`, even when hashes match.
+
+The CaskaydiaCove Nerd Font is installed by the `base` settings group, since it is required for
+terminal rendering regardless of the Oh My Posh selection.

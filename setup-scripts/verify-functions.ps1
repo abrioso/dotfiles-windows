@@ -46,12 +46,24 @@ function Invoke-DotfilesDiagnosticNative {
 }
 
 function Test-DotfilesDiagnosticFile {
-    param([string]$Source, [string]$Target)
+    param([string]$Source, [string]$Target, [switch]$RequireIndependent)
     if (-not (Test-Path -LiteralPath $Source -PathType Leaf -ErrorAction Stop)) {
         return New-DotfilesDiagnosticResult Unknown 'Source file is unavailable.'
     }
     if (-not (Test-Path -LiteralPath $Target -PathType Leaf -ErrorAction Stop)) {
         return New-DotfilesDiagnosticResult Drift 'Deployed file is missing.'
+    }
+    if ($RequireIndependent) {
+        $component = $Target
+        while ($component) {
+            $item = Get-Item -LiteralPath $component -Force -ErrorAction Stop
+            if ($item.LinkType -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+                return New-DotfilesDiagnosticResult Drift 'Theme is linked rather than independently deployed. Rerun setup; linked directories require manual review.'
+            }
+            $next = Split-Path -Parent $component
+            if ($next -eq $component) { break }
+            $component = $next
+        }
     }
     if ((Get-FileHash -LiteralPath $Source -ErrorAction Stop).Hash -ne (Get-FileHash -LiteralPath $Target -ErrorAction Stop).Hash) {
         return New-DotfilesDiagnosticResult Drift 'Deployed content differs from this checkout.'
@@ -198,7 +210,7 @@ function Get-DotfilesSetupDiagnostic {
             }
             foreach ($file in $themeFiles) {
                 Add-DotfilesDiagnosticCheck $checks Theme $file.Name {
-                    Test-DotfilesDiagnosticFile $file.FullName (Join-Path $UserProfile ".config/oh-my-posh/poshthemes/$($file.Name)")
+                    Test-DotfilesDiagnosticFile $file.FullName (Join-Path $UserProfile ".config/oh-my-posh/poshthemes/$($file.Name)") -RequireIndependent
                 }
             }
         }
