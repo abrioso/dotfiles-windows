@@ -207,6 +207,9 @@ Deploys per-machine PowerShell profiles. The real profile files are copied into
 marker stub is written into the (possibly OneDrive-synced) profile directory that dot-sources
 the local copy. User-authored files without the dotfiles marker are left untouched, and any
 symlink left by previous setup versions is safely replaced. Does not require elevation.
+The console and VS Code entry points both source the local `common.ps1`. Support scripts
+are copied before entry points and do not receive Documents stubs; only `*_profile.ps1`
+and `profile.ps1` receive them. Apply setup again after changing the shared initialization.
 
 ### `Install-OmpConfig.ps1`
 

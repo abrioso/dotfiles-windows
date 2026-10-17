@@ -32,6 +32,12 @@ endpoint selection still come from the bootstrap transport. For post-reboot cont
 
 ## Evidence to capture
 
+For profile acceptance, launch both PowerShell 7 console and the VS Code PowerShell
+extension after apply. Confirm both load the same machine-local `common.ps1`, UTF-8
+output and available optional tools. Check that missing Terminal-Icons or Oh My Posh
+does not prevent startup, personal Documents profiles remain unchanged, and support
+files have no Documents stubs. Rerun apply and verify unchanged file timestamps.
+
 For each interaction, retain:
 
 - the exact Git commit under test;
