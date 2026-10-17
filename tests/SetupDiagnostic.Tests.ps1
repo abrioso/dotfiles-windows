@@ -207,6 +207,16 @@ Describe 'Installed-state diagnostic' {
         $marker | Set-Content $stub
         ((Get-TestDiagnostic).Checks | Where-Object Category -EQ ProfileStub).Status | Should -Be Drift
     }
+    It 'reports an identical linked theme as drift until it is detached' {
+        $source = Join-Path $TestDrive 'linked-source.json'
+        $target = Join-Path $TestDrive 'linked-target.json'
+        '{}' | Set-Content $source
+        New-Item -ItemType HardLink -Path $target -Value $source | Out-Null
+        (Test-DotfilesDiagnosticFile $source $target -RequireIndependent).Status | Should -Be Drift
+        . "$repositoryRoot/setup-scripts/deployment-functions.ps1"
+        Copy-DotfilesVerifiedFile $source $target | Out-Null
+        (Test-DotfilesDiagnosticFile $source $target -RequireIndependent).Status | Should -Be Passed
+    }
     It 'allows customized Terminal JSON without claiming template equality' {
         $script:diagnosticFixturePreview.Modules = @([pscustomobject]@{Script='Install-WindowsTerminalSettings.ps1'})
         $directory = Join-Path $TestDrive 'Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState'

@@ -87,6 +87,8 @@ Record:
 - Main transcript path:
 - Elevated feature/capability transcript path:
 - UAC prompts observed:
+- Oh My Posh legacy-link migration and independent-copy evidence:
+- Theme backup, idempotency, failure and cross-volume checks:
 - WinGet presence/scope verification evidence:
 - Missing/wrong-scope/source-error scenarios tested:
 - Installer-type checks left inconclusive (expected; list cannot certify installed type):

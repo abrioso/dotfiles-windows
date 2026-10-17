@@ -379,8 +379,8 @@ Stop-Logging
             $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Install-OmpConfig.ps1'
             $module = Get-Content -LiteralPath $modulePath -Raw
 
-            if ($module -notmatch 'ItemType HardLink' -or $module -notmatch 'Copy-Item') {
-                throw 'Oh My Posh themes must use a hard link with a copy fallback.'
+            if ($module -match 'ItemType HardLink' -or $module -notmatch 'Copy-DotfilesVerifiedFile') {
+                throw 'Oh My Posh themes must use independent verified copies.'
             }
             if ($module -match 'Test-IsElevated') {
                 throw 'Oh My Posh theme deployment must not require an elevated process.'

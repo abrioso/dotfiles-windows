@@ -203,6 +203,12 @@ docker run --rm hello-world
 - [ ] Marker stubs dot-source the local profiles from each intended PowerShell profile path.
 - [ ] PowerShell 7 and VS Code load the expected profiles in new processes.
 - [ ] Oh My Posh and the selected Git configuration work without unexpected elevation.
+- [ ] An existing theme hardlink is converted to an independent file even when hashes match.
+      Editing the deployed theme does not change `git diff -- poshthemes`; editing a tracked
+      theme does not change the deployed file until setup is applied again.
+- [ ] Theme replacements create unique, independent backups. Reapplying matching regular
+      files leaves their timestamps/backups unchanged. Copy failures or a locked destination
+      preserve the previous file. Test source and target on different volumes when available.
 - [ ] Setup exits successfully and `git status --short` is empty.
 
 ## Interaction 3: idempotency

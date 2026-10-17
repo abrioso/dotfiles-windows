@@ -210,7 +210,11 @@ symlink left by previous setup versions is safely replaced. Does not require ele
 
 ### `Install-OmpConfig.ps1`
 
-Deploys the Oh My Posh theme files into `%USERPROFILE%\.config\oh-my-posh\poshthemes`. On `develop`, this prefers hard links and falls back to regular file copies when needed.
+Deploys independent, SHA-256-verified theme copies into
+`%USERPROFILE%\.config\oh-my-posh\poshthemes`. Matching regular files are skipped; legacy file
+links are detached and replacements keep independent, uniquely named backups. Git updates do
+not change the deployed theme until setup is applied again. Linked target directories require
+manual review; see [theme deployment](CONFIGURATION.md#theme-deployment) for migration details.
 
 ## 15. The final machine state
 
