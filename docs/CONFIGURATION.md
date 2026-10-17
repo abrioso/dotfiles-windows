@@ -78,6 +78,12 @@ independently of the optional `-CheckPackages` presence queries.
 Terminal settings only need to exist and parse as JSON: setup preserves local customizations.
 Readable empty or malformed settings are `Drift`; access and read failures remain `Unknown`.
 User-authored profiles are skipped because setup intentionally preserves them.
+The console and VS Code entry points share `powershell-profiles/common.ps1`.
+All `.ps1` files in that directory are copied into the machine-local store; only
+`*_profile.ps1` and `profile.ps1` entry points receive portable Documents stubs.
+The diagnostic checks support-file copies too, without expecting stubs for them.
+Existing user-authored profiles are not automatically connected to the shared file.
+No additional support file, including ignored `extra.ps1`, is sourced automatically.
 
 Each check has one of four statuses:
 

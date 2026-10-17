@@ -13,8 +13,9 @@
        '$env:LOCALAPPDATA\dotfiles\powershell-profiles' (never OneDrive-synced).
        Files are only rewritten when their content actually changed.
     2. Writes a small marker stub into the active PowerShell profile directory
-       ($PROFILE parent) that dot-sources the local copy. The stub carries a
-       dotfiles marker line so reruns can safely refresh it.
+       ($PROFILE parent) for each *_profile.ps1 or profile.ps1 entry point.
+       Each stub dot-sources the local copy and carries a dotfiles marker line
+       so reruns can safely refresh it. Support files receive no stubs.
 
     Safety rules:
     - An existing regular file WITHOUT the dotfiles marker is left untouched to
@@ -42,14 +43,14 @@ try {
     $profilesSource = Join-Path $dotfileRootDir "powershell-profiles"
     if (-not (Test-Path -LiteralPath $profilesSource -PathType Container)) {
         Write-ErrorMessage "Powershell profiles source directory not found: $profilesSource"
-        Stop-Logging
         Exit 1
     }
 
-    $profileFiles = @(Get-ChildItem -Path $profilesSource -Filter "*.ps1" -File)
+    # Install support files before entry points that may depend on them.
+    $profileFiles = @(Get-ChildItem -Path $profilesSource -Filter "*.ps1" -File -ErrorAction Stop |
+        Sort-Object { $_.Name -like '*_profile.ps1' -or $_.Name -eq 'profile.ps1' }, Name)
     if ($profileFiles.Count -eq 0) {
         Write-WarningMessage "No .ps1 profile files found in: $profilesSource"
-        Stop-Logging
         Exit 0
     }
 
@@ -65,8 +66,8 @@ try {
         $needsCopy = $true
 
         if (Test-Path -LiteralPath $localCopy) {
-            $existingHash = (Get-FileHash -LiteralPath $localCopy -Algorithm SHA256).Hash
-            $sourceHash = (Get-FileHash -LiteralPath $profileFile.FullName -Algorithm SHA256).Hash
+            $existingHash = (Get-FileHash -LiteralPath $localCopy -Algorithm SHA256 -ErrorAction Stop).Hash
+            $sourceHash = (Get-FileHash -LiteralPath $profileFile.FullName -Algorithm SHA256 -ErrorAction Stop).Hash
             if ($existingHash -eq $sourceHash) {
                 Write-Info "Local copy of '$($profileFile.Name)' is up to date. Skipping."
                 $needsCopy = $false
@@ -75,7 +76,7 @@ try {
 
         if ($needsCopy) {
             Write-Info "Copying '$($profileFile.Name)' to $localStore"
-            Copy-Item -LiteralPath $profileFile.FullName -Destination $localCopy -Force
+            Copy-Item -LiteralPath $profileFile.FullName -Destination $localCopy -Force -ErrorAction Stop
         }
     }
 
@@ -88,6 +89,7 @@ try {
     }
 
     foreach ($profileFile in $profileFiles) {
+        if ($profileFile.Name -notlike '*_profile.ps1' -and $profileFile.Name -ne 'profile.ps1') { continue }
         $targetPath = Join-Path $profileDirectory $profileFile.Name
         $stubContent = @(
             $stubMarker
@@ -130,6 +132,8 @@ try {
 }
 catch {
     Write-ErrorMessage "Failed to deploy local PowerShell profiles: $($_.Exception.Message)"
-    Stop-Logging
     Exit 1
+}
+finally {
+    Stop-Logging
 }

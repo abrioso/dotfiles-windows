@@ -235,6 +235,7 @@ User/settings checks:
 - [ ] dynamic profiles do not dirty Git
 - [ ] PowerShell profiles are local copies with marker stubs
 - [ ] PowerShell 7 and VS Code load expected profiles
+- [ ] Both host entry points load the local common.ps1; support files have no Documents stubs
 - [ ] Oh My Posh and Git configuration work
 - [ ] setup succeeds and Git remains clean
 

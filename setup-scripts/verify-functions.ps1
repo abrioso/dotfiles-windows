@@ -182,6 +182,7 @@ function Get-DotfilesSetupDiagnostic {
                 Add-DotfilesDiagnosticCheck $checks ProfileCopy $file.Name {
                     Test-DotfilesDiagnosticFile $file.FullName (Join-Path $LocalAppData "dotfiles/powershell-profiles/$($file.Name)")
                 }
+                if ($file.Name -notlike '*_profile.ps1' -and $file.Name -ne 'profile.ps1') { continue }
                 Add-DotfilesDiagnosticCheck $checks ProfileStub $file.Name {
                     $target = Join-Path $ProfileDirectory $file.Name
                     if (-not (Test-Path -LiteralPath $target -PathType Leaf -ErrorAction Stop)) { return New-DotfilesDiagnosticResult Drift 'Profile stub is missing.' }
