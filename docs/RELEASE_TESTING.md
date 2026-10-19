@@ -36,7 +36,8 @@ For profile acceptance, launch both PowerShell 7 console and the VS Code PowerSh
 extension after apply. Confirm both load the same machine-local `common.ps1`, UTF-8
 output and available optional tools. Check that missing Terminal-Icons or Oh My Posh
 does not prevent startup, personal Documents profiles remain unchanged, and support
-files have no Documents stubs. Rerun apply and verify unchanged file timestamps.
+files have no obsolete unmodified managed Documents stubs. Edited stubs, links and personal
+files must be preserved for manual review. Rerun apply and verify unchanged file timestamps.
 
 For each interaction, retain:
 
@@ -49,6 +50,60 @@ For each interaction, retain:
 Never publish transcripts or configuration backups before checking them for usernames, email
 addresses, repository endpoints, tokens, or other machine-specific values.
 
+## Step-by-step execution
+
+Run the command blocks in order, completing the corresponding acceptance checks below each
+interaction. These commands do not replace the negative, migration and recovery scenarios.
+Use a normal, non-elevated console; accept UAC only for the selected operations that require it.
+Export evidence outside the VM before restoring snapshots. Record unavailable scenarios as
+unexecuted, rather than passed.
+
+### Step 1: identify the candidate and prepare evidence
+
+Start in Windows PowerShell 5.1 on the clean VM. Use `develop` for preliminary testing and the
+exact `release/vYYYY.MM.N` branch for final acceptance. Obtain its full commit from the candidate
+review; do not reuse an old example SHA. Keep that branch unchanged throughout the run.
+An optional archive SHA-256 must come from a trusted source; calculating a hash of the same
+unverified download does not independently authenticate it.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$Branch = Read-Host 'Candidate branch (develop or release/vYYYY.MM.N)'
+$ExpectedCommit = Read-Host 'Expected full candidate commit (40 hexadecimal characters)'
+if ([string]::IsNullOrWhiteSpace($Branch) -or $ExpectedCommit -notmatch '^[0-9a-fA-F]{40}$') {
+    throw 'A candidate branch and full commit are required.'
+}
+$ArchiveSha256 = Read-Host 'Trusted archive SHA-256 (optional; press Enter for compatibility mode)'
+if ($ArchiveSha256 -and $ArchiveSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+    throw 'Archive SHA-256 must have 64 hexadecimal characters.'
+}
+$EvidenceRoot = Join-Path $env:LOCALAPPDATA 'dotfiles-acceptance'
+$ClonePath = Join-Path $env:USERPROFILE 'workspace\dotfiles-windows'
+$BootstrapScript = Join-Path $EvidenceRoot 'bootstrap.ps1'
+$StatePath = Join-Path $EvidenceRoot 'candidate.json'
+if (Test-Path -LiteralPath $StatePath) {
+    throw 'Evidence already exists. Resume step 3 or choose a separate evidence directory.'
+}
+New-Item -ItemType Directory -Path $EvidenceRoot -Force | Out-Null
+[pscustomobject]@{
+    Branch = $Branch
+    ExpectedCommit = $ExpectedCommit
+    ArchiveSha256 = $ArchiveSha256
+    ClonePath = $ClonePath
+} | ConvertTo-Json | Set-Content -LiteralPath $StatePath -Encoding utf8
+Get-Date -Format o | Set-Content "$EvidenceRoot\00-start-time.txt"
+Get-ComputerInfo |
+    Select-Object WindowsProductName, WindowsVersion, OsBuildNumber, CsManufacturer, CsModel |
+    Format-List | Out-File "$EvidenceRoot\00-system.txt"
+$PSVersionTable | Out-File "$EvidenceRoot\00-powershell.txt"
+winget --version | Out-File "$EvidenceRoot\00-winget-version.txt"
+if ($LASTEXITCODE -ne 0) { throw 'Windows Package Manager is unavailable.' }
+```
+
+The clone path above assumes the tracked `workspace` default. Adjust it in the saved state if
+testing a deliberately different workspace. On a separate migration VM, prepare the same candidate
+identity/evidence variables, then follow **Existing-install migration**, not the clean-install step.
+
 ## Interaction 1: clean Git-free install
 
 ### Preconditions
@@ -60,20 +115,31 @@ addresses, repository endpoints, tokens, or other machine-specific values.
   prerequisite installation.
 - Start from the in-box Windows PowerShell 5.1 host, not `pwsh`.
 
-Allow user-scoped scripts:
+### Step 2: bootstrap and record the exit code
+
+Take the clean-install snapshot first. Run the installer in a child Windows PowerShell 5.1
+process so its `exit` does not close the evidence console. The installer script is fetched from
+the expected commit. With a trusted archive hash, the archive and initial clone are pinned to
+that commit too. Without it, the installer warns about compatibility mode and downloads the
+branch archive; a moving branch invalidates the run and must be investigated at step 3.
 
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+if (Test-Path -LiteralPath $ClonePath) { throw 'Use a clean snapshot: the clone already exists.' }
+Invoke-WebRequest -UseBasicParsing `
+    -Uri "https://raw.githubusercontent.com/abrioso/dotfiles-windows/$ExpectedCommit/setup-scripts/install.ps1" `
+    -OutFile $BootstrapScript
+$InstallArguments = @('-Account', 'abrioso', '-Repo', 'dotfiles-windows', '-Branch', $Branch, '-NonInteractive')
+if ($ArchiveSha256) {
+    $InstallArguments += @('-Commit', $ExpectedCommit, '-ArchiveSha256', $ArchiveSha256)
+}
+& "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
+    -NoProfile -File $BootstrapScript @InstallArguments
+$InstallExitCode = $LASTEXITCODE
+$InstallExitCode | Set-Content "$EvidenceRoot\01-install-exit-code.txt"
+if ($InstallExitCode -notin @(0, 3010)) { throw "Bootstrap failed: $InstallExitCode. Retain its logs." }
+if ($InstallExitCode -eq 3010) { Write-Warning 'Reboot required. Complete the checks below, then restart before step 3.' }
 ```
-
-Run the `develop` Git-free bootstrap during pre-release testing:
-
-```powershell
-iex "& { $(irm 'https://raw.githubusercontent.com/abrioso/dotfiles-windows/develop/setup-scripts/install.ps1') } -Account abrioso -Repo dotfiles-windows -Branch develop -NonInteractive"
-```
-
-For the final release-candidate retest, replace `develop` in both URL and `-Branch` with the exact
-`release/vYYYY.MM.N` branch.
 
 ### Acceptance checks
 
@@ -100,11 +166,57 @@ For the final release-candidate retest, replace `develop` in both URL and `-Bran
 - [ ] No tracked file in the persistent clone is modified. Setup created the clone directly on the
       requested branch without a subsequent fetch/pull.
 
-Restart Windows before interaction 2.
+If the result is `3010`, stop here after saving transcript paths and restart Windows:
+
+```powershell
+Restart-Computer
+```
+
+A zero exit code does not demonstrate the reboot boundary: record whether the clean-install
+preconditions were actually satisfied. Do not mark an untested reboot scenario as passed.
 
 ## Interaction 2: post-reboot continuation
 
-Open PowerShell in the persistent clone. Before the first post-reboot setup run, set the exact
+### Step 3: restore session state and verify the clone
+
+Open PowerShell 7 after each reboot. Repeat this block after changing consoles too; variables
+do not survive a reboot. If you chose another evidence directory in step 1, use that same path.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$EvidenceRoot = Join-Path $env:LOCALAPPDATA 'dotfiles-acceptance'
+$Candidate = Get-Content -LiteralPath (Join-Path $EvidenceRoot 'candidate.json') -Raw | ConvertFrom-Json
+$Branch = $Candidate.Branch
+$ExpectedCommit = $Candidate.ExpectedCommit
+$ArchiveSha256 = $Candidate.ArchiveSha256
+$ClonePath = $Candidate.ClonePath
+$BootstrapScript = Join-Path $EvidenceRoot 'bootstrap.ps1'
+Set-Location -LiteralPath $ClonePath
+$ActualCommit = git rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or $ActualCommit -ne $ExpectedCommit) { throw 'Unexpected candidate commit.' }
+$ActualBranch = git branch --show-current
+if ($LASTEXITCODE -ne 0 -or $ActualBranch -ne $Branch) { throw 'Unexpected candidate branch.' }
+git status --short --branch | Out-File "$EvidenceRoot\02-clone-status.txt"
+$ActualCommit | Set-Content "$EvidenceRoot\02-clone-head.txt"
+if (-not (Test-Path -LiteralPath "$EvidenceRoot\acceptance.md")) {
+    Copy-Item -LiteralPath '.\docs\RELEASE_EVIDENCE_TEMPLATE.md' -Destination "$EvidenceRoot\acceptance.md"
+}
+```
+
+Only before the first package-selection override, verify the original defaults:
+
+```powershell
+$BootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
+$Bootstrap = Get-Content -LiteralPath $BootstrapPath -Raw | ConvertFrom-Json
+$ExpectedDefaults = @('base', 'browsers', 'dev', 'wsl', 'docker', 'multimedia', 'productivity', 'pwsh', 'poweruser')
+if (($Bootstrap.INSTALL_PACKAGES -join "`n") -cne ($ExpectedDefaults -join "`n")) {
+    throw 'Unexpected initial default package groups.'
+}
+```
+
+### Step 4: select acceptance packages and preview
+
+Before the first post-reboot setup run, set the exact
 ordered package selection for this acceptance scenario: the tracked defaults plus all six opt-in
 groups. This deliberately edits only the local, gitignored bootstrap configuration:
 
@@ -139,13 +251,51 @@ if (($actualPackageGroups -join "`n") -cne ($expectedPackageGroups -join "`n")) 
 }
 ```
 
-Then run setup from the same persistent clone:
+Preview the selected plan without applying it:
 
 ```powershell
-git status --short --branch
-git rev-parse HEAD
-.\setup-scripts\setup.ps1
+& pwsh -NoProfile -File .\setup-scripts\setup.ps1 -Plan -PlanFormat Json |
+    Set-Content "$EvidenceRoot\02-plan.json" -Encoding utf8
+if ($LASTEXITCODE -ne 0) { throw 'Setup plan failed.' }
+Get-Content "$EvidenceRoot\02-plan.json"
+git status --short
 ```
+
+Confirm the plan did not install anything, request UAC or create setup logs. Git must stay clean.
+
+### Step 5: apply from the persistent clone
+
+```powershell
+& pwsh -NoProfile -File .\setup-scripts\setup.ps1 -NonInteractive
+$SetupExitCode = $LASTEXITCODE
+$Attempt = Get-Date -Format 'yyyyMMdd-HHmmssfff'
+$SetupExitCode | Set-Content "$EvidenceRoot\02-setup-$Attempt-exit-code.txt"
+if ($SetupExitCode -notin @(0, 3010)) { throw "Setup failed: $SetupExitCode. Retain its logs." }
+if ($SetupExitCode -eq 3010) { throw 'Reboot required: restart Windows, restore step 3 session state, then repeat step 5.' }
+```
+
+On `3010`, stop before the downstream checks, save the transcript paths and reboot with
+`Restart-Computer`. Resume from the clone, never from the Git-free bootstrap. Do not repeat the
+initial-default check after packages have been deliberately overridden.
+
+### Step 6: diagnose installed state
+
+```powershell
+& pwsh -NoProfile -File .\setup-scripts\verify.ps1 -Format Json -CheckPackages |
+    Set-Content "$EvidenceRoot\03-diagnostic.json" -Encoding utf8
+$DiagnosticExitCode = $LASTEXITCODE
+$DiagnosticExitCode | Set-Content "$EvidenceRoot\03-diagnostic-exit-code.txt"
+$Report = Get-Content "$EvidenceRoot\03-diagnostic.json" -Raw | ConvertFrom-Json
+$Report.Counts | Format-List
+$Report.Checks | Where-Object Status -In @('Drift', 'Unknown') |
+    Format-Table Category, Name, Status, Message -Wrap
+```
+
+Exit `1` means drift was detected; investigate and correct it before acceptance. Exit `2` means
+inconclusive checks or invalid configuration without confirmed drift. Inspect each `Unknown`;
+installed installer type and components without probes can remain inconclusive even after a
+successful install. Exit `0` covers implemented passed/skipped checks, not the interactive checks
+below. Package queries can contact WinGet sources and write native caches/logs.
 
 ### Feature and orchestration checks
 
@@ -184,11 +334,20 @@ git rev-parse HEAD
 
 ### WSL and Docker checks
 
+#### Step 7: check WSL and Docker
+
+Launch Ubuntu once if user creation is still required. Open Docker Desktop and wait until its
+engine is ready before running the container check. Retain the output and inspect every exit code.
+
 ```powershell
 wsl --version
+if ($LASTEXITCODE -ne 0) { throw 'WSL version query failed.' }
 wsl --status
+if ($LASTEXITCODE -ne 0) { throw 'WSL status query failed.' }
 wsl --list --verbose
+if ($LASTEXITCODE -ne 0) { throw 'WSL distribution query failed.' }
 docker run --rm hello-world
+if ($LASTEXITCODE -ne 0) { throw 'Docker hello-world failed.' }
 ```
 
 - [ ] WSL commands complete successfully.
@@ -197,6 +356,37 @@ docker run --rm hello-world
 - [ ] Docker Desktop uses the intended backend and `hello-world` succeeds.
 
 ### User and terminal settings checks
+
+#### Step 8: check both profile hosts and terminal settings
+
+Open a new PowerShell 7 console and run the following. Repeat it in the PowerShell extension's
+Integrated Console in VS Code, not just an ordinary VS Code terminal. Check the prompt, icons and
+characters visually; a file hash alone does not demonstrate successful interactive loading.
+
+```powershell
+$PROFILE.CurrentUserCurrentHost
+[Console]::OutputEncoding.WebName
+Get-Module Terminal-Icons
+Get-Command oh-my-posh -ErrorAction SilentlyContinue
+$LocalProfiles = Join-Path $env:LOCALAPPDATA 'dotfiles\powershell-profiles'
+Get-ChildItem -LiteralPath $LocalProfiles -Filter '*.ps1' -File | Select-Object Name, LastWriteTimeUtc
+Get-FileHash -LiteralPath (Join-Path $LocalProfiles 'common.ps1')
+Write-Host 'UTF-8 check: ação, configuração, André'
+```
+
+The deployed `common.ps1` hash must match `powershell-profiles/common.ps1` in the candidate.
+On the accented Entra ID profile, inspect the alias in a newly opened console:
+
+```powershell
+$HOME
+$env:USERPROFILE
+[Environment]::GetEnvironmentVariable('HOME', 'User')
+Get-Item -LiteralPath $HOME -Force | Select-Object FullName, LinkType, Target
+```
+
+After Windows Terminal creates its dynamic profiles, restore the step 3 session variables and run
+`git -C $ClonePath status --short`; expect no tracked or untracked repository changes. Record an
+unavailable Entra ID/OneDrive/host scenario as unexecuted.
 
 - [ ] On an accented Entra ID profile, `C:\Users\<upn-prefix>` is a junction to the real profile.
 - [ ] A newly opened terminal reports the alias through `$HOME` and the user environment variable.
@@ -222,6 +412,8 @@ docker run --rm hello-world
 
 ## Interaction 3: idempotency
 
+### Step 9: rerun with an inaccessible repository origin
+
 Record HEAD and the current branch before and after every rerun; both must remain unchanged.
 Make the repository origin temporarily inaccessible in the disposable VM and verify that setup
 does not attempt fetch/pull or switch branches. Module package/download activity is separate.
@@ -230,12 +422,60 @@ even if the remote has advanced. A requested different branch must fail before m
 select/update it explicitly before retrying. Include an intentionally edited checkout scenario and
 verify that tracked/untracked edits and existing bootstrap JSON bytes are preserved by orchestration.
 
-Without changing configuration, run from the same persistent clone:
+Restore the session variables from step 3. Record hashes and timestamps of the deployed profiles,
+themes and host stubs. This function only reads files; backups are excluded by extension.
 
 ```powershell
-.\setup-scripts\setup.ps1
+function Get-AcceptanceFileState {
+    $Directories = @(
+        (Join-Path $env:LOCALAPPDATA 'dotfiles\powershell-profiles'),
+        (Join-Path $env:USERPROFILE '.config\oh-my-posh\poshthemes'),
+        (Split-Path -Parent $PROFILE.CurrentUserCurrentHost)
+    )
+    foreach ($Directory in $Directories) {
+        Get-ChildItem -LiteralPath $Directory -File -ErrorAction Stop |
+            Where-Object Extension -In @('.ps1', '.json') | ForEach-Object {
+                [pscustomobject]@{
+                    Path = $_.FullName
+                    Hash = (Get-FileHash -LiteralPath $_.FullName -ErrorAction Stop).Hash
+                    Modified = $_.LastWriteTimeUtc.Ticks
+                }
+            }
+    }
+}
+$Before = @(Get-AcceptanceFileState)
+$Before | Export-Clixml "$EvidenceRoot\04-files-before.xml"
+$HeadBefore = git rev-parse HEAD
+if ($LASTEXITCODE -ne 0) { throw 'Cannot read HEAD.' }
+$BranchBefore = git branch --show-current
+if ($LASTEXITCODE -ne 0) { throw 'Cannot read branch.' }
+$OriginalOrigin = git remote get-url origin
+if ($LASTEXITCODE -ne 0) { throw 'Cannot read origin.' }
+try {
+    git remote set-url origin 'https://127.0.0.1:1/unavailable.git'
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot set the temporary test origin.' }
+    & pwsh -NoProfile -File .\setup-scripts\setup.ps1 -NonInteractive
+    $RerunExitCode = $LASTEXITCODE
+} finally {
+    git remote set-url origin $OriginalOrigin
+    if ($LASTEXITCODE -ne 0) { throw 'Restore the recorded origin before continuing.' }
+}
+$RerunExitCode | Set-Content "$EvidenceRoot\04-rerun-exit-code.txt"
+if ($RerunExitCode -ne 0) { throw 'Idempotency run failed or requested a reboot.' }
+$After = @(Get-AcceptanceFileState)
+$Differences = @(Compare-Object -ReferenceObject $Before -DifferenceObject $After -Property Path, Hash, Modified)
+$Differences | Format-Table -AutoSize
+if ($Differences.Count) { throw 'Deployed content or timestamps changed on an unchanged rerun.' }
+$HeadAfter = git rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or $HeadAfter -ne $HeadBefore) { throw 'HEAD changed or is unreadable.' }
+$BranchAfter = git branch --show-current
+if ($LASTEXITCODE -ne 0 -or $BranchAfter -ne $BranchBefore) { throw 'Branch changed or is unreadable.' }
 git status --short
 ```
+
+Expect no differences, no reboot and no unnecessary UAC. The temporary URL affects only Git's
+origin; module package sources remain available. Watch the transcript for forbidden fetch/pull
+attempts even if the command exits successfully. The `finally` block restores the original URL.
 
 - [ ] Setup exits successfully without requesting another reboot.
 - [ ] No Windows feature module elevation is requested when all features are enabled.
@@ -252,38 +492,71 @@ git status --short
 
 ## Existing-install migration
 
+### Step 10: migrate the production baseline in a separate snapshot
+
 Test this separately from the clean-install snapshot. Start with an installation and local JSON
 created by the current `main` branch, including the previous profile and Terminal layout.
 
-1. In `dotfiles-configurations\dotfiles-bootstrap-variables.json`, set `GITHUB_DOTFILES_BRANCH` to
-   `develop` or the release branch. Then, from inside the persistent clone, run:
-   ```
-   git fetch origin
-   git checkout <branch>
-   ```
-2. Run `setup-scripts\update.ps1` and select only the shared catalogs initially:
-   `setup-modules.json`, `windows-capabilities.json`, `windows-features.json`, and
-   `winget-packages.json`.
-3. Review the new local JSON before running setup.
-4. Migrate the package selection retained from `v2026.09.0`: replace `development` with `dev`,
-   remove the former default `PowerBI`, and leave the new optional `azure` and `powerbi` groups
-   absent. Preserve every other selected group and its order:
-   ```powershell
-   $bootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
-   $bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
-   $bootstrap.INSTALL_PACKAGES = @($bootstrap.INSTALL_PACKAGES | ForEach-Object {
-       if ($_ -ceq 'development') { 'dev' }
-       elseif ($_ -cne 'PowerBI') { $_ }
-   })
-   $bootstrap | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $bootstrapPath -Encoding utf8
-   $migratedGroups = @((Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json).INSTALL_PACKAGES)
-   if ($migratedGroups -ccontains 'development' -or $migratedGroups -ccontains 'PowerBI' -or
-       $migratedGroups -ccontains 'azure' -or $migratedGroups -ccontains 'powerbi' -or
-       $migratedGroups -cnotcontains 'dev') {
-       throw "Unexpected migrated package selection: $($migratedGroups -join ', ')."
-   }
-   ```
-5. Run `setup.ps1`, then run it again to prove the migrated state is idempotent.
+Prepare the candidate/evidence state as in step 1 on this VM (using a separate evidence directory
+if needed). Do not run the clean-install block. Start in the existing persistent clone, then:
+
+```powershell
+Set-Location -LiteralPath $ClonePath
+git status --short --branch
+$BaselineStatus = @(git status --porcelain)
+if ($LASTEXITCODE -ne 0 -or $BaselineStatus.Count) {
+    throw 'Use a clean production snapshot; preserve existing tracked/untracked edits before migration.'
+}
+$BaselineCommit = git rev-parse HEAD
+if ($LASTEXITCODE -ne 0) { throw 'Cannot read the production baseline.' }
+$BaselineCommit | Set-Content "$EvidenceRoot\06-production-baseline.txt"
+git fetch origin
+if ($LASTEXITCODE -ne 0) { throw 'Fetch failed.' }
+git switch $Branch
+if ($LASTEXITCODE -ne 0) { throw 'Cannot select the candidate branch. Preserve any local edits.' }
+git merge --ff-only "origin/$Branch"
+if ($LASTEXITCODE -ne 0) { throw 'Candidate update is not a fast-forward.' }
+$ActualCommit = git rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or $ActualCommit -ne $ExpectedCommit) { throw 'Unexpected migration candidate.' }
+$BootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
+$Bootstrap = Get-Content -LiteralPath $BootstrapPath -Raw | ConvertFrom-Json
+$Bootstrap.GITHUB_DOTFILES_BRANCH = $Branch
+$Bootstrap | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $BootstrapPath -Encoding utf8
+& .\setup-scripts\update.ps1 `
+    -NonInteractive -SkipRepositoryUpdate -BackupDirectory "$EvidenceRoot\migration-backups" `
+    -TemplateName @('setup-modules.json', 'windows-capabilities.json', 'windows-features.json', 'winget-packages.json') `
+    -ErrorAction Stop
+```
+
+Review the updated local catalogs before applying. Repository updates above are explicit Git
+operations; `update.ps1 -SkipRepositoryUpdate` then updates only the selected catalogs and creates
+external backups. Invoke `update.ps1` directly so its array parameter receives four names,
+rather than a comma-containing string through native `pwsh -File`. This script throws on failure
+and does not exit the console. Keep `$ErrorActionPreference = 'Stop'` from session preparation.
+
+For a baseline that still has selections from `v2026.09.0`, migrate `development` to `dev`,
+remove the former default `PowerBI`, and leave the new optional `azure` and `powerbi` groups
+absent. Preserve every other selected group and its order:
+
+```powershell
+$bootstrapPath = '.\dotfiles-configurations\dotfiles-bootstrap-variables.json'
+$bootstrap = Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json
+$bootstrap.INSTALL_PACKAGES = @($bootstrap.INSTALL_PACKAGES | ForEach-Object {
+    if ($_ -ceq 'development') { 'dev' }
+    elseif ($_ -cne 'PowerBI') { $_ }
+})
+$bootstrap | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $bootstrapPath -Encoding utf8
+$migratedGroups = @((Get-Content -LiteralPath $bootstrapPath -Raw | ConvertFrom-Json).INSTALL_PACKAGES)
+if ($migratedGroups -ccontains 'development' -or $migratedGroups -ccontains 'PowerBI' -or
+    $migratedGroups -ccontains 'azure' -or $migratedGroups -ccontains 'powerbi' -or
+    $migratedGroups -cnotcontains 'dev') {
+    throw "Unexpected migrated package selection: $($migratedGroups -join ', ')."
+}
+```
+
+Run the step 4 preview command, step 5 apply, step 6 diagnostic and step 9 idempotency check.
+Stop/reboot on `3010` as before. Do not apply the clean-install default/opt-in overrides to
+the migrated personal selections. Do not repeat the fetch or catalog update between reruns.
 
 - [ ] Every replaced local JSON has a durable backup outside the repository.
 - [ ] Identity, endpoint, environment and Git variables are not replaced unless explicitly selected.
@@ -300,10 +573,48 @@ created by the current `main` branch, including the previous profile and Termina
 
 ## Repeated Git-free invocation
 
+### Step 11: preserve existing JSON and populate a missing file
+
 This is a distinct safety test, not the post-reboot continuation path. Before running it, put a
 recognisable non-secret change in one persistent local JSON and record its content or hash. Move a
 different local JSON to a backup outside the repository so the same invocation exercises both the
 preserve-existing and populate-missing paths. Take a VM snapshot before changing either file.
+
+Restore the step 3 session variables, then run the following only in this separate snapshot.
+The bootstrap JSON already contains the non-default acceptance package selection. Moving the
+different catalog below preserves it outside the checkout, rather than deleting it.
+
+```powershell
+$PreservedFile = Join-Path $ClonePath 'dotfiles-configurations\dotfiles-bootstrap-variables.json'
+$MissingFile = Join-Path $ClonePath 'dotfiles-configurations\windows-features.json'
+$MissingBackup = Join-Path $EvidenceRoot '07-windows-features-before-repeat.json'
+$BeforeHash = (Get-FileHash -LiteralPath $PreservedFile -Algorithm SHA256).Hash
+if (Test-Path -LiteralPath $MissingBackup) { throw 'Use a fresh snapshot/evidence path for this drill.' }
+Move-Item -LiteralPath $MissingFile -Destination $MissingBackup -ErrorAction Stop
+if (-not (Test-Path -LiteralPath $BootstrapScript -PathType Leaf)) {
+    Invoke-WebRequest -UseBasicParsing `
+        -Uri "https://raw.githubusercontent.com/abrioso/dotfiles-windows/$ExpectedCommit/setup-scripts/install.ps1" `
+        -OutFile $BootstrapScript
+}
+$InstallArguments = @('-Account', 'abrioso', '-Repo', 'dotfiles-windows', '-Branch', $Branch, '-NonInteractive')
+if ($ArchiveSha256) {
+    $InstallArguments += @('-Commit', $ExpectedCommit, '-ArchiveSha256', $ArchiveSha256)
+}
+& "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
+    -NoProfile -File $BootstrapScript @InstallArguments
+$RepeatExitCode = $LASTEXITCODE
+$RepeatExitCode | Set-Content "$EvidenceRoot\07-repeat-bootstrap-exit-code.txt"
+if ($RepeatExitCode -ne 0) { throw 'Repeated bootstrap failed or requested an unexpected reboot.' }
+$AfterHash = (Get-FileHash -LiteralPath $PreservedFile -Algorithm SHA256).Hash
+if ($AfterHash -cne $BeforeHash) { throw 'Existing local JSON was replaced.' }
+if (-not (Test-Path -LiteralPath $MissingFile -PathType Leaf)) { throw 'Missing JSON was not recreated.' }
+$TemplateHash = (Get-FileHash -LiteralPath '.\dotfiles-configurations\windows-features.json.example').Hash
+if ((Get-FileHash -LiteralPath $MissingFile).Hash -cne $TemplateHash) { throw 'Recreated JSON differs from the candidate template.' }
+git status --short
+```
+
+Retain the transcript showing both skip/copy messages. Export the evidence and restore the snapshot
+before running another scenario; do not treat this bootstrap repetition as post-reboot continuation.
 
 - [ ] Re-run the Git-free bootstrap from the same branch.
 - [ ] The existing personalised JSON remains byte-for-byte unchanged.
@@ -315,6 +626,8 @@ preserve-existing and populate-missing paths. Take a VM snapshot before changing
 
 ## Backup rollback drill
 
+### Step 12: restore a matching catalog backup and reapply
+
 Use the existing-install migration snapshot and one catalog backup created by `update.ps1`. Record
 the current migrated file hash, restore its matching backup, and verify that the restored bytes
 exactly match the backup. Parse the restored JSON before using it. Then rerun `update.ps1`, repeat
@@ -323,14 +636,25 @@ the release-candidate state.
 
 ```powershell
 $CatalogPath = '.\dotfiles-configurations\winget-packages.json'
-$CatalogBackup = '<absolute path to the matching update.ps1 backup>'
+Get-ChildItem -LiteralPath "$EvidenceRoot\migration-backups" -Recurse -File | Select-Object FullName
+$CatalogBackup = Read-Host 'Absolute path of the matching winget-packages.json backup'
+if (-not (Test-Path -LiteralPath $CatalogBackup -PathType Leaf)) { throw 'Backup is unavailable.' }
+Get-Content -LiteralPath $CatalogBackup -Raw | ConvertFrom-Json -ErrorAction Stop | Out-Null
 $MigratedHash = (Get-FileHash -LiteralPath $CatalogPath -Algorithm SHA256).Hash
 $BackupHash = (Get-FileHash -LiteralPath $CatalogBackup -Algorithm SHA256).Hash
 Copy-Item -LiteralPath $CatalogBackup -Destination $CatalogPath -Force
 $RestoredHash = (Get-FileHash -LiteralPath $CatalogPath -Algorithm SHA256).Hash
 if ($RestoredHash -cne $BackupHash) { throw 'Restored catalog does not match its backup.' }
 Get-Content -LiteralPath $CatalogPath -Raw | ConvertFrom-Json -ErrorAction Stop | Out-Null
+[pscustomobject]@{ Migrated = $MigratedHash; Backup = $BackupHash; Restored = $RestoredHash } |
+    ConvertTo-Json | Set-Content "$EvidenceRoot\08-rollback-hashes.json"
+& .\setup-scripts\update.ps1 `
+    -NonInteractive -SkipRepositoryUpdate -BackupDirectory "$EvidenceRoot\rollback-backups" `
+    -TemplateName winget-packages.json -ErrorAction Stop
 ```
+
+Repeat the applicable legacy selection migration from step 10, then step 5 apply and step 9
+idempotency, respecting reboot boundaries. Export the evidence before restoring the snapshot.
 
 - [ ] The pre-rollback migrated hash, backup hash and restored hash are recorded.
 - [ ] The restored file matches the durable backup byte-for-byte and remains valid JSON.
@@ -339,6 +663,21 @@ Get-Content -LiteralPath $CatalogPath -Raw | ConvertFrom-Json -ErrorAction Stop 
 - [ ] Restore the migration snapshot after the drill.
 
 ## Final release-branch gate
+
+### Step 13: record the verdict
+
+```powershell
+if (-not (Test-Path -LiteralPath "$EvidenceRoot\acceptance.md")) {
+    Copy-Item -LiteralPath '.\docs\RELEASE_EVIDENCE_TEMPLATE.md' -Destination "$EvidenceRoot\acceptance.md"
+}
+notepad (Join-Path $EvidenceRoot 'acceptance.md')
+```
+
+Fill in the exact tested commit, Windows build, transcript paths, exit codes and manual observations.
+Only mark PASS after the full required matrix passes;
+scope mismatch, source failures, edited checkouts, theme-link/failure/concurrency scenarios and
+unavailable Entra ID/OneDrive/cross-volume checks still need their own recorded evidence or an
+explicitly accepted limitation. CI or successful command parsing alone does not establish this.
 
 - [ ] All required scenarios pass against the exact `release/vYYYY.MM.N` commit.
 - [ ] The release PR targets `main` and the required `powershell` check succeeds.
