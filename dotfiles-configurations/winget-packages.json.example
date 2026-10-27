@@ -10,15 +10,15 @@
         },
         {
             "id": "Microsoft.PowerShell",
-            "scope": "machine"
+            "scope": "user"
         },
         {
             "id": "Microsoft.VisualStudioCode",
-            "scope": "machine"
+            "scope": "user"
         },
         {
             "id": "Microsoft.WindowsTerminal",
-            "scope": "machine"
+            "scope": "user"
         }
     ],
     "poweruser": [
@@ -32,7 +32,7 @@
         },
         {
             "id": "Microsoft.PowerShell",
-            "scope": "machine"
+            "scope": "user"
         },
         {
             "id": "Microsoft.PowerToys",
@@ -40,11 +40,11 @@
         },
         {
             "id": "Microsoft.VisualStudioCode",
-            "scope": "machine"
+            "scope": "user"
         },
         {
             "id": "Microsoft.WindowsTerminal",
-            "scope": "machine"
+            "scope": "user"
         }
     ],
     "browsers": [
@@ -92,15 +92,15 @@
         },
         {
             "id": "Microsoft.PowerShell",
-            "scope": "machine"
+            "scope": "user"
         },
         {
             "id": "Microsoft.VisualStudioCode",
-            "scope": "machine"
+            "scope": "user"
         },
         {
             "id": "Python.Python.3.13",
-            "scope": "machine"
+            "scope": "user"
         },
         {
             "id": "Yaak.app",
@@ -118,11 +118,11 @@
         },
         {
             "id": "Microsoft.PowerShell",
-            "scope": "machine"
+            "scope": "user"
         },
         {
             "id": "Microsoft.VisualStudioCode",
-            "scope": "machine"
+            "scope": "user"
         }
     ],
     "wsl": [
@@ -154,15 +154,15 @@
     "pwsh": [
         {
             "id": "Microsoft.PowerShell",
-            "scope": "machine"
+            "scope": "user"
         },
         {
             "id": "Microsoft.WindowsTerminal",
-            "scope": "machine"
+            "scope": "user"
         },
         {
             "id": "JanDeDobbeleer.OhMyPosh",
-            "scope": "machine"
+            "scope": "user"
         }
     ],
     "tailscale": [

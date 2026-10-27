@@ -915,8 +915,9 @@ Stop-Logging
                 }
             }
             foreach ($packageId in @('Git.Git', 'Microsoft.PowerShell', 'Microsoft.VisualStudioCode', 'Microsoft.WindowsTerminal')) {
-                if ($baseScopes[$packageId] -ne 'machine') {
-                    throw "Base package '$packageId' must use machine scope."
+                $expectedScope = if ($packageId -eq 'Git.Git') { 'machine' } else { 'user' }
+                if ($baseScopes[$packageId] -ne $expectedScope) {
+                    throw "Base package '$packageId' must use $expectedScope scope."
                 }
             }
 
@@ -1012,25 +1013,29 @@ Stop-Logging
                 'gerardog.gsudo',
                 'Git.Git',
                 'Google.Chrome',
-                'JanDeDobbeleer.OhMyPosh',
                 'Microsoft.AzureCLI',
                 'Microsoft.Edge',
                 'Microsoft.Office',
                 'Microsoft.OneDrive',
                 'Microsoft.PowerBI',
-                'Microsoft.PowerShell',
-                'Microsoft.VisualStudioCode',
-                'Microsoft.WindowsTerminal',
-                'Mozilla.Firefox',
-                'Python.Python.3.13'
+                'Mozilla.Firefox'
             )) {
                 if ($packageMetadata[$packageId].Scope -ne 'machine') {
                     throw "Package '$packageId' must use machine scope."
                 }
             }
 
-            if ($packageMetadata['Microsoft.Teams'].Scope -ne 'user') {
-                throw "Package 'Microsoft.Teams' must use user scope."
+            foreach ($packageId in @(
+                'JanDeDobbeleer.OhMyPosh',
+                'Microsoft.PowerShell',
+                'Microsoft.Teams',
+                'Microsoft.VisualStudioCode',
+                'Microsoft.WindowsTerminal',
+                'Python.Python.3.13'
+            )) {
+                if ($packageMetadata[$packageId].Scope -ne 'user') {
+                    throw "Package '$packageId' must use user scope."
+                }
             }
             if ($packageMetadata.ContainsKey('Google.Chrome.EXE')) {
                 throw "The package pool must use 'Google.Chrome' instead of 'Google.Chrome.EXE'."
