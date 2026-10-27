@@ -915,8 +915,8 @@ Stop-Logging
                 }
             }
             foreach ($packageId in @('Git.Git', 'Microsoft.PowerShell', 'Microsoft.VisualStudioCode', 'Microsoft.WindowsTerminal')) {
-                if ($baseScopes[$packageId] -ne 'user') {
-                    throw "Base package '$packageId' must use user scope."
+                if ($baseScopes[$packageId] -ne 'machine') {
+                    throw "Base package '$packageId' must use machine scope."
                 }
             }
 
@@ -971,7 +971,7 @@ Stop-Logging
             }
         }
 
-        It 'uses upstream-compatible scope and installer-type constraints for the default package pool' {
+        It 'uses the configured scopes and scope-neutral WiX constraints for the default package pool' {
             $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
             $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
             $packageMetadata = @{}
@@ -1010,15 +1010,30 @@ Stop-Logging
             foreach ($packageId in @(
                 'Docker.DockerDesktop',
                 'gerardog.gsudo',
+                'Git.Git',
+                'Google.Chrome',
+                'JanDeDobbeleer.OhMyPosh',
                 'Microsoft.AzureCLI',
                 'Microsoft.Edge',
                 'Microsoft.Office',
+                'Microsoft.OneDrive',
                 'Microsoft.PowerBI',
-                'Mozilla.Firefox'
+                'Microsoft.PowerShell',
+                'Microsoft.VisualStudioCode',
+                'Microsoft.WindowsTerminal',
+                'Mozilla.Firefox',
+                'Python.Python.3.13'
             )) {
                 if ($packageMetadata[$packageId].Scope -ne 'machine') {
                     throw "Package '$packageId' must use machine scope."
                 }
+            }
+
+            if ($packageMetadata['Microsoft.Teams'].Scope -ne 'user') {
+                throw "Package 'Microsoft.Teams' must use user scope."
+            }
+            if ($packageMetadata.ContainsKey('Google.Chrome.EXE')) {
+                throw "The package pool must use 'Google.Chrome' instead of 'Google.Chrome.EXE'."
             }
         }
 

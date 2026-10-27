@@ -106,9 +106,9 @@ Describe 'Setup configuration preflight' {
         { Invoke-PreflightFixture } | Should -Throw '*windows-features.json.wsl*'
     }
     It 'rejects conflicting selected duplicate packages: <Label>' -ForEach @(
-        @{Label='scope';Package=[pscustomobject]@{id='Git.Git';scope='machine'}},
-        @{Label='installer';Package=[pscustomobject]@{id='Git.Git';scope='user';installerType='wix'}},
-        @{Label='case-insensitive ID';Package=[pscustomobject]@{id='git.git';scope='machine'}},
+        @{Label='scope';Package=[pscustomobject]@{id='Git.Git';scope='user'}},
+        @{Label='installer';Package=[pscustomobject]@{id='Git.Git';scope='machine';installerType='wix'}},
+        @{Label='case-insensitive ID';Package=[pscustomobject]@{id='git.git';scope='user'}},
         @{Label='legacy string versus scoped object';Package='Git.Git'}
     ) {
         $packages = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'winget-packages.json')
@@ -120,7 +120,7 @@ Describe 'Setup configuration preflight' {
     }
     It 'normalizes empty metadata and accepts equivalent duplicates' {
         $packages = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'winget-packages.json')
-        $packages | Add-Member extra @([pscustomobject]@{id='git.git';scope='USER';installerType=' '})
+        $packages | Add-Member extra @([pscustomobject]@{id='git.git';scope='MACHINE';installerType=' '})
         Save-PreflightFixture winget-packages $packages
         $bootstrap.INSTALL_PACKAGES = @('base','extra')
         $bootstrap.INSTALL_SETTINGS = @()
@@ -128,14 +128,14 @@ Describe 'Setup configuration preflight' {
     }
     It 'checks duplicate conflicts when missing selectors mean all packages' {
         $packages = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'winget-packages.json')
-        $packages | Add-Member extra @([pscustomobject]@{id='Git.Git';scope='machine'})
+        $packages | Add-Member extra @([pscustomobject]@{id='Git.Git';scope='user'})
         Save-PreflightFixture winget-packages $packages
         $bootstrap.PSObject.Properties.Remove('INSTALL_PACKAGES')
         { Invoke-PreflightFixture } | Should -Throw '*conflicting metadata across selected groups*'
     }
     It 'ignores duplicate conflicts in unselected groups and explicit opt-outs' {
         $packages = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'winget-packages.json')
-        $packages | Add-Member extra @([pscustomobject]@{id='Git.Git';scope='machine'})
+        $packages | Add-Member extra @([pscustomobject]@{id='Git.Git';scope='user'})
         Save-PreflightFixture winget-packages $packages
         { Invoke-PreflightFixture } | Should -Not -Throw
         $bootstrap.INSTALL_PACKAGES = @()
@@ -231,7 +231,7 @@ function Install-DotfilesPrerequisites {
             $invalidBootstrap.INSTALL_SETTINGS = @()
             $fixturePackagesPath = "$fixtureRoot/dotfiles-configurations/winget-packages.json"
             $fixturePackages = Read-DotfilesConfigurationObject $fixturePackagesPath
-            $fixturePackages | Add-Member extra @([pscustomobject]@{id='Git.Git';scope='machine'})
+            $fixturePackages | Add-Member extra @([pscustomobject]@{id='Git.Git';scope='user'})
             $fixturePackages | ConvertTo-Json -Depth 20 | Set-Content $fixturePackagesPath
             $expectedError = 'conflicting metadata across selected groups'
         }

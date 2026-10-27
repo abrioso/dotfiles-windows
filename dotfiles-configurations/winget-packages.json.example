@@ -6,19 +6,19 @@
         },
         {
             "id": "Git.Git",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.PowerShell",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.VisualStudioCode",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.WindowsTerminal",
-            "scope": "user"
+            "scope": "machine"
         }
     ],
     "poweruser": [
@@ -28,11 +28,11 @@
         },
         {
             "id": "Git.Git",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.PowerShell",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.PowerToys",
@@ -40,17 +40,17 @@
         },
         {
             "id": "Microsoft.VisualStudioCode",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.WindowsTerminal",
-            "scope": "user"
+            "scope": "machine"
         }
     ],
     "browsers": [
         {
-            "id": "Google.Chrome.EXE",
-            "scope": "user"
+            "id": "Google.Chrome",
+            "scope": "machine"
         },
         {
             "id": "Microsoft.Edge",
@@ -68,11 +68,11 @@
         },
         {
             "id": "Microsoft.OneDrive",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.Teams",
-            "scope": "machine"
+            "scope": "user"
         }
     ],
     "powerbi": [
@@ -84,7 +84,7 @@
     "dev": [
         {
             "id": "Git.Git",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "GitHub.cli",
@@ -92,15 +92,15 @@
         },
         {
             "id": "Microsoft.PowerShell",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.VisualStudioCode",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Python.Python.3.13",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Yaak.app",
@@ -118,11 +118,11 @@
         },
         {
             "id": "Microsoft.PowerShell",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.VisualStudioCode",
-            "scope": "user"
+            "scope": "machine"
         }
     ],
     "wsl": [
@@ -154,15 +154,15 @@
     "pwsh": [
         {
             "id": "Microsoft.PowerShell",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.WindowsTerminal",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "JanDeDobbeleer.OhMyPosh",
-            "scope": "user"
+            "scope": "machine"
         }
     ],
     "tailscale": [
