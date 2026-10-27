@@ -684,12 +684,34 @@ Stop-Logging
             }
         }
 
-        It 'installs bootstrap prerequisites per-user without updating legacy PowerShellGet' {
+        It 'keeps bootstrap prerequisite scopes consistent with the package catalog without updating legacy PowerShellGet' {
             $functionsPath = Join-Path $script:repositoryRoot 'setup-scripts/setup-functions.ps1'
             $functions = Get-Content -LiteralPath $functionsPath -Raw
+            $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
+            $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
+            $prerequisite = (Get-Command Install-DotfilesPrerequisites).ScriptBlock.Ast
+            $installArguments = $prerequisite.FindAll({
+                param($node)
+                $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                $node.Left.Extent.Text -eq '$wingetArguments'
+            }, $true)
 
-            if ($functions -notmatch "'--scope', 'user'") {
-                throw 'Git and PowerShell bootstrap prerequisites must request user scope.'
+            @($installArguments).Count | Should -Be 2
+            foreach ($assignment in $installArguments) {
+                $arguments = @($assignment.Right.FindAll({
+                    param($node)
+                    $node -is [System.Management.Automation.Language.StringConstantExpressionAst]
+                }, $true) | ForEach-Object Value)
+                $packageId = $arguments[[Array]::IndexOf($arguments, '--id') + 1]
+                $scope = $arguments[[Array]::IndexOf($arguments, '--scope') + 1]
+                $expectedScope = if ($packageId -eq 'Git.Git') { 'machine' } else { 'user' }
+                $packageId | Should -BeIn @('Git.Git', 'Microsoft.PowerShell')
+                $scope | Should -Be $expectedScope
+                foreach ($group in $packages.PSObject.Properties) {
+                    foreach ($entry in @($group.Value | Where-Object id -EQ $packageId)) {
+                        $entry.scope | Should -Be $scope -Because "bootstrap and group '$($group.Name)' must agree for $packageId"
+                    }
+                }
             }
             if ($functions -match 'Install-Module -Name PowerShellGet') {
                 throw 'Bootstrap must not update PowerShellGet in the active Windows PowerShell process.'

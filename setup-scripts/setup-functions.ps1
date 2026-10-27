@@ -205,7 +205,7 @@ function Install-DotfilesPrerequisites {
         Write-Info "Git not found. Installing Git..."
         $wingetArguments = @(
             'install', '--id', 'Git.Git', '--exact', '--force',
-            '--source', 'winget', '--scope', 'user',
+            '--source', 'winget', '--scope', 'machine',
             '--accept-source-agreements', '--accept-package-agreements',
             '--disable-interactivity'
         )

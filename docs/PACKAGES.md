@@ -169,7 +169,7 @@ affecting bootstrap installs.
 | `Yubico.YubiKeyManagerCLI` | `machine` | Yes when installation is required; upstream WiX installer declares machine scope. |
 | `Docker.DockerDesktop` | `machine` | Yes when installation is required. |
 | `gerardog.gsudo` | `machine` | Yes when installation is required; gsudo installs system integration. |
-| `Git.Git` | `user` | Normally no. Git also publishes a machine installer, but bootstrap deliberately selects the user installer. |
+| `Git.Git` | `machine` | Yes when installation is required; bootstrap and package groups both request machine scope. |
 | `Google.GoogleDrive` | `machine` | Yes when installation is required; Drive for desktop installs machine-wide integration. |
 | `Microsoft.Azd` | omitted; WiX pinned | No UAC was required in the clean-machine validation; its upstream WiX installer has no declared scope. |
 | `Microsoft.AzureCLI` | `machine` | Yes when installation is required. |
@@ -184,7 +184,10 @@ affecting bootstrap installs.
 | `Microsoft.WSL` | omitted; WiX pinned | Yes when installation is required; the WiX installer presents UAC. |
 | `Tailscale.Tailscale` | `machine` | Yes when installation is required; Tailscale installs its system service and network integration. |
 
-Git and PowerShell are also bootstrap prerequisites. If missing, setup installs them explicitly with `user` scope before processing package groups. An existing installation in either scope is reused.
+Git and PowerShell are also bootstrap prerequisites. If missing, setup installs Git with `machine`
+scope and PowerShell with `user` scope before processing package groups, matching their catalog
+entries. The prerequisite check reuses an existing command on PATH; the package module then
+verifies the configured scope and reports any mismatch.
 
 Scopes for the additions above were checked on 2026-09-06 against the Winget installer manifests:
 [7-Zip 26.02](https://github.com/microsoft/winget-pkgs/blob/master/manifests/7/7zip/7zip/26.02/7zip.7zip.installer.yaml),
