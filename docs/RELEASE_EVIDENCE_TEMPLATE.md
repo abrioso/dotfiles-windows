@@ -123,7 +123,9 @@ Checks:
 
 - [ ] archive root resolved correctly
 - [ ] local JSON created from release templates
-- [ ] `Microsoft.PowerShell` and `Git.Git` installed at user scope
+- [ ] missing `Microsoft.PowerShell` installed at user scope and missing `Git.Git` at machine scope
+- [ ] Git UAC, cancellation and existing-install reuse scenarios recorded; bootstrap itself remained non-elevated
+- [ ] machine-scoped Git detected and skipped by the package phase without scope drift
 - [ ] PowerShell used MSIX rather than MSI/WiX
 - [ ] PATH refresh exposed `pwsh` and `git`
 - [ ] setup relaunched from Windows PowerShell 5.1 into PowerShell 7
