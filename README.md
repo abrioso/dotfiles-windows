@@ -29,7 +29,7 @@ To install these dotfiles from PowerShell without installing Git first:
 iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
 ```
 
-Windows PowerShell 5.1 is supported as the entry point. The bootstrap installs or reuses per-user PowerShell 7 and Git prerequisites, refreshes the process path, and then continues automatically in PowerShell 7 before running Git commands.
+Windows PowerShell 5.1 is supported as the entry point. The bootstrap installs or reuses PowerShell 7 and Git prerequisites, refreshes the process path, and then continues automatically in PowerShell 7 before running Git commands. Shared defaults install Git with machine scope (which can request elevation) and PowerShell 7 with user scope. Selected local package declarations control their scope and installer type during bootstrap as well as package installation.
 
 Use the Git-free command for the initial bootstrap. After the persistent workspace clone has been
 created, continue post-reboot and later idempotency runs from that clone with

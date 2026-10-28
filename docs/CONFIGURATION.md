@@ -390,7 +390,7 @@ The installer resolves the extracted root dynamically, so custom archives do not
 
 During setup:
 
-1. Missing Git and PowerShell prerequisites are installed for the current user.
+1. Missing Git and PowerShell prerequisites use the scope and installer type declared in the selected local package groups. Shared defaults request machine scope for Git (which can request elevation) and user scope for PowerShell. If a prerequisite is absent from the selected groups, bootstrap still installs it using those fallback scopes. Legacy strings and objects without scope remain unscoped.
 2. A bootstrap started from Windows PowerShell 5.1 relaunches itself in PowerShell 7 before running Git commands.
 3. Missing local config files are created from the `.json.example` templates.
 4. A Git invocation selects its current checkout. A Git-free invocation creates the missing persistent clone using the selected endpoint and branch.

@@ -153,9 +153,72 @@ function Update-DotfilesProcessPath {
     $env:Path = $pathSegments -join [System.IO.Path]::PathSeparator
 }
 
+function Get-DotfilesBootstrapPackageArguments {
+    param (
+        [Parameter(Mandatory)]
+        [ValidateSet('Git.Git', 'Microsoft.PowerShell')]
+        [string]$Id,
+        [Parameter(Mandatory)]$PackageConfig,
+        [string[]]$Groups
+    )
+
+    $scope = if ($Id -eq 'Git.Git') { 'machine' } else { 'user' }
+    $installerType = $null
+    $found = $false
+    foreach ($group in $PackageConfig.PSObject.Properties) {
+        if ($PSBoundParameters.ContainsKey('Groups') -and $Groups -notcontains $group.Name) { continue }
+        foreach ($entry in $group.Value) {
+            $entryId = if ($entry -is [string]) { $entry } else { [string]$entry.id }
+            if ($entryId -ne $Id) { continue }
+            $entryScope = if ($entry -is [string]) { $null } else { [string]$entry.scope }
+            $entryInstallerType = if ($entry -is [string]) { $null } else { [string]$entry.installerType }
+            if ([string]::IsNullOrWhiteSpace($entryScope)) { $entryScope = $null }
+            if ([string]::IsNullOrWhiteSpace($entryInstallerType)) { $entryInstallerType = $null }
+            if ($entryScope -and $entryScope -notin @('user', 'machine')) {
+                throw "Package '$Id' has unsupported bootstrap scope '$entryScope'."
+            }
+            if ($entryInstallerType -and $entryInstallerType -ne 'wix') {
+                throw "Package '$Id' has unsupported bootstrap installer type '$entryInstallerType'."
+            }
+            if ($found -and ($scope -ne $entryScope -or $installerType -ne $entryInstallerType)) {
+                throw "Package '$Id' has conflicting metadata across selected groups."
+            }
+            $scope = $entryScope
+            $installerType = $entryInstallerType
+            $found = $true
+        }
+    }
+
+    $arguments = @(
+        'install', '--id', $Id, '--exact', '--force', '--source', 'winget',
+        '--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity'
+    )
+    if ($scope) { $arguments += @('--scope', $scope) }
+    if ($installerType) { $arguments += @('--installer-type', $installerType) }
+    return $arguments
+}
+
 # Function to install the dotfiles pre-requisites
 function Install-DotfilesPrerequisites {
+    param (
+        [string]$ConfigDirectory = (Join-Path $PSScriptRoot '../dotfiles-configurations'),
+        $DotfilesVariables
+    )
+
     Write-Info "Installing dotfiles prerequisites..."
+
+    # Resolve both declarations before any install. Missing selectors mean all groups;
+    # explicit empty selections retain only the mandatory bootstrap defaults.
+    $packageConfig = Read-DotfilesConfigurationObject (Join-Path $ConfigDirectory 'winget-packages.json')
+    if ($null -eq $DotfilesVariables) {
+        $DotfilesVariables = Read-DotfilesConfigurationObject (Join-Path $ConfigDirectory 'dotfiles-bootstrap-variables.json')
+    }
+    $selection = @{ PackageConfig = $packageConfig }
+    if (Test-DotfilesObjectProperty $DotfilesVariables 'INSTALL_PACKAGES') {
+        $selection.Groups = @($DotfilesVariables.INSTALL_PACKAGES)
+    }
+    $powerShellArguments = @(Get-DotfilesBootstrapPackageArguments -Id Microsoft.PowerShell @selection)
+    $gitArguments = @(Get-DotfilesBootstrapPackageArguments -Id Git.Git @selection)
 
     # Check if winget is available
     try {
@@ -175,13 +238,7 @@ function Install-DotfilesPrerequisites {
     try {
         if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
             Write-Info "PowerShell is not installed. Installing PowerShell..."
-            $wingetArguments = @(
-                'install', '--id', 'Microsoft.PowerShell', '--exact', '--force',
-                '--source', 'winget', '--scope', 'user',
-                '--accept-source-agreements', '--accept-package-agreements',
-                '--disable-interactivity'
-            )
-            & winget @wingetArguments
+            & winget @powerShellArguments
             if ($LASTEXITCODE -ne 0) {
                 Write-ErrorMessage "Winget failed to install PowerShell (exit code $LASTEXITCODE)."
                 return $false
@@ -203,13 +260,7 @@ function Install-DotfilesPrerequisites {
     # Install Git if not present
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         Write-Info "Git not found. Installing Git..."
-        $wingetArguments = @(
-            'install', '--id', 'Git.Git', '--exact', '--force',
-            '--source', 'winget', '--scope', 'machine',
-            '--accept-source-agreements', '--accept-package-agreements',
-            '--disable-interactivity'
-        )
-        & winget @wingetArguments
+        & winget @gitArguments
         if ($LASTEXITCODE -ne 0) {
             Write-ErrorMessage "Winget failed to install Git (exit code $LASTEXITCODE)."
             return $false
