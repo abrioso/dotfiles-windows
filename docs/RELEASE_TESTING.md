@@ -145,8 +145,12 @@ if ($InstallExitCode -eq 3010) { Write-Warning 'Reboot required. Complete the ch
 
 - [ ] The archive downloads and its extracted root is resolved correctly.
 - [ ] Local JSON configuration is created from the selected branch templates.
-- [ ] Missing `Microsoft.PowerShell` and `Git.Git` prerequisites install successfully with user
-      scope; PowerShell uses its MSIX package rather than the MSI/WiX installer.
+- [ ] With shared defaults, missing `Git.Git` installs with machine scope, requesting elevation
+      when required; missing `Microsoft.PowerShell` installs with user scope using its MSIX package
+      rather than the MSI/WiX installer.
+- [ ] In a separate custom-configuration scenario with Git absent, a selected `Git.Git` declaration
+      with user scope is passed to WinGet during bootstrap and agrees with the subsequent package
+      module check. The bootstrap does not force the machine default over the selected declaration.
 - [ ] PATH refresh makes both `pwsh` and `git` available to the running bootstrap.
 - [ ] Windows PowerShell 5.1 relaunches setup in PowerShell 7 before repository Git operations.
 - [ ] The persistent clone is created under the configured workspace.

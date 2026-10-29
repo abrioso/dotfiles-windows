@@ -98,7 +98,8 @@ Assert-DotfilesSetupConfiguration -DotfilesVariables $DotfilesVariables `
     -ModuleDirectory (Join-Path $dotfileRootDir 'setup-modules')
 
 Write-Host "Installing the pre-requisites for the dotfiles setup:"
-$prerequisitesInstalled = Install-DotfilesPrerequisites
+$prerequisitesInstalled = Install-DotfilesPrerequisites -DotfilesVariables $DotfilesVariables `
+    -ConfigDirectory (Join-Path $dotfileRootDir 'dotfiles-configurations')
 
 if (-not $prerequisitesInstalled) {
     Write-ErrorMessage "Failed to install prerequisites. Exiting script."
@@ -107,7 +108,7 @@ if (-not $prerequisitesInstalled) {
     Write-Info "Prerequisites installed successfully."
 }
 
-# Refresh PATH after installing per-user prerequisites.
+# Refresh PATH after installing prerequisites in the configured scopes.
 Write-Info "Refreshing PATH environment variable..."
 try {
     Update-DotfilesProcessPath
