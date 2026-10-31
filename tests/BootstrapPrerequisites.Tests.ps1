@@ -16,16 +16,19 @@ Describe 'Bootstrap prerequisite scope policy' {
             if ($script:prerequisiteExitCode -eq 0) {
                 if ($id -eq 'Git.Git') {
                     $script:gitAvailable = $script:publishGitCommand
-                    $script:installedGitScope = $scope
-                } else { $script:pwshAvailable = $true }
+                } else {
+                    $script:pwshAvailable = $true
+                }
+                $script:installedScopes[$id] = $scope
             }
         }
     }
     BeforeEach {
+        $script:savedLastExitCode = $global:LASTEXITCODE
         $script:prerequisiteCalls = [Collections.Generic.List[object]]::new()
         $script:gitAvailable = $false
         $script:pwshAvailable = $false
-        $script:installedGitScope = $null
+        $script:installedScopes = @{}
         $script:prerequisiteExitCode = 0
         $script:publishGitCommand = $true
         $script:testConfigDirectory = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
@@ -44,11 +47,19 @@ Describe 'Bootstrap prerequisite scope policy' {
         Mock Start-Process { throw 'Unexpected explicit elevation or package installation' }
         Mock Invoke-DotfilesWingetQuery {
             param($WingetPath, $Arguments)
+            $idIndex = [Array]::IndexOf($Arguments, '--id')
+            $queriedId = if ($idIndex -ge 0) { $Arguments[$idIndex + 1] } else { 'Git.Git' }
+            $installedScope = $script:installedScopes[$queriedId]
             $scopeIndex = [Array]::IndexOf($Arguments, '--scope')
-            if ($scopeIndex -ge 0 -and $Arguments[$scopeIndex + 1] -ne $script:installedGitScope) {
+            if ($null -eq $installedScope -or ($scopeIndex -ge 0 -and $Arguments[$scopeIndex + 1] -ne $installedScope)) {
                 [pscustomobject]@{ ExitCode=-1978335212; Output='' }
-            } else { [pscustomobject]@{ ExitCode=0; Output='Git Git.Git fixture-version' } }
+            } else {
+                [pscustomobject]@{ ExitCode=0; Output="$queriedId fixture-version" }
+            }
         }
+    }
+    AfterEach {
+        $global:LASTEXITCODE = $script:savedLastExitCode
     }
     It 'installs Git machine-wide and PowerShell per-user and satisfies every catalog declaration' {
         Install-DotfilesPrerequisites -ConfigDirectory $script:testConfigDirectory | Should -BeTrue
@@ -65,7 +76,11 @@ Describe 'Bootstrap prerequisite scope policy' {
             }
         }
         $gitEntry = @($catalog.base | Where-Object id -EQ 'Git.Git')[0]
-        $packageSpecs = @([pscustomobject]@{ Id='Git.Git'; Scope=$gitEntry.scope; InstallerType=$null })
+        $pwshEntry = @($catalog.base | Where-Object id -EQ 'Microsoft.PowerShell')[0]
+        $packageSpecs = @(
+            [pscustomobject]@{ Id='Git.Git'; Scope=$gitEntry.scope; InstallerType=$null },
+            [pscustomobject]@{ Id='Microsoft.PowerShell'; Scope=$pwshEntry.scope; InstallerType=$null }
+        )
         $failedPackages = [Collections.Generic.List[string]]::new()
         $wingetPath = 'winget'
         & $applyLoop
@@ -76,7 +91,8 @@ Describe 'Bootstrap prerequisite scope policy' {
     It 'reuses an existing machine installation without installing or refreshing PATH' {
         $script:gitAvailable = $true
         $script:pwshAvailable = $true
-        $script:installedGitScope = 'machine'
+        $script:installedScopes['Git.Git'] = 'machine'
+        $script:installedScopes['Microsoft.PowerShell'] = 'user'
         Install-DotfilesPrerequisites -ConfigDirectory $script:testConfigDirectory | Should -BeTrue
         $script:prerequisiteCalls | Should -HaveCount 0
         Should -Invoke Update-DotfilesProcessPath -Times 0 -Exactly
@@ -85,7 +101,8 @@ Describe 'Bootstrap prerequisite scope policy' {
     It 'preserves an existing user installation and leaves explicit scope reconciliation to package apply' {
         $script:gitAvailable = $true
         $script:pwshAvailable = $true
-        $script:installedGitScope = 'user'
+        $script:installedScopes['Git.Git'] = 'user'
+        $script:installedScopes['Microsoft.PowerShell'] = 'user'
         Install-DotfilesPrerequisites -ConfigDirectory $script:testConfigDirectory | Should -BeTrue
         $packageSpecs = @([pscustomobject]@{ Id='Git.Git'; Scope='machine'; InstallerType=$null })
         $failedPackages = [Collections.Generic.List[string]]::new()
