@@ -22,59 +22,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install validation modules
+      - name: Run repository validation
         shell: pwsh
+        env:
+          VALIDATION_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
-            Register-PSRepository -Default
+          $arguments = @{ InstallDependencies = $true }
+          if ($env:VALIDATION_BASE_REF -and $env:VALIDATION_BASE_REF -notmatch '^0+$') {
+            $arguments.BaseRef = $env:VALIDATION_BASE_REF
           }
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
-          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
-
-      - name: Run Pester tests
-        shell: pwsh
-        run: |
-          $result = Invoke-Pester -Path ./tests -PassThru
-          if ($result.FailedCount -gt 0) { exit 1 }
-
-      - name: Run PSScriptAnalyzer
-        shell: pwsh
-        run: |
-          $files = @(Get-ChildItem -Recurse -Filter *.ps1 -File)
-          $results = @($files | ForEach-Object {
-            Invoke-ScriptAnalyzer -Path $_.FullName -Severity Error
-          })
-          if ($results.Count -gt 0) {
-            $results | Format-Table RuleName, Severity, ScriptName, Line, Message -AutoSize
-            exit 1
-          }
-
-      - name: Validate PowerShell syntax and JSON
-        shell: pwsh
-        run: |
-          foreach ($file in (Get-ChildItem -Recurse -Filter *.ps1 -File)) {
-            $tokens = $null
-            $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile(
-              $file.FullName,
-              [ref]$tokens,
-              [ref]$errors
-            ) | Out-Null
-            if ($errors.Count -gt 0) {
-              $errors | ForEach-Object { Write-Error "$($file.FullName): $($_.Message)" }
-              exit 1
-            }
-          }
-
-          $jsonFiles = Get-ChildItem -Recurse -File |
-            Where-Object { $_.Name -match '\.json(\.example)?$' }
-          foreach ($file in $jsonFiles) {
-            Get-Content -LiteralPath $file.FullName -Raw |
-              ConvertFrom-Json -ErrorAction Stop |
-              Out-Null
-          }
-
-      - name: Check whitespace
-        shell: pwsh
-        run: git diff --check HEAD^ HEAD
+          ./tests/Invoke-Validation.ps1 @arguments

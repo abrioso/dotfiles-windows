@@ -4,6 +4,108 @@ Describe 'Bootstrap reliability contracts' {
         . "$script:repositoryRoot/setup-scripts/setup-functions.ps1"
     }
 
+    Context 'Bootstrap package declarations' {
+        BeforeAll {
+            # Intercept package mutations; these tests never invoke the real WinGet.
+            function winget {
+                $script:bootstrapCalls.Add(@($args))
+                $id = $args[[Array]::IndexOf($args, '--id') + 1]
+                $commandName = if ($id -eq 'Git.Git') { 'git' } else { 'pwsh' }
+                $script:bootstrapCommands[$commandName] = $true
+                $global:LASTEXITCODE = 0
+            }
+        }
+        BeforeEach {
+            $script:bootstrapCalls = [Collections.Generic.List[object]]::new()
+            $script:bootstrapCommands = @{}
+            $script:bootstrapExitCode = $global:LASTEXITCODE
+            $configDirectory = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            New-Item -ItemType Directory -Path $configDirectory | Out-Null
+            $variables = [pscustomobject]@{ INSTALL_PACKAGES = @('base') }
+            Mock Get-Command {
+                param($Name)
+                if ($Name -eq 'winget' -or $script:bootstrapCommands[$Name]) {
+                    [pscustomobject]@{ Name = $Name }
+                }
+            } -ParameterFilter { $Name -in @('winget', 'pwsh', 'git') }
+            Mock Update-DotfilesProcessPath { }
+        }
+        AfterEach { $global:LASTEXITCODE = $script:bootstrapExitCode }
+
+        It 'installs missing Git with configured <GitScope> scope and PowerShell with <PowerShellScope> scope' -ForEach @(
+            @{ GitScope = 'user'; PowerShellScope = 'user' },
+            @{ GitScope = 'machine'; PowerShellScope = 'user' },
+            @{ GitScope = 'user'; PowerShellScope = 'machine' }
+        ) {
+            @{ base = @(
+                @{ id = 'Git.Git'; scope = $GitScope },
+                @{ id = 'Microsoft.PowerShell'; scope = $PowerShellScope }
+            ) } | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $configDirectory 'winget-packages.json')
+            Install-DotfilesPrerequisites -ConfigDirectory $configDirectory -DotfilesVariables $variables | Should -BeTrue
+            $script:bootstrapCalls.Count | Should -Be 2
+            foreach ($call in $script:bootstrapCalls) {
+                $id = $call[[Array]::IndexOf($call, '--id') + 1]
+                $expected = if ($id -eq 'Git.Git') { $GitScope } else { $PowerShellScope }
+                $call[[Array]::IndexOf($call, '--scope') + 1] | Should -Be $expected
+                $call[[Array]::IndexOf($call, '--source') + 1] | Should -Be 'winget'
+            }
+        }
+
+        It 'reuses existing prerequisite commands without installing packages' {
+            '{"base":[{"id":"Git.Git","scope":"user"}]}' | Set-Content (Join-Path $configDirectory 'winget-packages.json')
+            $script:bootstrapCommands = @{ git = $true; pwsh = $true }
+            Install-DotfilesPrerequisites -ConfigDirectory $configDirectory -DotfilesVariables $variables | Should -BeTrue
+            $script:bootstrapCalls.Count | Should -Be 0
+        }
+
+        It 'rejects conflicting selected Git metadata before installing either prerequisite' {
+            '{"base":[{"id":"Git.Git","scope":"user"}],"dev":[{"id":"git.git","scope":"machine"}]}' |
+                Set-Content (Join-Path $configDirectory 'winget-packages.json')
+            $variables.INSTALL_PACKAGES = @('base', 'dev')
+            { Install-DotfilesPrerequisites -ConfigDirectory $configDirectory -DotfilesVariables $variables } |
+                Should -Throw '*conflicting metadata*'
+            $script:bootstrapCalls.Count | Should -Be 0
+        }
+
+        It 'uses catalog defaults for each selected prerequisite' {
+            $packages = Get-Content (Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example') -Raw | ConvertFrom-Json
+            foreach ($id in @('Git.Git', 'Microsoft.PowerShell')) {
+                $arguments = @(Get-DotfilesBootstrapPackageArguments -Id $id -PackageConfig $packages)
+                $scope = $arguments[[Array]::IndexOf($arguments, '--scope') + 1]
+                $scope | Should -Be $(if ($id -eq 'Git.Git') { 'machine' } else { 'user' })
+                foreach ($group in $packages.PSObject.Properties) {
+                    foreach ($entry in @($group.Value | Where-Object id -EQ $id)) {
+                        $entry.scope | Should -Be $scope
+                    }
+                }
+            }
+        }
+
+        It 'honors selected groups and case-insensitive equivalent declarations' {
+            $packages = '{"base":[{"id":"git.git","scope":"USER","installerType":" "}],"dev":[{"id":"Git.Git","scope":"user"}],"unused":[{"id":"Git.Git","scope":"machine"}]}' | ConvertFrom-Json
+            $arguments = @(Get-DotfilesBootstrapPackageArguments -Id Git.Git -PackageConfig $packages -Groups base,dev)
+            $arguments[[Array]::IndexOf($arguments, '--scope') + 1] | Should -Be 'user'
+            $arguments | Should -Not -Contain '--installer-type'
+        }
+
+        It 'preserves unscoped legacy or object entries: <Label>' -ForEach @(
+            @{ Label = 'string'; Json = '{"base":["Git.Git"]}'; Installer = $false },
+            @{ Label = 'object'; Json = '{"base":[{"id":"Git.Git","scope":" ","installerType":"wix"}]}'; Installer = $true }
+        ) {
+            $arguments = @(Get-DotfilesBootstrapPackageArguments -Id Git.Git -PackageConfig ($Json | ConvertFrom-Json))
+            $arguments | Should -Not -Contain '--scope'
+            if ($Installer) { $arguments[[Array]::IndexOf($arguments, '--installer-type') + 1] | Should -Be 'wix' }
+        }
+
+        It 'uses mandatory prerequisite fallbacks when no package groups are selected' {
+            $packages = '{"base":[{"id":"Git.Git","scope":"user"},{"id":"Microsoft.PowerShell","scope":"machine"}]}' | ConvertFrom-Json
+            foreach ($id in @('Git.Git', 'Microsoft.PowerShell')) {
+                $arguments = @(Get-DotfilesBootstrapPackageArguments -Id $id -PackageConfig $packages -Groups @())
+                $arguments[[Array]::IndexOf($arguments, '--scope') + 1] | Should -Be $(if ($id -eq 'Git.Git') { 'machine' } else { 'user' })
+            }
+        }
+    }
+
     Context 'Logging reliability' {
         It 'returns the temporary fallback path when the requested log directory cannot be created' {
             $requestedPath = Join-Path (Join-Path $TestDrive 'blocked') 'setup.txt'
@@ -168,7 +270,7 @@ Stop-Logging
             [string]$output[-1] | Should -Be $durablePath
         }
 
-        It 'finalizes and reports logging for every setup exit including failure and 3010' {
+        It 'finalizes logging for every apply exit, while plan exits before logging starts' {
             $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
             $tokens = $null
             $parseErrors = $null
@@ -182,10 +284,25 @@ Stop-Logging
             $exitStatements.Count | Should -BeGreaterThan 0
             @($exitStatements | Where-Object { $_.Pipeline.Extent.Text -eq '3010' }).Count | Should -BeGreaterThan 0
 
+            $loggingStart = $setupAst.Find({
+                param($node)
+                $node -is [System.Management.Automation.Language.CommandAst] -and
+                    $node.GetCommandName() -eq 'Start-Logging'
+            }, $true)
+            $loggingStart | Should -Not -BeNullOrEmpty
+
             foreach ($exitStatement in $exitStatements) {
                 $ancestor = $exitStatement.Parent
                 $isProtected = $false
                 while ($ancestor) {
+                    # Plan never opens a transcript; only its explicit early branch is exempt.
+                    if ($exitStatement.Extent.StartOffset -lt $loggingStart.Extent.StartOffset -and
+                        $ancestor -is [System.Management.Automation.Language.IfStatementAst] -and
+                        $ancestor.Clauses[0].Item1.Extent.Text -eq '$Plan' -and
+                        $ancestor.Extent.EndOffset -lt $loggingStart.Extent.StartOffset) {
+                        $isProtected = $true
+                        break
+                    }
                     if ($ancestor -is [System.Management.Automation.Language.TryStatementAst] -and
                         $ancestor.Finally -and
                         $ancestor.Finally.Extent.Text -match 'Complete-DotfilesSetupLogging') {
@@ -364,8 +481,8 @@ Stop-Logging
             $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Install-OmpConfig.ps1'
             $module = Get-Content -LiteralPath $modulePath -Raw
 
-            if ($module -notmatch 'ItemType HardLink' -or $module -notmatch 'Copy-Item') {
-                throw 'Oh My Posh themes must use a hard link with a copy fallback.'
+            if ($module -match 'ItemType HardLink' -or $module -notmatch 'Copy-DotfilesVerifiedFile') {
+                throw 'Oh My Posh themes must use independent verified copies.'
             }
             if ($module -match 'Test-IsElevated') {
                 throw 'Oh My Posh theme deployment must not require an elevated process.'
@@ -548,8 +665,8 @@ Stop-Logging
             if ($module -match '\$listOutput\s+-match') {
                 throw 'Installed package detection must not parse Winget display text.'
             }
-            if ($module -notmatch '\$isInstalled\s*=\s*\$LASTEXITCODE\s+-eq\s+0') {
-                throw 'Installed package detection must use the Winget exit code.'
+            if ($module -notmatch 'Get-DotfilesWingetPackageState' -or $module -notmatch '\$isInstalled\s*=\s*\$packageState\.Presence\s+-eq') {
+                throw 'Installed package detection must use the shared scope-aware state probe.'
             }
         }
 
@@ -659,7 +776,7 @@ Stop-Logging
             $setupPath = Join-Path $script:repositoryRoot 'setup-scripts/setup.ps1'
             $setup = Get-Content -LiteralPath $setupPath -Raw
             $relaunchIndex = $setup.IndexOf('$PSVersionTable.PSEdition -ne "Core"')
-            $cloneIndex = $setup.IndexOf('git clone')
+            $cloneIndex = $setup.IndexOf('Get-DotfilesApplyCheckout')
 
             if ($relaunchIndex -lt 0 -or $cloneIndex -lt 0 -or $relaunchIndex -gt $cloneIndex) {
                 throw 'Windows PowerShell must relaunch in PowerShell 7 before Git writes progress to stderr.'
@@ -669,18 +786,10 @@ Stop-Logging
             }
         }
 
-        It 'installs bootstrap prerequisites per-user without updating legacy PowerShellGet' {
-            $functionsPath = Join-Path $script:repositoryRoot 'setup-scripts/setup-functions.ps1'
-            $functions = Get-Content -LiteralPath $functionsPath -Raw
-
-            if ($functions -notmatch "'--scope', 'user'") {
-                throw 'Git and PowerShell bootstrap prerequisites must request user scope.'
-            }
-            if ($functions -match 'Install-Module -Name PowerShellGet') {
-                throw 'Bootstrap must not update PowerShellGet in the active Windows PowerShell process.'
-            }
+        It 'does not update legacy PowerShellGet during bootstrap' {
+            $functions = Get-Content -LiteralPath (Join-Path $script:repositoryRoot 'setup-scripts/setup-functions.ps1') -Raw
+            $functions | Should -Not -Match 'Install-Module -Name PowerShellGet'
         }
-
         It 'passes declarative package metadata to Winget installs' {
             $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Install-WingetPackages.ps1'
             $module = Get-Content -LiteralPath $modulePath -Raw
@@ -700,14 +809,12 @@ Stop-Logging
         }
 
         It 'pins bootstrap and package installs to the Winget community source' {
-            $functionsPath = Join-Path $script:repositoryRoot 'setup-scripts/setup-functions.ps1'
             $modulePath = Join-Path $script:repositoryRoot 'setup-modules/Install-WingetPackages.ps1'
-            $functions = Get-Content -LiteralPath $functionsPath -Raw
             $module = Get-Content -LiteralPath $modulePath -Raw
 
-            $bootstrapSourcePins = [regex]::Matches($functions, "'--source', 'winget'")
-            if ($bootstrapSourcePins.Count -lt 2) {
-                throw 'PowerShell and Git bootstrap installs must both select the Winget community source explicitly.'
+            foreach ($id in @('Git.Git', 'Microsoft.PowerShell')) {
+                $arguments = @(Get-DotfilesBootstrapPackageArguments -Id $id -PackageConfig ([pscustomobject]@{}))
+                $arguments[[Array]::IndexOf($arguments, '--source') + 1] | Should -Be 'winget'
             }
             if ($module -notmatch "'--source', 'winget'") {
                 throw 'Declarative package installs must select the Winget community source explicitly.'
@@ -900,8 +1007,9 @@ Stop-Logging
                 }
             }
             foreach ($packageId in @('Git.Git', 'Microsoft.PowerShell', 'Microsoft.VisualStudioCode', 'Microsoft.WindowsTerminal')) {
-                if ($baseScopes[$packageId] -ne 'user') {
-                    throw "Base package '$packageId' must use user scope."
+                $expectedScope = if ($packageId -eq 'Git.Git') { 'machine' } else { 'user' }
+                if ($baseScopes[$packageId] -ne $expectedScope) {
+                    throw "Base package '$packageId' must use $expectedScope scope."
                 }
             }
 
@@ -956,7 +1064,7 @@ Stop-Logging
             }
         }
 
-        It 'uses upstream-compatible scope and installer-type constraints for the default package pool' {
+        It 'uses the configured scopes and scope-neutral WiX constraints for the default package pool' {
             $packagesPath = Join-Path $script:repositoryRoot 'dotfiles-configurations/winget-packages.json.example'
             $packages = Get-Content -LiteralPath $packagesPath -Raw | ConvertFrom-Json
             $packageMetadata = @{}
@@ -995,15 +1103,34 @@ Stop-Logging
             foreach ($packageId in @(
                 'Docker.DockerDesktop',
                 'gerardog.gsudo',
+                'Git.Git',
+                'Google.Chrome',
                 'Microsoft.AzureCLI',
                 'Microsoft.Edge',
                 'Microsoft.Office',
+                'Microsoft.OneDrive',
                 'Microsoft.PowerBI',
                 'Mozilla.Firefox'
             )) {
                 if ($packageMetadata[$packageId].Scope -ne 'machine') {
                     throw "Package '$packageId' must use machine scope."
                 }
+            }
+
+            foreach ($packageId in @(
+                'JanDeDobbeleer.OhMyPosh',
+                'Microsoft.PowerShell',
+                'Microsoft.Teams',
+                'Microsoft.VisualStudioCode',
+                'Microsoft.WindowsTerminal',
+                'Python.Python.3.13'
+            )) {
+                if ($packageMetadata[$packageId].Scope -ne 'user') {
+                    throw "Package '$packageId' must use user scope."
+                }
+            }
+            if ($packageMetadata.ContainsKey('Google.Chrome.EXE')) {
+                throw "The package pool must use 'Google.Chrome' instead of 'Google.Chrome.EXE'."
             }
         }
 

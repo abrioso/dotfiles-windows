@@ -29,7 +29,7 @@ To install these dotfiles from PowerShell without installing Git first:
 iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/abrioso/dotfiles-windows/main/setup-scripts/install.ps1'))
 ```
 
-Windows PowerShell 5.1 is supported as the entry point. The bootstrap installs or reuses per-user PowerShell 7 and Git prerequisites, refreshes the process path, and then continues automatically in PowerShell 7 before running Git commands.
+Windows PowerShell 5.1 is supported as the entry point. The bootstrap installs or reuses PowerShell 7 and Git prerequisites, refreshes the process path, and then continues automatically in PowerShell 7 before running Git commands. Shared defaults install Git with machine scope (which can request UAC while the bootstrap itself stays in the invoking user's context) and PowerShell 7 with user scope. Selected local package declarations control their scope and installer type during bootstrap as well as package installation; existing commands are reused without scope migration. `tests/BootstrapPrerequisites.Tests.ps1` and `tests/BootstrapReliability.Tests.ps1` cover scope consistency, reuse and install failures.
 
 Use the Git-free command for the initial bootstrap. After the persistent workspace clone has been
 created, continue post-reboot and later idempotency runs from that clone with
@@ -52,6 +52,38 @@ must not be treated as equivalent to rerunning the persistent setup.
 The setup reloads persistent bootstrap choices after configuration synchronization.
 `tests/EffectiveBootstrap.Tests.ps1` covers preservation of saved opt-outs.
 
+Setup validates local JSON objects, group selections, package metadata, environment entries,
+module filenames and dependencies before installing prerequisites or requesting UAC. It checks
+the persistent clone's configuration again before executing modules. Unknown selections fail
+with the available choices; explicit empty arrays continue to opt out, and legacy single-string
+selectors and package ID strings remain supported. See [Configuration](docs/CONFIGURATION.md#setup-preflight).
+
+### Previewing setup
+
+After creating local configuration with `setup-scripts\configure.ps1`, preview it without applying changes:
+
+```pwsh
+.\setup-scripts\setup.ps1 -Plan
+.\setup-scripts\setup.ps1 -Plan -PlanFormat Json
+```
+
+Planning validates the existing local files and lists selected groups, Windows features/capabilities,
+unique packages with scope/installer metadata, and modules in execution order. It reports possible
+elevation and restart requirements. It does not create configuration or logs, install prerequisites,
+contact package sources, update Git, request UAC, or execute modules. Windows PowerShell 5.1 and
+PowerShell 7 are supported. See [Setup plan](docs/CONFIGURATION.md#setup-plan) for its scope and limitations.
+
+After setup, check installed state in PowerShell 7.2 or later:
+
+```powershell
+.\setup-scripts\verify.ps1
+.\setup-scripts\verify.ps1 -Format Json
+```
+
+The diagnostic reports confirmed drift and inconclusive checks without applying changes. Package
+queries require opt-in. See [Installed-state diagnostic](docs/CONFIGURATION.md#installed-state-diagnostic)
+for coverage, exit codes and limitations.
+
 ### Core Components
 
 #### `setup-scripts`
@@ -60,8 +92,10 @@ This folder contains the main scripts that kick off the installation and setup p
 
 -   `install.ps1`: For Git-free installation. It downloads an archive to a temporary folder, resolves the extracted root, and then calls `setup.ps1`.
 -   `update.ps1`: Safely fast-forwards the current dotfiles branch and optionally replaces selected local JSON files from the latest `*.json.example` templates. Existing local files are backed up first; it never runs setup modules or applies configuration. When the Windows Terminal template is refreshed, shows a diff against the live `settings.json` and can move it to the backup directory so the next setup regenerates it (`-RegenerateTerminalSettings` for unattended runs).
--   `setup.ps1`: The main bootstrap and orchestrator script. It initializes local configuration when missing, clones/updates the configured repository branch, syncs gitignored local config into the real clone, and then runs the selected modules from `setup-modules` in the order defined by the setup module catalog.
+-   `setup.ps1`: Applies the invoked Git working tree without fetching, pulling or switching branches. A Git-free bootstrap creates the persistent clone on the requested branch only when absent; otherwise it verifies that branch and preserves the local HEAD. It initializes missing configuration, preserves existing local choices and runs the ordered module plan. Use `update.ps1` explicitly for repository updates.
 -   `setup-functions.ps1`: Contains helper functions used by the other scripts, including repository endpoint resolution and local config initialization.
+-   `setup-plan.ps1`: Read-only preview helpers used by `setup.ps1 -Plan`; `tests/SetupPlan.Tests.ps1` covers ordering, selectors and planning without mutations in both supported entry hosts.
+-   `verify.ps1` and `verify-functions.ps1`: PowerShell 7 installed-state diagnostics using the same local preflight and selections; `tests/SetupDiagnostic.Tests.ps1` covers drift, inconclusive queries, privacy and native query boundaries.
 
 #### `setup-modules`
 
@@ -70,10 +104,19 @@ This folder contains the modular scripts that perform the actual configuration t
 -   `Configure-WindowsFeatures.ps1`: Enables selected Windows features such as `VirtualMachinePlatform` for WSL 2 and the independently selectable Hyper-V group. If Windows requires a reboot, setup stops with code `3010`; restart and rerun before package installation continues.
 -   `Configure-WindowsCapabilities.ps1`: Installs selected Windows capabilities such as the RSAT Active Directory tools. It skips capabilities already installed and also stops setup with code `3010` when Windows requires a reboot.
 -   `Install-WingetPackages.ps1`: Reads local `winget-packages.json` and installs the selected package groups using the `winget` command-line tool, including optional per-package `user` or `machine` scope and `installerType` (e.g. `wix`) declarations.
+    Presence checks include the requested scope, distinguish missing packages from query failures,
+    and verify state after installation. An existing scope mismatch requires manual review.
+    `setup-scripts/winget-functions.ps1` shares these state rules with `verify.ps1 -CheckPackages`.
+    Installed installer type remains explicitly inconclusive; see [package verification](docs/PACKAGES.md#installed-state-verification).
 -   `Configure-WSL2.ps1`: Runs after Winget when the `wsl` group is selected, sets WSL 2 as the default, and applies WSL 2 to an existing Ubuntu registration.
 -   `Set-EnvironmentVariables.ps1`: Reads local `env-variables.json` and configures environment variables. Validates entries first and elevates only pending Machine changes; the child skips User entries and propagates failures. `tests/EnvironmentElevation.Tests.ps1` covers these contracts.
 -   `Set-UserHomeAlias.ps1`: Creates an ASCII-only junction alias for the user profile directory (for Entra ID displayName paths with accents) and points the user-scope `HOME` variable at it. It prefers the signed-in UPN reported by the in-box `whoami.exe /upn`, with validated identity/`USERNAME` fallbacks. Setup requests UAC only when the junction must first be created under `C:\Users`; an ASCII-only profile, a fully satisfied rerun, or a rerun that only needs a user-scope `HOME` update does not prompt. The elevated child receives the original profile and alias paths explicitly and performs only the junction mutation; the non-elevated parent updates `HOME` for the invoking user, even when UAC uses different Administrator credentials.
 -   `Install-LocalPowerShellProfiles.ps1`: Copies repo profiles to `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced) and writes a marker stub into the profile directory that dot-sources the local copy, so profiles stay per-machine even when Documents is OneDrive-synced.
+-   `Install-OmpConfig.ps1`: Deploys independent theme copies using `setup-scripts/deployment-functions.ps1`.
+    SHA-256 is checked before and after publication. Legacy hardlinks are detached even when their
+    contents match; replacements retain independent, unique `.bak` files. Updating the checkout does
+    not change a deployed theme until setup is applied again. `tests/ThemeDeployment.Tests.ps1`
+    covers migration, idempotency, backups and failure preservation.
 -   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config. Read/write failures stop setup; `tests/GitConfigFailure.Tests.ps1` covers malformed configuration and held locks.
 
 #### `dotfiles-configurations`
@@ -88,12 +131,51 @@ This folder contains tracked `*.json.example` templates and local gitignored `*.
 -   `git-variables.json.example`: Template for global Git configuration settings, such as name, email, and aliases.
 -   `dotfiles-bootstrap-variables.json.example`: Template for bootstrap variables, install groups, and repository endpoint type (`github-https`, `github-ssh`, or `custom`).
 
+### Separate update and apply
+
+Run setup from the persistent clone for post-reboot continuation and normal reruns. It applies
+that checkout, including intentional local edits, without updating its code. To update only the
+current branch, then preview and apply:
+
+```powershell
+.\setup-scripts\update.ps1 -NonInteractive -UpdateRepository
+.\setup-scripts\setup.ps1 -Plan
+.\setup-scripts\setup.ps1
+```
+
+The non-interactive update command replaces no local JSON unless `-TemplateName` is provided.
+Setup's `-BootstrapBranch` clones that branch initially or verifies an existing branch; it never
+switches an existing checkout. Select another branch explicitly with Git before applying it.
+
+### Legacy setup entry points
+
+Historical provisioning scripts in `powershell-scripts` now stop with migration instructions
+without applying changes. Use `setup-scripts/setup.ps1 -Plan` and the current orchestrator/modules.
+The old `tests/Verify-PowerShellProfiles.ps1` path delegates to the full installed-state diagnostic;
+it no longer prints profile content or writes reports automatically. See the
+[migration table and compatibility changes](powershell-scripts/README.md).
+`tests/LegacyEntryPoints.Tests.ps1` covers non-mutating retirement in both entry hosts and
+diagnostic delegation, options, exit codes and report privacy in PowerShell 7.
+
 ### PowerShell Profile
 
 The setup deploys per-machine PowerShell profiles: the real profile files live in `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced), and a small marker stub in the profile directory dot-sources them. This keeps your profile configuration tracked in this repository while staying personal to each machine, even when Documents is synchronised by OneDrive. The profile is composed of several files located in the `powershell-profiles` directory.
 
 Profile stubs resolve `LOCALAPPDATA` at load time, so the same synced stub works across
 machines. `tests/PortableProfile.Tests.ps1` verifies this with different local paths.
+
+`Microsoft.PowerShell_profile.ps1` and `Microsoft.VSCode_profile.ps1` both load
+`common.ps1` from their own directory. Edit that shared file to change UTF-8 output,
+Terminal-Icons loading or Oh My Posh initialization for both hosts. Setup copies all
+profile support scripts to the local store before updating host entry points; only
+`*_profile.ps1` and `profile.ps1` receive Documents stubs. Support scripts such as
+`common.ps1` and ignored `extra.ps1` are not loaded automatically as host profiles.
+Reapply setup after updating the checkout. Existing user-authored Documents profiles
+remain untouched. `tests/SharedProfile.Tests.ps1` covers both hosts and deployment.
+Upgrades remove obsolete support-file Documents stubs only when their entire content
+matches the portable stub generated by setup, including for removed optional sources.
+User files, edited stubs and links are preserved for manual review; the diagnostic
+reports leftover marker-owned support stubs as drift.
 
 ### Private files and Secrets
 
@@ -108,6 +190,9 @@ git config --global user.email "your.email@example.com"
 ```
 
 Nerd Font setup records installed file hashes and verifies registration before skipping.
+The release URL and expected SHA-256 are tracked in `setup-scripts/downloads.lock.json`.
+The ZIP is verified before extraction, font copies or registry changes. Completion records
+also identify the release and archive hash, so a changed pin triggers revalidation.
 Legacy installations without this record are checked against the downloaded archive once;
 identical files are reused even when in use, and missing registration is repaired.
 If a changed font is locked, close applications using it (including Windows Terminal) and
@@ -126,6 +211,40 @@ iex "& { $(irm 'https://raw.githubusercontent.com/YourGitHubAccount/YourDotfiles
 
 For non-GitHub archive endpoints, use `-EndpointType custom-archive -ArchiveUrl <zip-url>`.
 
+### Pinned bootstrap downloads
+
+The branch-based quick-start remains a compatibility mode and prints a warning when
+no expected archive hash is supplied. For reproducible installation, obtain a full
+40-character commit and the ZIP's SHA-256 through a trusted, independent channel.
+Download and review `install.ps1` from that same immutable revision before running it:
+
+```powershell
+# Replace these placeholders with independently verified values.
+$commit = '<full-40-character-commit>'
+$sha256 = '<trusted-64-character-archive-sha256>'
+.\install.ps1 -Branch main -Commit $commit -ArchiveSha256 $sha256 -NonInteractive
+```
+
+`-Commit` requires `-ArchiveSha256`. A mismatch stops before extraction or execution.
+The archived setup must support `-BootstrapCommit`; older revisions fail explicitly.
+The persistent clone is pinned to this commit during its initial creation, even when
+the branch has advanced. The new clone skips the remote tip's checkout and keeps its local
+branch attached at the pin, so `update.ps1 -NonInteractive -UpdateRepository` can later
+fast-forward it when explicitly requested. An existing checkout must already have the matching HEAD
+and be clean (including untracked files); setup never switches or updates it.
+`-BootstrapCommit` is an apply constraint and cannot be combined with `-Plan`.
+Custom archive endpoints can also supply `-ArchiveSha256` and `-Commit`.
+Hash-only verification checks the archive, but does not pin the persistent checkout.
+Hashes detect unexpected content; they do not establish trust in a script already
+executed or in a hash obtained from the same untrusted download.
+
+To update CascadiaCode, review the official release and its asset digest, download the
+ZIP and independently confirm its SHA-256, then change the release, URL and hash together
+in `downloads.lock.json` through a PR. Existing identical locked font files are reused;
+changed locked files still require closing applications or restarting Windows.
+`tests/DownloadIntegrity.Tests.ps1` covers rejected downloads and pinned bootstrap handoff;
+`tests/ApplyCheckout.Tests.ps1` covers commit selection and existing-checkout refusal.
+
 ### Configuring your Setup
 
 To customize the software, environment, endpoint type, and settings, run:
@@ -139,6 +258,20 @@ The TUI creates local gitignored JSON files from `*.json.example` templates when
 ## Validation
 
 Pull requests and pushes to `develop` or `main` run Pester, PSScriptAnalyzer, PowerShell syntax parsing, JSON parsing, and whitespace checks on Windows through GitHub Actions.
+
+Run the same checks locally with PowerShell 7.2 or later:
+
+```pwsh
+pwsh -NoProfile -File .\tests\Invoke-Validation.ps1 -InstallDependencies
+```
+
+`tests/Invoke-Validation.ps1` pins Pester 5.7.1 and PSScriptAnalyzer 1.25.0. The optional
+`-InstallDependencies` flag installs missing versions from PSGallery for the current user;
+omit it once they are available. Analyzer warnings remain visible, while errors fail validation.
+Parsing and analysis include tracked and non-ignored new files, excluding private ignored JSON
+configuration. Whitespace checks also inspect all non-ignored untracked files before `git add`.
+Use `-BaseRef origin/develop` to check whitespace across the full proposed commit range as well
+as unstaged and staged changes. CI passes the PR base SHA or the previous push SHA.
 
 Before promoting `develop` to `main`, run the clean-install, post-reboot, idempotency, migration,
 and rollback checks in [Release testing](docs/RELEASE_TESTING.md). Copy the reusable

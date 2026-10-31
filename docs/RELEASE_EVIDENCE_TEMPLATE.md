@@ -87,8 +87,17 @@ Record:
 - Main transcript path:
 - Elevated feature/capability transcript path:
 - UAC prompts observed:
+- Oh My Posh legacy-link migration and independent-copy evidence:
+- Theme backup, idempotency, failure and cross-volume checks:
+- WinGet presence/scope verification evidence:
+- Missing/wrong-scope/source-error scenarios tested:
+- Installer-type checks left inconclusive (expected; list cannot certify installed type):
 - Persistent clone path:
 - Persistent clone HEAD:
+- [ ] initial clone selects the requested branch without a subsequent fetch/pull
+- [ ] post-reboot/rerun HEAD and branch are unchanged; no repository network update occurs
+- [ ] repeated Git-free invocation retains matching-branch HEAD; a different branch requirement fails before modules
+- [ ] intentional local edits and existing bootstrap JSON bytes survive orchestration
 
 From the persistent clone:
 
@@ -114,7 +123,9 @@ Checks:
 
 - [ ] archive root resolved correctly
 - [ ] local JSON created from release templates
-- [ ] `Microsoft.PowerShell` and `Git.Git` installed at user scope
+- [ ] missing `Microsoft.PowerShell` installed at user scope and missing `Git.Git` at machine scope
+- [ ] Git UAC, cancellation and existing-install reuse scenarios recorded; bootstrap itself remained non-elevated
+- [ ] machine-scoped Git detected and skipped by the package phase without scope drift
 - [ ] PowerShell used MSIX rather than MSI/WiX
 - [ ] PATH refresh exposed `pwsh` and `git`
 - [ ] setup relaunched from Windows PowerShell 5.1 into PowerShell 7
@@ -226,6 +237,7 @@ User/settings checks:
 - [ ] dynamic profiles do not dirty Git
 - [ ] PowerShell profiles are local copies with marker stubs
 - [ ] PowerShell 7 and VS Code load expected profiles
+- [ ] Both host entry points load the local common.ps1; support files have no Documents stubs
 - [ ] Oh My Posh and Git configuration work
 - [ ] setup succeeds and Git remains clean
 

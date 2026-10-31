@@ -16,12 +16,12 @@ Package arrays and package groups are ordered lists, not sets. `Install-WingetPa
 
 The `wsl` group intentionally installs `Microsoft.WSL` before `Canonical.Ubuntu`, and the complete `wsl` group is declared before `docker` so that the WSL 2 runtime is installed before Docker Desktop. Ubuntu is not required for Docker Desktop itself, but installing it first makes subsequent WSL integration deterministic. After Winget completes, `Configure-WSL2.ps1` sets WSL 2 as the default and applies version 2 to an existing Ubuntu registration. Add a matching dependency-order contract to `tests/BootstrapReliability.Tests.ps1` when another package requires a specific predecessor.
 
-Example with an explicit per-user scope:
+Example with an explicit machine scope:
 
 ```json
 {
   "id": "Git.Git",
-  "scope": "user"
+  "scope": "machine"
 }
 ```
 
@@ -41,18 +41,74 @@ Scopes must match an applicable installer in the upstream Winget manifest. A mis
 every installer with `0x8A150010` (`No applicable installer`). In that case the local entry omits
 scope and may use `installerType` to select a deterministic upstream installer.
 
-The shared defaults request `machine` scope for Docker Desktop, gsudo, Azure CLI, Edge, Office,
-Power BI Desktop, Firefox, Tailscale, Google Drive, 7-Zip, Delinea Connection Manager and the
+The shared defaults request `machine` scope for Git, Chrome, OneDrive, Docker Desktop, gsudo,
+Azure CLI, Edge, Office, Power BI Desktop, Firefox, Tailscale, Google Drive, 7-Zip, Delinea Connection Manager and the
 Yubico tools. These packages either publish only machine installers or
 intentionally require machine-wide integration.
 
-Packages that publish explicit user installers remain `user` scoped. Some MSIX, AppX and portable installers omit `Scope` in the upstream manifest; their existing `user` selection is retained where the installer format supports per-user deployment. When a package offers both a machine installer and a scope-neutral portable or MSIX alternative, changing its scope can change which installer type Winget selects.
+Git and OneDrive support both scopes; the shared policy deliberately selects machine-wide
+installation. PowerShell, Teams, VS Code and Windows Terminal retain user scope. Some MSIX,
+AppX and portable installers omit `Scope` in the upstream manifest; user scope is retained where
+the installer format supports per-user deployment. When a package offers both a machine installer
+and a scope-neutral portable or MSIX alternative, changing scope can change the selected type.
 
 `Microsoft.Azd` and `Microsoft.WSL` deliberately omit scope because their current upstream WiX
 installers do not declare one. Both select `installerType: wix`; WSL's WiX installer requests the
 required UAC elevation itself while the package module continues running as the current user.
 
 `Microsoft.AppInstaller` is intentionally not part of the package pool: Winget is already a prerequisite for running the package module, so installing App Installer through Winget itself would be circular.
+
+## Installed-state verification
+
+`setup-scripts/winget-functions.ps1` provides the same state probe for package apply and
+`setup-scripts/verify.ps1 -CheckPackages`. Queries use exact IDs, the `winget` source,
+and `--scope user|machine` when declared. Display labels are not parsed; successful
+queries must also expose the exact package ID. No version policy is imposed.
+
+Some WinGet versions deny non-admin `--scope machine` queries because they enumerate
+all-user MSIX registrations. On `E_ACCESSDENIED` only, the probe compares unscoped and
+`user` inventories: an ID in the former but absent from the latter establishes machine
+ARP/font presence. Absence from both establishes absence in those inventories. Overlapping
+IDs or failed fallback queries remain `Unknown`; other-user-only MSIX registrations are
+not assessed by this fallback. It does not request UAC. An elevated diagnostic can use
+the direct machine query when overlap needs clarification. This follows the upstream
+[installed-source inventory boundaries](https://github.com/microsoft/winget-cli/blob/master/src/AppInstallerRepositoryCore/Microsoft/PredefinedInstalledSourceFactory.cpp)
+and addresses [the non-admin machine-query issue](https://github.com/microsoft/winget-cli/issues/3052).
+
+Only WinGet's `APPINSTALLER_CLI_ERROR_NO_APPLICATIONS_FOUND` (`0x8A150014`, signed
+`-1978335212`) establishes absence. Source/network/argument errors, a timed-out diagnostic
+query, missing executable or missing ID evidence produce an inconclusive result.
+Apply records a failure and performs no install for an inconclusive query. Diagnostics
+return `Unknown`, never a false missing/success result.
+
+If a scoped query reports absence, an unscoped query distinguishes a missing package
+from an existing installation that does not match the requested scope. The latter is
+`Drift` in diagnostics and blocks apply for that package. Review the existing installation
+and migrate it explicitly if needed; setup does not uninstall or duplicate applications.
+
+After a successful installer exit, apply repeats the presence/scope query. Missing,
+mismatched or inconclusive post-install state is a failure; setup does not treat the exit
+code alone as proof that installation completed. If registration needs a reboot or more
+time to appear, complete that step and rerun setup. Install errors and verification failures
+are collected across packages, then the module exits unsuccessfully.
+
+`installerType` constrains the new installer passed to WinGet. It does **not** certify the
+format of an existing installation: `winget list` has no installed-type filter, and
+`winget show` describes available manifest installers rather than proving installed state.
+An existing matching ID/scope is reused with a warning when an installer type was requested;
+the diagnostic remains `Unknown`. A new install with that constraint is also reported as
+type-inconclusive even after presence/scope verification. This avoids inferring WiX from MSI
+registry flags or reinstalling packages merely to manufacture evidence.
+
+Apply may accept source agreements as part of the authorized installation. Diagnostics
+remain opt-in and do not accept agreements, elevate, install, remove or upgrade packages;
+WinGet may still access its sources and write its own cache/logs.
+
+References: [WinGet list options](https://learn.microsoft.com/en-us/windows/package-manager/winget/list),
+[WinGet show metadata](https://learn.microsoft.com/en-us/windows/package-manager/winget/show),
+and [official return codes](https://github.com/microsoft/winget-cli/blob/master/doc/windows/package-manager/winget/returnCodes.md).
+`tests/WingetState.Tests.ps1` covers state classification and the production apply loop;
+`tests/SetupDiagnostic.Tests.ps1` covers report integration and privacy.
 
 ## Adding a new package
 
@@ -117,14 +173,15 @@ affecting bootstrap installs.
 | `Yubico.YubiKeyManagerCLI` | `machine` | Yes when installation is required; upstream WiX installer declares machine scope. |
 | `Docker.DockerDesktop` | `machine` | Yes when installation is required. |
 | `gerardog.gsudo` | `machine` | Yes when installation is required; gsudo installs system integration. |
-| `Git.Git` | `user` | Normally no. Git also publishes a machine installer, but bootstrap deliberately selects the user installer. |
+| `Git.Git` | `machine` by default | Yes when installation is required; bootstrap honors the selected local declaration, including a custom user scope. |
 | `Google.GoogleDrive` | `machine` | Yes when installation is required; Drive for desktop installs machine-wide integration. |
 | `Microsoft.Azd` | omitted; WiX pinned | No UAC was required in the clean-machine validation; its upstream WiX installer has no declared scope. |
 | `Microsoft.AzureCLI` | `machine` | Yes when installation is required. |
 | `Microsoft.Edge` | `machine` | Yes when installation is required; Edge is normally already provisioned by Windows. |
 | `Microsoft.Office` | `machine` | Yes when installation is required. |
 | `Microsoft.PowerBI` | `machine` | Yes when installation is required; the upstream installer is machine-only. |
-| `Microsoft.Teams` | `machine` | Yes when installation is required; the new Teams installer supports machine-wide deployment. |
+| `Microsoft.OneDrive` | `machine` | May request UAC when installation is required; the shared policy selects the all-users installer. |
+| `Microsoft.Teams` | `user` | Normally no; selects deployment for the current user. |
 | `Mozilla.Firefox` | `machine` | Yes when installation is required; the upstream installer is machine-scoped. |
 | `Microsoft.PowerShell` | `user` | Normally no; Winget can select the per-user MSIX package. |
 | `Microsoft.VisualStudioCode` | `user` | Normally no; selects the user installer. |
@@ -132,7 +189,22 @@ affecting bootstrap installs.
 | `Microsoft.WSL` | omitted; WiX pinned | Yes when installation is required; the WiX installer presents UAC. |
 | `Tailscale.Tailscale` | `machine` | Yes when installation is required; Tailscale installs its system service and network integration. |
 
-Git and PowerShell are also bootstrap prerequisites. If missing, setup installs them explicitly with `user` scope before processing package groups. An existing installation in either scope is reused.
+Git and PowerShell are also bootstrap prerequisites. If missing, setup uses their scope and
+installer type from the selected local package groups before processing modules. Shared defaults
+request `machine` scope for Git and `user` scope for PowerShell. These are also the fallback scopes
+when a prerequisite has no declaration in the selected groups, including an explicit empty
+selection: both commands remain mandatory for bootstrap. Legacy strings and objects without scope
+remain unscoped. Missing package selectors mean all groups, and conflicting selected declarations
+are rejected before installing either prerequisite. Machine-scoped installations can request UAC;
+Git's installer handles any required elevation without relaunching the whole bootstrap as
+administrator. Cancellation or a non-zero installer exit stops bootstrap without retrying at
+another scope.
+
+An existing command on PATH is reused without changing its installation. This is an availability
+check, not scope certification: the package module then verifies the configured scope and reports
+any mismatch. Resolve that explicitly by reviewing the local catalog or migrating the installation
+manually; setup does not uninstall or duplicate Git to reconcile a mismatch. Existing local JSON is
+preserved.
 
 Scopes for the additions above were checked on 2026-09-06 against the Winget installer manifests:
 [7-Zip 26.02](https://github.com/microsoft/winget-pkgs/blob/master/manifests/7/7zip/7zip/26.02/7zip.7zip.installer.yaml),

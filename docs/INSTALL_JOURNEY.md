@@ -70,10 +70,14 @@ If `-NonInteractive` is used, the setup accepts the defaults from the `*.json.ex
 
 `setup.ps1` installs the prerequisites needed to continue:
 
-- `Microsoft.PowerShell`
-- `Git.Git`
+- `Microsoft.PowerShell` (user scope by default)
+- `Git.Git` (machine scope by default, matching the shared catalog; installation may request UAC)
 
-Both are installed with `winget` for the current user when missing. On the current `develop` flow, `winget` is required for bootstrap.
+When missing, `winget` installs PowerShell and Git using the scope and installer type from the
+selected local package declarations (defaulting to user scope for PowerShell and machine scope for
+Git). Existing commands are reused without scope migration; package verification later checks the
+requested scope. Git's installer may request UAC, while the bootstrap remains in the invoking
+user's context. On the current `develop` flow, `winget` is required for bootstrap.
 
 ## 6. PATH is refreshed
 
@@ -207,10 +211,17 @@ Deploys per-machine PowerShell profiles. The real profile files are copied into
 marker stub is written into the (possibly OneDrive-synced) profile directory that dot-sources
 the local copy. User-authored files without the dotfiles marker are left untouched, and any
 symlink left by previous setup versions is safely replaced. Does not require elevation.
+The console and VS Code entry points both source the local `common.ps1`. Support scripts
+are copied before entry points and do not receive Documents stubs; only `*_profile.ps1`
+and `profile.ps1` receive them. Apply setup again after changing the shared initialization.
 
 ### `Install-OmpConfig.ps1`
 
-Deploys the Oh My Posh theme files into `%USERPROFILE%\.config\oh-my-posh\poshthemes`. On `develop`, this prefers hard links and falls back to regular file copies when needed.
+Deploys independent, SHA-256-verified theme copies into
+`%USERPROFILE%\.config\oh-my-posh\poshthemes`. Matching regular files are skipped; legacy file
+links are detached and replacements keep independent, uniquely named backups. Git updates do
+not change the deployed theme until setup is applied again. Linked target directories require
+manual review; see [theme deployment](CONFIGURATION.md#theme-deployment) for migration details.
 
 ## 15. The final machine state
 

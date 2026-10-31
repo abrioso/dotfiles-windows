@@ -6,7 +6,7 @@
         },
         {
             "id": "Git.Git",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.PowerShell",
@@ -28,7 +28,7 @@
         },
         {
             "id": "Git.Git",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.PowerShell",
@@ -49,8 +49,8 @@
     ],
     "browsers": [
         {
-            "id": "Google.Chrome.EXE",
-            "scope": "user"
+            "id": "Google.Chrome",
+            "scope": "machine"
         },
         {
             "id": "Microsoft.Edge",
@@ -68,11 +68,11 @@
         },
         {
             "id": "Microsoft.OneDrive",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "Microsoft.Teams",
-            "scope": "machine"
+            "scope": "user"
         }
     ],
     "powerbi": [
@@ -84,7 +84,7 @@
     "dev": [
         {
             "id": "Git.Git",
-            "scope": "user"
+            "scope": "machine"
         },
         {
             "id": "GitHub.cli",

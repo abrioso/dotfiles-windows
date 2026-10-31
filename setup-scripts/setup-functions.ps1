@@ -153,9 +153,72 @@ function Update-DotfilesProcessPath {
     $env:Path = $pathSegments -join [System.IO.Path]::PathSeparator
 }
 
+function Get-DotfilesBootstrapPackageArguments {
+    param (
+        [Parameter(Mandatory)]
+        [ValidateSet('Git.Git', 'Microsoft.PowerShell')]
+        [string]$Id,
+        [Parameter(Mandatory)]$PackageConfig,
+        [string[]]$Groups
+    )
+
+    $scope = if ($Id -eq 'Git.Git') { 'machine' } else { 'user' }
+    $installerType = $null
+    $found = $false
+    foreach ($group in $PackageConfig.PSObject.Properties) {
+        if ($PSBoundParameters.ContainsKey('Groups') -and $Groups -notcontains $group.Name) { continue }
+        foreach ($entry in $group.Value) {
+            $entryId = if ($entry -is [string]) { $entry } else { [string]$entry.id }
+            if ($entryId -ne $Id) { continue }
+            $entryScope = if ($entry -is [string]) { $null } else { [string]$entry.scope }
+            $entryInstallerType = if ($entry -is [string]) { $null } else { [string]$entry.installerType }
+            if ([string]::IsNullOrWhiteSpace($entryScope)) { $entryScope = $null }
+            if ([string]::IsNullOrWhiteSpace($entryInstallerType)) { $entryInstallerType = $null }
+            if ($entryScope -and $entryScope -notin @('user', 'machine')) {
+                throw "Package '$Id' has unsupported bootstrap scope '$entryScope'."
+            }
+            if ($entryInstallerType -and $entryInstallerType -ne 'wix') {
+                throw "Package '$Id' has unsupported bootstrap installer type '$entryInstallerType'."
+            }
+            if ($found -and ($scope -ne $entryScope -or $installerType -ne $entryInstallerType)) {
+                throw "Package '$Id' has conflicting metadata across selected groups."
+            }
+            $scope = $entryScope
+            $installerType = $entryInstallerType
+            $found = $true
+        }
+    }
+
+    $arguments = @(
+        'install', '--id', $Id, '--exact', '--force', '--source', 'winget',
+        '--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity'
+    )
+    if ($scope) { $arguments += @('--scope', $scope) }
+    if ($installerType) { $arguments += @('--installer-type', $installerType) }
+    return $arguments
+}
+
 # Function to install the dotfiles pre-requisites
 function Install-DotfilesPrerequisites {
+    param (
+        [string]$ConfigDirectory = (Join-Path $PSScriptRoot '../dotfiles-configurations'),
+        $DotfilesVariables
+    )
+
     Write-Info "Installing dotfiles prerequisites..."
+
+    # Resolve both declarations before any install. Missing selectors mean all groups;
+    # explicit empty selections retain only the mandatory bootstrap defaults.
+    $packageConfig = Read-DotfilesConfigurationObject (Join-Path $ConfigDirectory 'winget-packages.json')
+    if ($null -eq $DotfilesVariables) {
+        $DotfilesVariables = Read-DotfilesConfigurationObject (Join-Path $ConfigDirectory 'dotfiles-bootstrap-variables.json')
+    }
+    $selection = @{ PackageConfig = $packageConfig }
+    if (Test-DotfilesObjectProperty $DotfilesVariables 'INSTALL_PACKAGES') {
+        $selection.Groups = @($DotfilesVariables.INSTALL_PACKAGES)
+    }
+    $powerShellArguments = @(Get-DotfilesBootstrapPackageArguments -Id Microsoft.PowerShell @selection)
+    $gitArguments = @(Get-DotfilesBootstrapPackageArguments -Id Git.Git @selection)
 
     # Check if winget is available
     try {
@@ -175,13 +238,7 @@ function Install-DotfilesPrerequisites {
     try {
         if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
             Write-Info "PowerShell is not installed. Installing PowerShell..."
-            $wingetArguments = @(
-                'install', '--id', 'Microsoft.PowerShell', '--exact', '--force',
-                '--source', 'winget', '--scope', 'user',
-                '--accept-source-agreements', '--accept-package-agreements',
-                '--disable-interactivity'
-            )
-            & winget @wingetArguments
+            & winget @powerShellArguments
             if ($LASTEXITCODE -ne 0) {
                 Write-ErrorMessage "Winget failed to install PowerShell (exit code $LASTEXITCODE)."
                 return $false
@@ -203,13 +260,7 @@ function Install-DotfilesPrerequisites {
     # Install Git if not present
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         Write-Info "Git not found. Installing Git..."
-        $wingetArguments = @(
-            'install', '--id', 'Git.Git', '--exact', '--force',
-            '--source', 'winget', '--scope', 'user',
-            '--accept-source-agreements', '--accept-package-agreements',
-            '--disable-interactivity'
-        )
-        & winget @wingetArguments
+        & winget @gitArguments
         if ($LASTEXITCODE -ne 0) {
             Write-ErrorMessage "Winget failed to install Git (exit code $LASTEXITCODE)."
             return $false
@@ -541,6 +592,64 @@ function Read-DotfilesJsonFile {
     }
 
     return $content | ConvertFrom-Json
+}
+
+function Get-DotfilesApplyCheckout {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$TargetRoot,
+        [Parameter(Mandatory)][string]$RepositoryUrl,
+        [string]$Branch,
+        [switch]$RequireBranch,
+        [ValidatePattern('^$|^[0-9a-fA-F]{40}$')]
+        [string]$ExpectedCommit
+    )
+
+    # A .git file also identifies a worktree. Existing checkouts are never updated or switched.
+    $invokedCheckout = Test-Path -LiteralPath (Join-Path $SourceRoot '.git')
+    $root = if ($invokedCheckout) { $SourceRoot } else { $TargetRoot }
+    $wasCloned = $false
+    if (-not (Test-Path -LiteralPath $root)) {
+        $parent = Split-Path -Parent $root
+        if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force -ErrorAction Stop | Out-Null }
+        $cloneArguments = @('clone')
+        if ($ExpectedCommit) { $cloneArguments += '--no-checkout' }
+        if (-not [string]::IsNullOrWhiteSpace($Branch)) { $cloneArguments += @('--branch', $Branch) }
+        $cloneArguments += @('--', $RepositoryUrl, $root)
+        $cloneOutput = @(git @cloneArguments 2>&1)
+        if ($LASTEXITCODE -ne 0) { throw "Initial clone failed. Review the selected endpoint/branch and any partial directory before retrying.`n$($cloneOutput -join "`n")" }
+        $wasCloned = $true
+        if ($ExpectedCommit) {
+            $initialBranch = @(git -C $root symbolic-ref --short HEAD 2>&1)
+            if ($LASTEXITCODE -ne 0 -or $initialBranch.Count -ne 1) { throw 'Pinned bootstrap requires an initial local branch. Select a branch rather than a tag.' }
+            # This branch belongs only to the new clone. Keep it attached for the updater,
+            # and materialize only the requested commit, never the moving remote tip.
+            $pinOutput = @(git -C $root checkout -B $initialBranch[0] $ExpectedCommit 2>&1)
+            if ($LASTEXITCODE -ne 0) { throw "Initial clone could not select pinned commit. Review the partial directory before retrying.`n$($pinOutput -join "`n")" }
+        }
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $root '.git'))) {
+        throw 'The apply directory is not a Git checkout. Setup will not overwrite it; review the directory before retrying.'
+    }
+    $commit = @(git -C $root rev-parse --verify HEAD 2>&1)
+    if ($LASTEXITCODE -ne 0 -or $commit.Count -ne 1) { throw 'Could not read the local checkout HEAD. Setup will not repair or update it automatically.' }
+    # rev-parse returns HEAD successfully for detached checkouts; do not leave a native failure
+    # status behind or trigger strict native-error preferences for this supported local state.
+    $currentBranch = @(git -C $root rev-parse --abbrev-ref HEAD 2>&1)
+    $branchExitCode = $LASTEXITCODE
+    if ($branchExitCode -ne 0 -or $currentBranch.Count -ne 1) { throw 'Could not inspect the local checkout branch.' }
+    if ($ExpectedCommit) {
+        if ($commit[0] -ne $ExpectedCommit) { throw 'The existing checkout HEAD does not match BootstrapCommit. Setup will not update or switch it.' }
+        $changes = @(git -C $root status --porcelain --untracked-files=normal 2>&1)
+        if ($LASTEXITCODE -ne 0 -or $changes.Count -gt 0) { throw 'Pinned apply requires a clean checkout, including untracked files. Review local changes before retrying.' }
+    }
+    if (-not $ExpectedCommit -and ($RequireBranch -or -not $invokedCheckout) -and -not [string]::IsNullOrWhiteSpace($Branch)) {
+        if ($currentBranch[0] -ceq 'HEAD' -or $currentBranch[0] -cne $Branch) {
+            throw "The checkout is not on requested branch '$Branch'. Select that branch explicitly with Git, then use setup-scripts/update.ps1 if an update is needed. Setup does not switch branches or fetch/pull."
+        }
+    }
+    [pscustomobject]@{ Root = $root; WasCloned = $wasCloned; Commit = [string]$commit[0] }
 }
 
 function Set-DotfilesBootstrapBranch {
@@ -936,6 +1045,215 @@ function Assert-DotfilesSetupDependencies {
     }
 }
 
+function Assert-DotfilesConfigurationStringList {
+    param(
+        [AllowNull()]$Value,
+        [Parameter(Mandatory)][string]$Context,
+        [switch]$AllowScalar
+    )
+    if ($Value -isnot [array] -and -not ($AllowScalar -and $Value -is [string])) {
+        throw "$Context must be an array of non-empty strings$(if ($AllowScalar) { ' or a single string' })."
+    }
+    foreach ($item in @($Value)) {
+        if ($item -isnot [string] -or [string]::IsNullOrWhiteSpace($item)) {
+            throw "$Context must contain only non-empty strings."
+        }
+    }
+}
+
+function Read-DotfilesConfigurationObject {
+    param([Parameter(Mandatory)][string]$Path)
+    $fileName = Split-Path -Leaf $Path
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Required configuration file not found: $fileName. Run setup-scripts/configure.ps1."
+    }
+    try {
+        $content = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
+        if ([string]::IsNullOrWhiteSpace($content)) { throw 'Empty configuration.' }
+        $config = $content | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        # Do not include parser excerpts that could expose private configuration values.
+        throw "Cannot read valid JSON from $fileName. Correct the file before running setup."
+    }
+    if (-not $content.TrimStart().StartsWith('{') -or $config -isnot [pscustomobject]) {
+        throw "$fileName must contain a JSON object."
+    }
+    return $config
+}
+
+function Assert-DotfilesConfigurationSelection {
+    param(
+        [Parameter(Mandatory)][string]$Context,
+        [AllowNull()]$Value,
+        [AllowEmptyCollection()][string[]]$Available
+    )
+    Assert-DotfilesConfigurationStringList -Value $Value -Context $Context -AllowScalar
+    foreach ($selection in @($Value)) {
+        if ($Available -notcontains $selection) {
+            throw "Unknown selection '$selection' in $Context. Available values: $($Available -join ', ')."
+        }
+    }
+}
+
+function Assert-DotfilesSetupConfiguration {
+    <#
+    .SYNOPSIS
+    Validates local configuration and module files without installing or applying settings.
+    #>
+    param(
+        [Parameter(Mandatory)]$DotfilesVariables,
+        [string]$ConfigDirectory = (Get-DotfilesConfigDirectory),
+        [string]$ModuleDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'setup-modules')
+    )
+    if ($DotfilesVariables -isnot [pscustomobject]) {
+        throw 'dotfiles-bootstrap-variables.json must contain a JSON object.'
+    }
+    foreach ($name in @('WORKSPACE_FOLDER', 'GITHUB_ACCOUNT', 'GITHUB_DOTFILES_REPO')) {
+        if ($DotfilesVariables.$name -isnot [string] -or [string]::IsNullOrWhiteSpace($DotfilesVariables.$name)) {
+            throw "dotfiles-bootstrap-variables.json requires a non-empty string for $name."
+        }
+    }
+    foreach ($name in @('GITHUB_DOTFILES_BRANCH', 'REPOSITORY_ENDPOINT_TYPE', 'CUSTOM_REPOSITORY_URL')) {
+        if ((Test-DotfilesObjectProperty $DotfilesVariables $name) -and $DotfilesVariables.$name -isnot [string]) {
+            throw "dotfiles-bootstrap-variables.json.$name must be a string."
+        }
+    }
+    $null = Resolve-DotfilesRepositoryUrl -DotfilesVariables $DotfilesVariables
+
+    $catalogs = @{}
+    foreach ($file in @('winget-packages', 'windows-features', 'windows-capabilities', 'setup-modules', 'git-variables', 'env-variables')) {
+        $catalogs[$file] = Read-DotfilesConfigurationObject -Path (Join-Path $ConfigDirectory "$file.json")
+    }
+    foreach ($file in @('windows-features', 'windows-capabilities')) {
+        foreach ($group in $catalogs[$file].PSObject.Properties) {
+            Assert-DotfilesConfigurationStringList -Value $group.Value -Context "$file.json.$($group.Name)" -AllowScalar
+        }
+    }
+    $packageIdPattern = '^[^\.\s\\/:*?"<>|\x01-\x1f]{1,32}(\.[^\.\s\\/:*?"<>|\x01-\x1f]{1,32}){1,7}$'
+    foreach ($group in $catalogs['winget-packages'].PSObject.Properties) {
+        if ($group.Value -isnot [array]) { throw "winget-packages.json.$($group.Name) must be an array." }
+        foreach ($package in $group.Value) {
+            if ($package -isnot [string] -and $package -isnot [pscustomobject]) {
+                throw "winget-packages.json.$($group.Name) entries must be package ID strings or objects."
+            }
+            $id = if ($package -is [string]) { $package } else { $package.id }
+            if ($id -isnot [string] -or $id.Length -gt 128 -or $id -notmatch $packageIdPattern) {
+                throw "winget-packages.json.$($group.Name) contains an invalid package ID; use Publisher.Package syntax."
+            }
+            if ($package -is [pscustomobject]) {
+                foreach ($field in @('scope', 'installerType')) {
+                    if (-not (Test-DotfilesObjectProperty $package $field) -or $null -eq $package.$field) { continue }
+                    $supported = if ($field -eq 'scope') { @('user', 'machine') } else { @('wix') }
+                    if ($package.$field -isnot [string] -or
+                        (-not [string]::IsNullOrWhiteSpace($package.$field) -and $supported -notcontains $package.$field)) {
+                        throw "winget-packages.json.$($group.Name).$field must be a string with one of: $($supported -join ', ')."
+                    }
+                }
+            }
+        }
+    }
+
+    $setupConfig = $catalogs['setup-modules']
+    foreach ($property in $setupConfig.PSObject.Properties) {
+        if ($property.Name -notin @('features', 'capabilities', 'packages', 'settings')) {
+            throw "Unknown setup-modules.json section '$($property.Name)'. Available sections: features, capabilities, packages, settings."
+        }
+    }
+    $availableGroups = @{
+        INSTALL_FEATURES = @($catalogs['windows-features'].PSObject.Properties.Name)
+        INSTALL_CAPABILITIES = @($catalogs['windows-capabilities'].PSObject.Properties.Name)
+        INSTALL_PACKAGES = @($catalogs['winget-packages'].PSObject.Properties.Name)
+        INSTALL_SETTINGS = @($setupConfig.settings.PSObject.Properties.Name)
+    }
+    foreach ($selector in $availableGroups.Keys) {
+        if (Test-DotfilesObjectProperty $DotfilesVariables $selector) {
+            Assert-DotfilesConfigurationSelection -Context $selector -Value $DotfilesVariables.$selector -Available $availableGroups[$selector]
+        }
+    }
+    foreach ($property in $DotfilesVariables.PSObject.Properties) {
+        if ($property.Name -like 'INSTALL_*' -and $availableGroups.Keys -notcontains $property.Name) {
+            throw "Unknown bootstrap selector '$($property.Name)'. Available selectors: INSTALL_FEATURES, INSTALL_CAPABILITIES, INSTALL_PACKAGES, INSTALL_SETTINGS."
+        }
+    }
+    # Match the package installer's case-insensitive deduplication and metadata normalization.
+    $selectedPackageGroups = if (Test-DotfilesObjectProperty $DotfilesVariables 'INSTALL_PACKAGES') {
+        @($DotfilesVariables.INSTALL_PACKAGES)
+    } else {
+        @($catalogs['winget-packages'].PSObject.Properties.Name)
+    }
+    $seenPackages = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($group in $catalogs['winget-packages'].PSObject.Properties) {
+        if ($selectedPackageGroups -notcontains $group.Name) { continue }
+        foreach ($package in $group.Value) {
+            $id = if ($package -is [string]) { $package } else { $package.id }
+            $scope = if ($package -is [string]) { $null } else { [string]$package.scope }
+            $installerType = if ($package -is [string]) { $null } else { [string]$package.installerType }
+            if ([string]::IsNullOrWhiteSpace($scope)) { $scope = $null }
+            if ([string]::IsNullOrWhiteSpace($installerType)) { $installerType = $null }
+            if ($seenPackages.ContainsKey($id)) {
+                $existing = $seenPackages[$id]
+                if ($existing.Scope -ne $scope -or $existing.InstallerType -ne $installerType) {
+                    throw "Package '$id' has conflicting metadata across selected groups. Use matching scope and installerType declarations before running setup."
+                }
+            } else {
+                $seenPackages[$id] = [pscustomobject]@{ Scope = $scope; InstallerType = $installerType }
+            }
+        }
+    }
+    if ((Test-DotfilesObjectProperty $setupConfig 'settings') -and $setupConfig.settings -isnot [pscustomobject]) {
+        throw 'setup-modules.json.settings must be an object of setting groups.'
+    }
+    $moduleGroups = [System.Collections.Generic.List[object]]::new()
+    foreach ($section in @('features', 'capabilities', 'packages')) {
+        if (Test-DotfilesObjectProperty $setupConfig $section) {
+            $moduleGroups.Add([pscustomobject]@{ Context = $section; Entries = $setupConfig.$section; Selector = "INSTALL_$($section.ToUpperInvariant())" })
+        }
+    }
+    foreach ($group in $setupConfig.settings.PSObject.Properties) {
+        $moduleGroups.Add([pscustomobject]@{ Context = "settings.$($group.Name)"; Entries = $group.Value; Selector = $null })
+    }
+    foreach ($group in $moduleGroups) {
+        if ($group.Entries -isnot [array]) { throw "setup-modules.json.$($group.Context) must be an array." }
+        foreach ($entry in $group.Entries) {
+            if ($entry -isnot [pscustomobject] -or $entry.script -isnot [string] -or
+                $entry.script -notmatch '^[^\\/:*?"<>|]+\.ps1$' -or $entry.script -in @('.ps1', '..ps1')) {
+                throw "setup-modules.json.$($group.Context) requires a script filename ending in .ps1, without directory components."
+            }
+            if (-not (Test-Path -LiteralPath (Join-Path $ModuleDirectory $entry.script) -PathType Leaf)) {
+                throw "Setup module script not found: $($entry.script). Correct setup-modules.json or restore the script."
+            }
+            if ((Test-DotfilesObjectProperty $entry 'requiresAdmin') -and $entry.requiresAdmin -isnot [bool]) {
+                throw "setup-modules.json.$($group.Context).requiresAdmin must be a JSON boolean."
+            }
+            if (Test-DotfilesObjectProperty $entry 'whenSelected') {
+                if (-not $group.Selector) { throw 'whenSelected is supported only in feature, capability and package module sections.' }
+                Assert-DotfilesConfigurationSelection -Context "setup-modules.json.$($group.Context).whenSelected" -Value $entry.whenSelected -Available $availableGroups[$group.Selector]
+            }
+            if (Test-DotfilesObjectProperty $entry 'requiresPackageGroups') {
+                Assert-DotfilesConfigurationSelection -Context "setup-modules.json.$($group.Context).requiresPackageGroups" -Value $entry.requiresPackageGroups -Available $availableGroups.INSTALL_PACKAGES
+            }
+        }
+    }
+    foreach ($property in $catalogs['git-variables'].PSObject.Properties) {
+        if ($null -eq $property.Value -or $property.Value -is [array] -or $property.Value -is [pscustomobject]) {
+            throw 'git-variables.json must map Git setting names to scalar, non-null values.'
+        }
+    }
+    $environmentConfig = $catalogs['env-variables']
+    if (Test-DotfilesObjectProperty $environmentConfig 'EnvironmentVariables') {
+        if ($environmentConfig.EnvironmentVariables -isnot [array]) { throw 'env-variables.json.EnvironmentVariables must be an array.' }
+        foreach ($entry in $environmentConfig.EnvironmentVariables) {
+            if ($entry -isnot [pscustomobject] -or $entry.Name -isnot [string] -or
+                [string]::IsNullOrWhiteSpace($entry.Name) -or $entry.Name -match '[=\x00]' -or
+                $null -eq $entry.Value -or $entry.Value -is [array] -or $entry.Value -is [pscustomobject] -or
+                $entry.Scope -isnot [string] -or $entry.Scope -notin @('User', 'Machine')) {
+                throw 'env-variables.json requires entries with a valid Name, scalar Value and User/Machine Scope.'
+            }
+        }
+    }
+    Assert-DotfilesSetupDependencies -DotfilesVariables $DotfilesVariables -ConfigDirectory $ConfigDirectory
+}
+
 function Initialize-DotfilesConfiguration {
     param (
         [switch]$NonInteractive
@@ -1068,7 +1386,7 @@ function Get-DotfilesBootstrapVariables {
         $DotfilesVariablesFile = Get-ChildItem -LiteralPath $DotfilesConfigFolder -Filter "dotfiles-bootstrap-variables.json" -ErrorAction Stop
 
         if ($DotfilesVariablesFile) {
-            $DotfilesVariables = Get-Content -LiteralPath $DotfilesVariablesFile.FullName | ConvertFrom-Json
+            $DotfilesVariables = Read-DotfilesConfigurationObject -Path $DotfilesVariablesFile.FullName
         } else {
             throw "The dotfiles-bootstrap-variables.json file was not found in $DotfilesConfigFolder"
         }

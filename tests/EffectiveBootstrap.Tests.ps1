@@ -5,7 +5,7 @@ Describe 'Persistent bootstrap choices' {
         $setupAst = [System.Management.Automation.Language.Parser]::ParseFile("$root/setup-scripts/setup.ps1", [ref]$null, [ref]$null)
         # Execute the real synchronization/reload statements without installing prerequisites.
         $sync = $setupAst.Find({ param($node) $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'Sync-DotfilesLocalConfiguration' }, $true)
-        $reload = $setupAst.Find({ param($node) $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and $node.Left.Extent.Text -eq '$DotfilesVariables' -and $node.Right.Extent.Text -like '*Read-DotfilesJsonFile*' }, $true)
+        $reload = $setupAst.Find({ param($node) $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and $node.Left.Extent.Text -eq '$DotfilesVariables' -and $node.Right.Extent.Text -like '*Read-DotfilesConfigurationObject*' }, $true)
         if (-not $reload -or $reload.Extent.StartOffset -lt $sync.Extent.EndOffset) { throw 'Persistent choices must be loaded after synchronization.' }
         $handoff = [scriptblock]::Create($sync.Extent.Text + "`n" + $reload.Extent.Text)
         $catalog = "$root/dotfiles-configurations/setup-modules.json.example"

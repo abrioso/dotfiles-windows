@@ -4,7 +4,22 @@ Main bootstrap script.
 
 .DESCRIPTION
 This script installs the prerequisites, prepares the persistent repository clone and starts the
-configured setup modules with PowerShell 7. Profile deployment is handled by the module plan.
+configured setup modules with PowerShell 7. Existing checkouts are applied as-is; update.ps1 owns
+repository updates. Profile deployment is handled by the module plan.
+
+.PARAMETER Plan
+Validates existing local configuration and previews the ordered setup declarations without changes.
+
+.PARAMETER BootstrapBranch
+Selects the initial clone branch or verifies the existing local branch. Does not switch, fetch,
+pull or replace an existing saved branch preference. Normal local apply uses the invoked checkout.
+
+.PARAMETER PlanFormat
+Selects readable Text (default) or machine-readable Json output for -Plan.
+
+.PARAMETER BootstrapCommit
+Requires a clean checkout at this full commit. Only a newly created clone has its local
+branch positioned at the requested commit. Existing checkouts are verified without updates or switching.
 
 .NOTES
 To make this work, you need to set your execution policy to unrestricted (or at least bypass) by running Set-ExecutionPolicy Unrestricted -Scope CurrentUser from a PowerShell.
@@ -14,15 +29,41 @@ To make this work, you need to set your execution policy to unrestricted (or at 
 [CmdletBinding()]
 param (
     [string]$BootstrapBranch,
+    [ValidatePattern('^[0-9a-fA-F]{40}$')]
+    [string]$BootstrapCommit,
     [string]$LogFilePath,
     [switch]$AppendLog,
-    [switch]$NonInteractive
+    [switch]$NonInteractive,
+    [switch]$Plan,
+    [ValidateSet('Text', 'Json')]
+    [string]$PlanFormat = 'Text'
 )
 
 # dotfileRootDir is the root directory of the dotfiles repository
 $dotfileRootDir = Split-Path -Parent $PSScriptRoot
 
 . "$dotfileRootDir\setup-scripts\setup-functions.ps1"
+
+# Planning returns before logging, configuration initialization, prerequisites or Git operations.
+if ($Plan) {
+    try {
+        if ($BootstrapCommit) { throw 'BootstrapCommit is an apply constraint; use -Plan without it.' }
+        . "$dotfileRootDir\setup-scripts\setup-plan.ps1"
+        $preview = Get-DotfilesSetupPreview -RepositoryRoot $dotfileRootDir -BootstrapBranch $BootstrapBranch
+        if ($PlanFormat -eq 'Json') {
+            $preview | ConvertTo-Json -Depth 12
+        } else {
+            Write-DotfilesSetupPreview -Preview $preview
+        }
+    } catch {
+        Write-Error -Message "Setup plan failed: $($_.Exception.Message) Run setup-scripts\configure.ps1 to create or correct local configuration." -ErrorAction Continue
+        exit 1
+    }
+    return
+}
+if ($PSBoundParameters.ContainsKey('PlanFormat')) {
+    throw '-PlanFormat requires -Plan.'
+}
 
 # Variables for logging
 $dateTime = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -49,8 +90,16 @@ if ($currentPolicy -in @("Restricted", "AllSigned")) {
     Write-Warning "Consider running: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser or Set-ExecutionPolicy Unrestricted -Scope CurrentUser"
 }
 
+# Initialize local choices and validate them before installing prerequisites or requesting UAC.
+Write-Info "Applying dotfiles bootstrap variables..."
+$DotfilesVariables = Get-DotfilesBootstrapVariables -NonInteractive:$NonInteractive
+Assert-DotfilesSetupConfiguration -DotfilesVariables $DotfilesVariables `
+    -ConfigDirectory (Join-Path $dotfileRootDir 'dotfiles-configurations') `
+    -ModuleDirectory (Join-Path $dotfileRootDir 'setup-modules')
+
 Write-Host "Installing the pre-requisites for the dotfiles setup:"
-$prerequisitesInstalled = Install-DotfilesPrerequisites
+$prerequisitesInstalled = Install-DotfilesPrerequisites -DotfilesVariables $DotfilesVariables `
+    -ConfigDirectory (Join-Path $dotfileRootDir 'dotfiles-configurations')
 
 if (-not $prerequisitesInstalled) {
     Write-ErrorMessage "Failed to install prerequisites. Exiting script."
@@ -59,7 +108,7 @@ if (-not $prerequisitesInstalled) {
     Write-Info "Prerequisites installed successfully."
 }
 
-# Refresh PATH after installing per-user prerequisites.
+# Refresh PATH after installing prerequisites in the configured scopes.
 Write-Info "Refreshing PATH environment variable..."
 try {
     Update-DotfilesProcessPath
@@ -83,6 +132,7 @@ if ($PSVersionTable.PSEdition -ne "Core") {
         $pwshArguments += @("-BootstrapBranch", $BootstrapBranch)
     }
     $pwshArguments += @("-LogFilePath", $logFile, "-AppendLog")
+    if ($BootstrapCommit) { $pwshArguments += @('-BootstrapCommit', $BootstrapCommit) }
     if ($NonInteractive) {
         $pwshArguments += "-NonInteractive"
     }
@@ -95,88 +145,34 @@ if ($PSVersionTable.PSEdition -ne "Core") {
     Exit $childExitCode
 }
 
-# Apply the dotfiles bootstrap variables
-Write-Info "Applying dotfiles bootstrap variables..."
-$DotfilesVariables = Get-DotfilesBootstrapVariables -NonInteractive:$NonInteractive
-if (-not $DotfilesVariables) {
-    Write-WarningMessage "No dotfiles bootstrap variables found."
-    Exit 1
-}
-
-# Validate required configuration values
-$requiredVars = @("WORKSPACE_FOLDER", "GITHUB_ACCOUNT", "GITHUB_DOTFILES_REPO")
-$missingVars = $requiredVars | Where-Object { -not $DotfilesVariables.$_ }
-
-if ($missingVars) {
-    Write-ErrorMessage "Missing required configuration variables: $($missingVars -join ', ')"
-    Exit 1
-}
-
+# The override selects the initial clone or verifies an existing branch; it is not an update request.
 if (-not [string]::IsNullOrWhiteSpace($BootstrapBranch)) {
-    Write-Info "Using bootstrap branch override: $BootstrapBranch"
-    $DotfilesVariables.GITHUB_DOTFILES_BRANCH = $BootstrapBranch
-    $bootstrapConfigPath = Join-Path $dotfileRootDir "dotfiles-configurations\dotfiles-bootstrap-variables.json"
-    Set-DotfilesBootstrapBranch -ConfigPath $bootstrapConfigPath -Branch $BootstrapBranch
+    $DotfilesVariables | Add-Member -NotePropertyName GITHUB_DOTFILES_BRANCH -NotePropertyValue $BootstrapBranch -Force
+    Assert-DotfilesSetupConfiguration -DotfilesVariables $DotfilesVariables `
+        -ConfigDirectory (Join-Path $dotfileRootDir 'dotfiles-configurations') `
+        -ModuleDirectory (Join-Path $dotfileRootDir 'setup-modules')
 }
-
-
-# Create workspace directory if it does not exist
-Write-Info "Creating workspace directory"
 $workspaceDirectory = Join-Path $env:USERPROFILE $DotfilesVariables.WORKSPACE_FOLDER
-if (-not (Test-Path -LiteralPath $workspaceDirectory)) {
-    #create the workspace directory
-    New-Item -ItemType Directory -Path $workspaceDirectory -Force | Out-Null
-} else {
-    Write-Info "Workspace directory already exists: $workspaceDirectory"
-}
-
-# Clone the dotfiles repository if it does not exist
-Write-Info "Cloning the dotfiles repository"
 $dotfilesRepositoryURL = Resolve-DotfilesRepositoryUrl -DotfilesVariables $DotfilesVariables
-$dotfilesDirectory = Join-Path $workspaceDirectory $DotfilesVariables.GITHUB_DOTFILES_REPO
-if (-not (Test-Path -LiteralPath $dotfilesDirectory)) {
-    # clone the dotfiles repository
-    Write-Info "Cloning repository from $dotfilesRepositoryURL"
-    $cloneOutput = git clone $dotfilesRepositoryURL $dotfilesDirectory 2>&1
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $dotfilesDirectory)) {
-        Write-ErrorMessage "Failed to clone the dotfiles repository:`n$cloneOutput"
-        Exit 1
-    }
-} else {
-    Write-Info "Dotfiles directory already exists: $dotfilesDirectory"
-}
-
-# Change the working directory to the dotfiles repository
+$checkout = Get-DotfilesApplyCheckout -SourceRoot $dotfileRootDir `
+    -TargetRoot (Join-Path $workspaceDirectory $DotfilesVariables.GITHUB_DOTFILES_REPO) `
+    -RepositoryUrl $dotfilesRepositoryURL -Branch $DotfilesVariables.GITHUB_DOTFILES_BRANCH `
+    -RequireBranch:(-not [string]::IsNullOrWhiteSpace($BootstrapBranch)) -ExpectedCommit $BootstrapCommit
+$dotfilesDirectory = $checkout.Root
+Write-Info "Applying current working tree (HEAD $($checkout.Commit)). Repository updates require setup-scripts/update.ps1."
 Set-Location -LiteralPath $dotfilesDirectory
 
-if ($DotfilesVariables.GITHUB_DOTFILES_BRANCH) {
-    Write-Info "Ensuring dotfiles repository is on branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'..."
-    git fetch origin $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        Write-ErrorMessage "Failed to fetch branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)' from origin."
-        Exit 1
-    }
-
-    git checkout $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        Write-ErrorMessage "Failed to checkout branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'."
-        Exit 1
-    }
-
-    git pull --ff-only origin $DotfilesVariables.GITHUB_DOTFILES_BRANCH 2>&1 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        Write-ErrorMessage "Failed to pull latest changes for branch '$($DotfilesVariables.GITHUB_DOTFILES_BRANCH)'."
-        Exit 1
-    }
-}
-
 # Ensure gitignored local configuration generated in the bootstrap copy follows the real clone
-# after checkout/pull, so tracked JSON files deleted by this commit cannot mask local config copies.
+# without replacing existing saved choices or updating the checkout.
 Sync-DotfilesLocalConfiguration -SourceRoot $dotfileRootDir -TargetRoot $dotfilesDirectory
+# Save the selected initial branch only for a newly created clone, never for an existing checkout.
+if ($checkout.WasCloned -and -not [string]::IsNullOrWhiteSpace($BootstrapBranch)) {
+    Set-DotfilesBootstrapBranch -ConfigPath (Join-Path $dotfilesDirectory 'dotfiles-configurations/dotfiles-bootstrap-variables.json') -Branch $BootstrapBranch
+}
 
 # The persistent configuration is authoritative once the target clone is known.
 # BootstrapBranch selects this invocation's checkout; it must not rewrite saved choices.
-$DotfilesVariables = Read-DotfilesJsonFile -Path (Join-Path $dotfilesDirectory 'dotfiles-configurations/dotfiles-bootstrap-variables.json')
+$DotfilesVariables = Read-DotfilesConfigurationObject -Path (Join-Path $dotfilesDirectory 'dotfiles-configurations/dotfiles-bootstrap-variables.json')
 
 # Run the new modular setup scripts
 Write-Info "Running the modular setup scripts from 'setup-modules'..."
@@ -184,6 +180,7 @@ Write-Info "Running the modular setup scripts from 'setup-modules'..."
 $moduleScriptsPath = Join-Path $dotfilesDirectory "setup-modules"
 $moduleConfigDirectory = Join-Path $dotfilesDirectory "dotfiles-configurations"
 $moduleLogDirectory = Join-Path $dotfilesDirectory "logs"
+Assert-DotfilesSetupConfiguration -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory -ModuleDirectory $moduleScriptsPath
 Assert-DotfilesSetupDependencies -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 $modulesToRun = Get-DotfilesSetupPlan -DotfilesVariables $DotfilesVariables -ConfigDirectory $moduleConfigDirectory
 $windowsDismModules = @('Configure-WindowsFeatures.ps1', 'Configure-WindowsCapabilities.ps1')

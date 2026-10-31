@@ -34,7 +34,146 @@ For non-interactive bootstrap flows, the TUI can create local files from templat
 
 The TUI automatically adds package groups required by selected setting groups. Setup validates the same dependency metadata before running any module, including when local JSON files are edited manually.
 
+## Setup preflight
+
+`setup.ps1` validates configuration before installing PowerShell/Git prerequisites or requesting
+elevation. Missing local files are still initialized by the configuration TUI first. The persistent
+clone is validated again after local checkout selection and configuration synchronization, before module execution.
+
+The preflight requires JSON objects for all seven local configuration files and checks:
+
+- non-empty string values for `WORKSPACE_FOLDER`, `GITHUB_ACCOUNT`, and `GITHUB_DOTFILES_REPO`;
+- supported repository endpoint settings;
+- selectors against their package, feature, capability and setting catalogs;
+- package ID syntax, supported `scope`/`installerType` metadata, and conflicting duplicate
+  package declarations across selected groups (IDs are compared case-insensitively);
+- module arrays, existing `.ps1` filenames without directory components, boolean `requiresAdmin`,
+  valid selectors, and package dependencies;
+- scalar Git setting values and valid environment entries with `User` or `Machine` scope.
+
+Unknown selections, such as `bsae` instead of `base`, fail with the available group names.
+Explicit empty selector arrays mean "select nothing". Missing selectors retain the legacy
+defaults; single-string selectors and package ID strings remain supported. Fix invalid files
+and rerun setup; preflight does not install or apply machine settings. It validates declarations,
+not whether a package exists in the remote WinGet source or a feature is available on this OS.
+
+## Installed-state diagnostic
+
+After applying setup, diagnose the selected state from this checkout in PowerShell 7.2 or later:
+
+```powershell
+.\setup-scripts\verify.ps1
+.\setup-scripts\verify.ps1 -Format Json
+.\setup-scripts\verify.ps1 -Format Json -CheckPackages
+```
+
+The command validates existing local configuration using the same preflight and selection resolver
+as setup. It does not initialize configuration, update the checkout, apply modules, request elevation,
+start transcripts or save reports. It checks executable availability, selected Windows features and
+capabilities, persistent environment values, global Git values, profile copies and portable stubs,
+theme content and Terminal settings. Profiles are checked for the invoking PowerShell host only.
+Selected capabilities in `NotPresent` or `Staged` state are `Drift`; pending states remain `Unknown`.
+WinGet executable availability is checked only when the package installation module is selected,
+independently of the optional `-CheckPackages` presence queries.
+Terminal settings only need to exist and parse as JSON: setup preserves local customizations.
+Readable empty or malformed settings are `Drift`; access and read failures remain `Unknown`.
+User-authored profiles are skipped because setup intentionally preserves them.
+The console and VS Code entry points share `powershell-profiles/common.ps1`.
+All `.ps1` files in that directory are copied into the machine-local store; only
+`*_profile.ps1` and `profile.ps1` entry points receive portable Documents stubs.
+The diagnostic checks support-file copies too, without expecting stubs for them.
+Existing user-authored profiles are not automatically connected to the shared file.
+No additional support file, including ignored `extra.ps1`, is sourced automatically.
+Reapply removes unmodified portable support-file stubs created by older installers,
+even for optional source files that no longer exist. User-authored files, edited
+stubs and links remain untouched for manual review. The diagnostic reports remaining
+marker-owned support stubs as drift instead of ignoring them.
+
+Each check has one of four statuses:
+
+| Status | Meaning |
+| --- | --- |
+| `Passed` | The stated check succeeded; this is not a complete certification of setup. |
+| `Drift` | A difference or missing required artifact was confirmed. |
+| `Unknown` | State could not be established, including permissions, unsupported OS components or unavailable probes. |
+| `Skipped` | The apply contract intentionally excludes this item. |
+
+Exit codes are `0` for passed/skipped checks only, `1` if any drift was found, and `2` if
+checks are inconclusive without confirmed drift. Invalid configuration produces an inconclusive
+report and prevents state probes. JSON includes `SchemaVersion`, `Checks`, `Counts`, `ExitCode`
+and `Limitations`. Environment and Git checks use anonymous labels and never report configured
+or observed values, personal paths, repository endpoints, native stderr or exception details.
+Component IDs and source filenames remain visible.
+Git and environment value comparisons are case-sensitive. Existing apply modules compare values
+case-insensitively, so a case-only difference may require a manual correction.
+
+WinGet presence checks require `-CheckPackages`: native WinGet may contact package sources and
+write its own cache/logs. The diagnostic never accepts source agreements or installs/updates packages.
+A failed query is inconclusive, not evidence of absence. A successful exact-ID query does not verify
+requested scope or installer type; those constraints remain `Unknown`. Package versions are not
+constrained by the current catalog. Native queries time out after 15 seconds per item.
+
+This first diagnostic does not probe Nerd Font registration, HOME alias correctness or WSL distro
+state. Selected modules without probes are explicitly `Unknown`. With default selections and without
+package opt-in, expect an inconclusive report even when the implemented checks pass. Use the check
+messages to assess coverage; do not treat `Unknown` as a successful installation.
+
+## Setup plan
+
+Create or edit local JSON with `setup-scripts\configure.ps1`, then preview the invoked checkout:
+
+```pwsh
+.\setup-scripts\setup.ps1 -Plan
+.\setup-scripts\setup.ps1 -Plan -PlanFormat Json
+.\setup-scripts\setup.ps1 -Plan -BootstrapBranch develop
+```
+
+`-Plan` validates all seven existing local files using the setup preflight and reuses the same
+module resolver as apply. Missing files or invalid configuration fail with exit code `1`; missing
+files are never generated, even with `-NonInteractive`. Success returns exit code `0`.
+No transcript, configuration write, prerequisite installation, Git operation, network request,
+UAC prompt, module execution or automatic PowerShell relaunch occurs. `-LogFilePath` and
+`-AppendLog` have no effect in plan mode. `-BootstrapBranch` changes only the preview's branch,
+without saving it or reading that branch's remote contents. `-PlanFormat` requires `-Plan`.
+
+Text output lists groups, expanded features/capabilities, unique packages in catalog order,
+scope and installer type, and ordered modules. JSON output is a single object with `SchemaVersion`,
+`Source`, `Branch`, `Limitations`, `Selections`, `Features`, `Capabilities`, `Packages` and `Modules`.
+Collection fields remain arrays when empty or containing one item. Module entries include
+`Order`, `Script`, `RequiresAdmin` (catalog declaration), `Elevation` and `MayRequireRestart`.
+Personal Git values, environment values, workspace paths and repository URLs are omitted.
+
+This is a declaration preview, not an installed-state check: it does not determine which packages
+or Windows components are already present, whether an OS feature/package is available, or whether
+a reboot is currently pending. Elevation is conditional; setup may skip already satisfied Windows
+components and home aliases, while package installers and pending Machine environment changes
+may request it independently of the module catalog. Restart flags identify known potential
+requirements; custom modules can introduce others.
+
+Apply uses the invoked Git working tree, or prepares the persistent clone from a Git-free transport,
+and reloads its saved configuration before resolving modules. Setup does not fetch, pull or switch
+existing branches. Existing persistent choices can still change a transport's previewed module plan.
+The preview's `Branch` is a declared bootstrap preference, not a verification of local Git HEAD.
+For later runs, preview from the persistent clone that holds your machine's configuration.
+Missing selectors retain apply's legacy defaults (all feature/package/setting groups, no capabilities);
+explicit empty arrays opt out, and scalar selectors remain supported. Package IDs are deduplicated
+case-insensitively; conflicting metadata fails in preflight. Planning does not export an executable
+or locked plan for a later apply.
+
 ## Updating the checkout and local JSON files
+
+Repository updating and configuration application are separate operations. For a repository-only
+fast-forward followed by a preview and apply from the same checkout:
+
+```powershell
+.\setup-scripts\update.ps1 -NonInteractive -UpdateRepository
+.\setup-scripts\setup.ps1 -Plan
+.\setup-scripts\setup.ps1
+```
+
+This updater invocation changes no local JSON because it names no templates. It refuses tracked
+changes, detached HEAD or a non-fast-forward; setup itself can apply an intentionally edited working
+tree or detached commit when no `-BootstrapBranch` is requested. Review local edits before applying.
 
 Run the updater when new shared templates are available:
 
@@ -215,16 +354,21 @@ An explicit empty array skips setting modules. If the property is absent, setup 
 iex "& { $(irm 'https://raw.githubusercontent.com/YourGitHubAccount/YourDotfilesRepoName/main/setup-scripts/install.ps1') } -Account YourGitHubAccount -Repo YourDotfilesRepoName -Branch main"
 ```
 
-The `-Branch` value is used for both the downloaded archive and the repository checkout, so a bootstrap started from `develop` or another branch does not switch back to the template's default branch.
-The branch override is persisted to the local bootstrap JSON and therefore remains active on later setup runs.
+The `-Branch` value selects the downloaded archive and the initial clone branch. For an existing
+clone it is a requirement, not permission to switch or update the branch. A mismatch, including
+detached HEAD, stops setup with instructions to select the branch explicitly. The selected initial
+branch is saved only when the clone is newly created; existing saved preferences are preserved.
 
 After the Git-free bootstrap creates the persistent workspace clone, post-reboot continuation and
 normal reruns should execute `setup-scripts\setup.ps1` from that clone. A new Git-free invocation
 extracts a fresh archive and recreates missing local JSON there. Synchronization copies only JSON
 missing from the persistent clone and preserves existing machine-local files. Setup then reloads
-that clone's bootstrap variables before planning modules. `-Branch` selects this invocation's
-checkout without changing an existing saved branch preference. Repository location and endpoint
-selection still use the transport configuration.
+that clone's bootstrap variables before planning modules. `-Branch` verifies the existing clone's
+branch without changing its HEAD or saved branch preference. Repository location and endpoint
+selection use transport configuration only for Git-free invocation. In a Git checkout (including
+a worktree), setup uses the invoked root rather than another configured workspace directory.
+The saved branch preference does not redirect normal local apply; an explicit `-BootstrapBranch`
+must match the local branch. Use `update.ps1` to refresh code before applying new templates/modules.
 The release acceptance matrix tests preservation and missing-file population separately; see
 [Release testing](RELEASE_TESTING.md#repeated-git-free-invocation).
 
@@ -246,14 +390,49 @@ The installer resolves the extracted root dynamically, so custom archives do not
 
 During setup:
 
-1. Missing Git and PowerShell prerequisites are installed for the current user.
+1. Missing Git and PowerShell prerequisites use the scope and installer type declared in the selected local package groups. Shared defaults request machine scope for Git (potentially requesting UAC while the bootstrap itself stays in the invoking user's context) and user scope for PowerShell. If a prerequisite is absent from the selected groups, bootstrap still installs it using those fallback scopes. Legacy strings and objects without scope remain unscoped. Existing commands are reused without scope migration; later package checks still enforce the selected catalog's scope.
 2. A bootstrap started from Windows PowerShell 5.1 relaunches itself in PowerShell 7 before running Git commands.
 3. Missing local config files are created from the `.json.example` templates.
-4. The repository is cloned, if needed, using the selected endpoint type.
-5. The configured branch is fetched, checked out, and fast-forward pulled.
-6. Local gitignored configuration generated during git-free bootstrap is copied into the real workspace clone after branch checkout.
+4. A Git invocation selects its current checkout. A Git-free invocation creates the missing persistent clone using the selected endpoint and branch.
+5. Existing checkouts retain HEAD, branch and local edits; no fetch, checkout, switch or pull is performed. Explicit branch requirements are verified locally and a mismatch stops setup.
+6. Local gitignored configuration generated during Git-free bootstrap populates only missing files in the persistent clone. A newly cloned branch override is saved there; existing saved files are preserved.
 7. Setup validates package-group dependencies declared by selected settings.
 8. Setup builds an ordered module plan from `setup-modules.json` and the selected `INSTALL_FEATURES`, `INSTALL_CAPABILITIES`, `INSTALL_PACKAGES`, and `INSTALL_SETTINGS` values.
 9. Setup modules consume the local `*.json` files and setup stops if a configured module is missing or fails.
 
-The `pwsh` setting deploys Oh My Posh themes using non-elevated hard links when source and target are on the same volume, with a regular copy fallback across volumes. The CaskaydiaCove Nerd Font is installed by the `base` settings group, since it is required for terminal rendering regardless of the Oh My Posh selection.
+### Theme deployment
+
+The `pwsh` setting deploys Oh My Posh themes as independent copies without elevation. Copies are
+staged in the destination directory, checked with SHA-256 and published by rename; the final
+file is checked again. A matching regular file is left untouched. Legacy hardlinks and file
+symlinks are replaced even when their contents match, so editing a deployed theme cannot edit
+the tracked file. Existing content is first retained in a unique `<theme>.<guid>.bak` regular
+file; earlier backups, including old `.bak` files, are not overwritten.
+
+Updating Git does not automatically update the deployed copy: apply setup again to adopt theme
+changes. As before, local edits to a managed theme are backed up and replaced on apply. Keep a
+separately named, unmanaged theme if you want to retain customizations permanently; untracked
+theme names are not removed. No automatic backup cleanup is performed.
+
+Linked destination directories require manual review because they can redirect writes into the
+checkout. Broken or unreadable file links also fail without replacement. Copy, verification or
+publication failures stop the module; staged files are cleaned up and completed backups remain.
+Publication is per file, not a transaction across the complete theme set. Inspect the retained
+backup if final verification fails after publication. No migration runs until setup is applied.
+
+At publication, the previous directory entry is first renamed to a unique `.captured.bak`.
+The staged copy is then renamed into place without overwriting an entry created by another
+writer. A brief filename gap can occur between these renames. On failure the previous entry
+is restored only when the destination is still absent; otherwise it remains captured and the
+competing destination is preserved. Edits captured after the initial backup are copied into
+an additional independent backup under a read handle that denies writes. Captured entries are
+removed only after their contents are independently retained. A captured artifact left by a
+failure may retain legacy link metadata: copy its bytes before editing it or restoring it.
+
+Before migrating a legacy hardlink, review `git diff -- poshthemes`: edits made through that link
+may already be present in the checkout. Migration detaches the current source bytes and does not
+restore upstream contents or discard uncommitted edits. `verify.ps1` reports linked themes as
+`Drift`, even when hashes match.
+
+The CaskaydiaCove Nerd Font is installed by the `base` settings group, since it is required for
+terminal rendering regardless of the Oh My Posh selection.
