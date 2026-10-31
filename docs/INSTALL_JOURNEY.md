@@ -70,10 +70,14 @@ If `-NonInteractive` is used, the setup accepts the defaults from the `*.json.ex
 
 `setup.ps1` installs the prerequisites needed to continue:
 
-- `Microsoft.PowerShell`
-- `Git.Git`
+- `Microsoft.PowerShell` (user scope by default)
+- `Git.Git` (machine scope by default, matching the shared catalog; installation may request UAC)
 
-Both are installed with `winget` for the current user when missing. On the current `develop` flow, `winget` is required for bootstrap.
+When missing, `winget` installs PowerShell and Git using the scope and installer type from the
+selected local package declarations (defaulting to user scope for PowerShell and machine scope for
+Git). Existing commands are reused without scope migration; package verification later checks the
+requested scope. Git's installer may request UAC, while the bootstrap remains in the invoking
+user's context. On the current `develop` flow, `winget` is required for bootstrap.
 
 ## 6. PATH is refreshed
 
