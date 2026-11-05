@@ -109,8 +109,8 @@ case-insensitively, so a case-only difference may require a manual correction.
 
 WinGet presence checks require `-CheckPackages`: native WinGet may contact package sources and
 write its own cache/logs. The diagnostic never accepts source agreements or installs/updates packages.
-A failed query is inconclusive, not evidence of absence. A successful exact-ID query does not verify
-requested scope or installer type; those constraints remain `Unknown`. Package versions are not
+A failed query is inconclusive, not evidence of absence. A successful scoped exact-ID query verifies presence and the requested scope. Installed
+installer type remains `Unknown` when constrained by the catalog. Package versions are not
 constrained by the current catalog. Native queries time out after 15 seconds per item.
 
 This first diagnostic does not probe Nerd Font registration, HOME alias correctness or WSL distro
@@ -436,3 +436,15 @@ restore upstream contents or discard uncommitted edits. `verify.ps1` reports lin
 
 The CaskaydiaCove Nerd Font is installed by the `base` settings group, since it is required for
 terminal rendering regardless of the Oh My Posh selection.
+
+### Additional component probes
+
+Selected WSL2 setup is checked using the per-user default-version registry value and read-only
+WSL distribution listings. An unregistered Ubuntu distribution is skipped, matching apply's
+first-launch contract. No distro is launched, converted or stopped by verify.
+Nerd Font checks compare the completion record to downloads.lock.json, then validate every
+recorded file hash and per-user registration. This certifies local recorded state, not the
+independent authenticity/completeness of mutable local metadata.
+HOME alias checks reuse setup's read-only preflight. ASCII-only profile paths are skipped;
+missing aliases or incorrect persistent HOME are drift, and inaccessible/conflicting aliases
+remain Unknown. Private paths and raw exception details are not included in reports.

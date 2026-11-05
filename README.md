@@ -287,3 +287,7 @@ Suggestions and improvements are [welcome and encouraged](https://github.com/abr
 
 - @[Anthony Cangialosi](https://github.com/acangialosi)
 - @[Jay Harris](https://github.com/jayharris)
+
+Installed-state diagnostics include WSL defaults/Ubuntu version, HOME alias consistency and
+Nerd Font completion metadata, files and registration. `setup-scripts/component-probes.ps1`
+implements these read-only checks; `tests/ComponentProbes.Tests.ps1` tests drift and failures.
