@@ -12,6 +12,16 @@ Describe 'Keyboard selection' {
             -ReadKey { $keys.Dequeue() } -Render { })
         ($result -join ',') | Should -Be 'dev,wsl'
     }
+    It 'preserves existing selection order when Enter is pressed and appends new choices' {
+        $result = @(Read-DotfilesMultiSelection -Choices @('base', 'dev', 'wsl') -CurrentValues @('wsl', 'base') `
+            -ReadKey { 'Enter' } -Render { })
+        ($result -join ',') | Should -Be 'wsl,base'
+        $keys = [Collections.Generic.Queue[string]]::new()
+        @('A', 'Enter') | ForEach-Object { $keys.Enqueue($_) }
+        $result = @(Read-DotfilesMultiSelection -Choices @('base', 'dev', 'wsl') -CurrentValues @('wsl', 'base') `
+            -ReadKey { $keys.Dequeue() } -Render { })
+        ($result -join ',') | Should -Be 'wsl,base,dev'
+    }
     It 'can select all then clear all without returning null entries' {
         $keys = [Collections.Generic.Queue[string]]::new()
         @('A', 'N', 'Enter') | ForEach-Object { $keys.Enqueue($_) }

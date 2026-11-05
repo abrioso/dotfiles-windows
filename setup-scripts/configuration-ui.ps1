@@ -98,8 +98,12 @@ function Read-DotfilesMultiSelection {
             if ($top -gt 0) { [Console]::SetCursorPosition(0, $top + $rows) }
         }
     }
-    for ($i = 0; $i -lt $Choices.Count; $i++) {
-        if ($selected[$i]) { $Choices[$i] }
+    # Existing selections keep their order; newly enabled choices follow catalog order.
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($choice in (@($CurrentValues) + @($Choices))) {
+        for ($i = 0; $i -lt $Choices.Count; $i++) {
+            if ($choice -eq $Choices[$i] -and $selected[$i] -and $seen.Add($Choices[$i])) { $Choices[$i] }
+        }
     }
 }
 

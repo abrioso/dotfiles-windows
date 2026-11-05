@@ -135,15 +135,15 @@ Write-Section 'Local paths'
 $bootstrap.WORKSPACE_FOLDER = Prompt-Value -Label 'Workspace folder under USERPROFILE' -CurrentValue $bootstrap.WORKSPACE_FOLDER
 
 Write-Section 'Package groups'
-$packageGroups = @($wingetConfig.PSObject.Properties.Name | Sort-Object)
+$packageGroups = @($wingetConfig.PSObject.Properties.Name)
 $bootstrap.INSTALL_PACKAGES = @(Prompt-MultiChoice -Label 'Package groups to install' -Choices $packageGroups -CurrentValues $bootstrap.INSTALL_PACKAGES)
 
 Write-Section 'Windows feature groups'
-$featureGroups = if ($featuresConfig) { @($featuresConfig.PSObject.Properties.Name | Sort-Object) } else { @() }
+$featureGroups = if ($featuresConfig) { @($featuresConfig.PSObject.Properties.Name) } else { @() }
 $bootstrap.INSTALL_FEATURES = @(Prompt-MultiChoice -Label 'Windows feature groups to enable' -Choices $featureGroups -CurrentValues $bootstrap.INSTALL_FEATURES)
 
 Write-Section 'Windows capability groups'
-$capabilityGroups = if ($capabilitiesConfig) { @($capabilitiesConfig.PSObject.Properties.Name | Sort-Object) } else { @() }
+$capabilityGroups = if ($capabilitiesConfig) { @($capabilitiesConfig.PSObject.Properties.Name) } else { @() }
 $currentCapabilities = if (Test-DotfilesObjectProperty -InputObject $bootstrap -Name 'INSTALL_CAPABILITIES') {
     $bootstrap.INSTALL_CAPABILITIES
 } else {
@@ -157,7 +157,7 @@ if (Test-DotfilesObjectProperty -InputObject $bootstrap -Name 'INSTALL_CAPABILIT
 }
 
 Write-Section 'Setup setting groups'
-$settingGroups = if ($setupModulesConfig.settings) { @($setupModulesConfig.settings.PSObject.Properties.Name | Sort-Object) } else { @() }
+$settingGroups = if ($setupModulesConfig.settings) { @($setupModulesConfig.settings.PSObject.Properties.Name) } else { @() }
 $bootstrap.INSTALL_SETTINGS = @(Prompt-MultiChoice -Label 'Setting groups to apply' -Choices $settingGroups -CurrentValues $bootstrap.INSTALL_SETTINGS)
 
 $requiredPackageGroups = Get-DotfilesRequiredPackageGroup -SetupConfig $setupModulesConfig -SelectedSettings $bootstrap.INSTALL_SETTINGS
