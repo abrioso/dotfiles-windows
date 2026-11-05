@@ -11,6 +11,9 @@ param (
     [string]$ConfigPath = "$PSScriptRoot/../dotfiles-configurations/git-variables.json"
 )
 
+$ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $false
+
 try {
     Write-Host "Reading Git configuration from $ConfigPath..."
     if (-not (Test-Path $ConfigPath)) {
@@ -30,7 +33,7 @@ try {
 
     foreach ($property in $properties) {
         $key = $property.Name
-        $desiredValue = $property.Value
+        $desiredValue = [string]$property.Value
 
         if ([string]::IsNullOrWhiteSpace([string]$desiredValue)) {
             Write-Host "Git config '$key' has an empty value in the configuration file. Skipping."
@@ -38,18 +41,18 @@ try {
         }
 
         # git config exits with 1 when the key does not exist; $currentValue will be $null in that case.
-        $currentValue = git config --global $key 2>$null
+        $currentValues = @(git config --global --get-all -- $key 2>$null)
         $readExitCode = $LASTEXITCODE
-        if ($readExitCode -eq 1) { $currentValue = $null }
+        if ($readExitCode -eq 1) { $currentValues = @() }
         elseif ($readExitCode -ne 0) {
             throw "Failed to read Git config '$key' (exit code $readExitCode)."
         }
 
-        if ($currentValue -eq $desiredValue) {
+        if ($currentValues.Count -eq 1 -and [string]$currentValues[0] -ceq $desiredValue) {
             Write-Host "Git config '$key' is already set to '$desiredValue'. Skipping."
         } else {
             Write-Host "Setting Git config '$key' to '$desiredValue'..."
-            git config --global $key $desiredValue
+            git config --global --replace-all -- $key $desiredValue
             if ($LASTEXITCODE -ne 0) {
                 throw "Failed to write Git config '$key' (exit code $LASTEXITCODE)."
             }
@@ -58,7 +61,7 @@ try {
     }
 }
 catch {
-    Write-Error "An error occurred while applying Git configuration: $_"
+    Write-Error "An error occurred while applying Git configuration: $_" -ErrorAction Continue
     exit 1
 }
 
