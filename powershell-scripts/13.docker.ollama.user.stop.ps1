@@ -1,21 +1,22 @@
-# 13.docker.ollama.user.stop.ps1
-# PowerShell script to stop and remove Docker Compose services for Ollama and recommended services
+[CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
+param(
+    [Parameter(Mandatory)][string]$ComposePath,
+    [ValidatePattern('^[a-z0-9][a-z0-9_-]*$')][string]$ProjectName,
+    [ValidateSet('Stop', 'Down', 'Purge')][string]$Action = 'Stop'
+)
 
-# Ensure Docker is installed
-if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    Write-Error "Docker is not installed. Please install Docker Desktop first."
+$ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/docker-compose-functions.ps1"
+try {
+    $composeArguments = @(Get-DotfilesComposeArguments -ComposePath $ComposePath -ProjectName $ProjectName)
+    if ($Action -ne 'Purge' -and -not $PSBoundParameters.ContainsKey('Confirm')) { $ConfirmPreference = 'None' }
+    $description = if ($Action -eq 'Purge') { 'Remove containers AND persistent models, chats and configuration volumes' } else { $Action }
+    if (-not $PSCmdlet.ShouldProcess($ComposePath, $description)) { return }
+    [string[]]$operation = if ($Action -eq 'Stop') { @('stop') } else { @('down') }
+    if ($Action -eq 'Purge') { $operation += '--volumes' }
+    Invoke-DotfilesDocker -Arguments ($composeArguments + $operation)
+    Write-Host "Compose operation '$Action' completed successfully."
+} catch {
+    Write-Error $_ -ErrorAction Continue
     exit 1
 }
-
-# Check if docker-compose.yml exists in the current directory
-$composeFile = "docker-compose.yml"
-if (-not (Test-Path $composeFile)) {
-    Write-Error "docker-compose.yml not found in the current directory."
-    exit 1
-}
-
-Write-Host "Stopping and removing Ollama, Open WebUI, Portainer, and Watchtower containers..."
-
-docker compose down --volumes
-
-Write-Host "All containers stopped and volumes removed."

@@ -287,3 +287,6 @@ Suggestions and improvements are [welcome and encouraged](https://github.com/abr
 
 - @[Anthony Cangialosi](https://github.com/acangialosi)
 - @[Jay Harris](https://github.com/jayharris)
+
+Standalone Ollama helpers require an explicit Compose file, preserve volumes on stop, and
+propagate Docker failures. See [lifecycle and migration](powershell-scripts/README.md#ollama-compose-lifecycle).
