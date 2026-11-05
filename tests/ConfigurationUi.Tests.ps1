@@ -78,6 +78,22 @@ Describe 'Configuration round trip' {
         & "$repositoryRoot/setup-scripts/configure.ps1" -ConfigDirectory $configDirectory -TextMode
         (Read-DotfilesConfigurationObject $path).INSTALL_FEATURES -is [array] | Should -BeTrue
     }
+    It 'saves relative configuration paths after changing PowerShell location' {
+        $processDirectory = [Environment]::CurrentDirectory
+        Push-Location (Split-Path -Parent $configDirectory)
+        try {
+            [Environment]::CurrentDirectory = $repositoryRoot
+            $relativeDirectory = './' + (Split-Path -Leaf $configDirectory)
+            1..4 | ForEach-Object { $global:dotfilesUiTestAnswers.Enqueue('none') }
+            & "$repositoryRoot/setup-scripts/configure.ps1" -ConfigDirectory $relativeDirectory -TextMode
+            $bootstrap = Read-DotfilesConfigurationObject (Join-Path $configDirectory 'dotfiles-bootstrap-variables.json')
+            $bootstrap.INSTALL_PACKAGES -is [array] | Should -BeTrue
+            $bootstrap.INSTALL_PACKAGES | Should -HaveCount 0
+        } finally {
+            [Environment]::CurrentDirectory = $processDirectory
+            Pop-Location
+        }
+    }
     It 'preserves existing files byte for byte when cancelled' {
         $path = Join-Path $configDirectory 'dotfiles-bootstrap-variables.json'
         $before = (Get-FileHash $path).Hash

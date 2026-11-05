@@ -110,6 +110,8 @@ function Read-DotfilesMultiSelection {
 function Save-DotfilesConfiguration {
     [CmdletBinding()]
     param([string]$ConfigDirectory, [string]$ModuleDirectory, $Bootstrap, $GitConfig)
+    # .NET file replacement resolves paths against the process directory, not Get-Location.
+    $ConfigDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ConfigDirectory)
     # Reuse the updater's atomic replacement, backup and rollback implementation.
     . "$PSScriptRoot/update-functions.ps1"
     Set-StrictMode -Off
