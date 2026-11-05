@@ -26,7 +26,7 @@ jobs:
       - name: Parse bootstrap in Windows PowerShell 5.1
         shell: powershell
         run: |
-          $files = @('install.ps1', 'setup.ps1', 'setup-functions.ps1', 'configure.ps1')
+          $files = @('install.ps1', 'setup.ps1', 'setup-functions.ps1', 'setup-plan.ps1', 'configure.ps1')
           if (Test-Path ./setup-scripts/configuration-ui.ps1) { $files += 'configuration-ui.ps1' }
           foreach ($file in $files) {
             $parseErrors = $null
