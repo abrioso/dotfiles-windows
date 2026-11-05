@@ -50,10 +50,42 @@ and limitations. Old generated reports already present on a machine are not dele
 
 ## Retained utilities
 
-`functions.ps1` and `aliases.ps1` remain available; existing tests load the function helpers from
-this directory. `Set-GitflowBranchProtection.ps1` remains the administrative entry point documented
-in [GitFlow](../docs/GITFLOW.md). `Add-CurrentUserToHyperVAdmins.ps1`, `Start-OllamaAndWebUI.ps1` and
-the two `13.docker.ollama.user*.ps1` scripts remain standalone manual tools, outside setup.
-Their behavior is unchanged and is not certified by this migration: review them before use,
-particularly the Docker stop script, which removes volumes. This PR does not consolidate shell
-profile contents or redesign standalone container/admin tooling.
+`functions.ps1`, `aliases.ps1`, `Set-GitflowBranchProtection.ps1` and
+`Add-CurrentUserToHyperVAdmins.ps1` remain standalone utilities outside setup.
+
+## Ollama Compose lifecycle
+
+The Compose helpers require an explicit `-ComposePath`; they do not select a stack from the
+current working directory. The optional `-ProjectName` must match the existing Compose project
+on every invocation. Omitting it preserves Docker Compose's directory-based naming behavior.
+The start command creates a missing file with a managed marker, preserves existing content,
+validates Compose and checks `up --wait` before reporting success. It requires a Compose version
+supporting `--wait`. New files bind ports to localhost and make Watchtower opt-in through the
+`automatic-updates` profile. Existing files are never silently updated.
+
+```powershell
+.\powershell-scripts\13.docker.ollama.user.ps1 -ComposePath C:\stacks\ollama\docker-compose.yml
+.\powershell-scripts\13.docker.ollama.user.stop.ps1 -ComposePath C:\stacks\ollama\docker-compose.yml
+.\powershell-scripts\13.docker.ollama.user.stop.ps1 -ComposePath C:\stacks\ollama\docker-compose.yml -Action Down
+```
+
+The default `Stop` preserves containers and volumes. `Down` removes containers/networks but
+preserves volumes. `Purge` deletes persistent data and requests high-impact confirmation;
+`-WhatIf` previews it. Only an intentional `-Confirm:$false` suppresses this confirmation.
+All Docker errors produce a failing exit code and prevent a success message.
+
+For a file produced by the old generator, first review its services, ports and volume definitions,
+then add `# dotfiles-managed ollama compose v1` as its first line. Keep the original directory,
+Compose filename, project name and volume definitions to retain existing data. The marker is an
+ownership guard against accidentally selecting another Compose file, not an authenticity check.
+Do not generate a replacement stack in another directory and assume it will use the same volumes.
+
+`Start-OllamaAndWebUI.ps1` now stops with migration guidance. Its direct `docker run` volumes
+(`ollama` and `open-webui`) differ from the Compose generator's volumes. Back up and explicitly
+map those existing volumes (for example with external named volumes) before migrating. No script
+removes old containers or migrates volumes automatically.
+
+`docker-compose-functions.ps1` centralizes file selection and native exit-code handling;
+`tests/DockerLifecycle.Tests.ps1` verifies the lifecycle with a fake Docker command. Runtime
+GPU/network checks remain part of Windows acceptance. Application stack development should
+be consolidated in akb-docker-stack separately from Windows host provisioning.
