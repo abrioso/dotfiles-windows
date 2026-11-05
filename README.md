@@ -279,15 +279,6 @@ and rollback checks in [Release testing](docs/RELEASE_TESTING.md). Copy the reus
 against the exact release commit under test. Releases follow the `vYYYY.MM.N` Calendar Versioning
 and Git Flow process documented in [Gitflow Policy](docs/GITFLOW.md).
 
-## Feedback
-
-Suggestions and improvements are [welcome and encouraged](https://github.com/abrioso/dotfiles-windows/issues)!
-
-## Thanks to…
-
-- @[Anthony Cangialosi](https://github.com/acangialosi)
-- @[Jay Harris](https://github.com/jayharris)
-
 CI parses the bootstrap using Windows PowerShell 5.1 and runs the full validation in PowerShell 7.
 Actions are pinned to commits; Dependabot proposes weekly updates against develop. Analyzer
 JSON (including warning counts by rule) and Pester NUnit XML are retained for 30 days, including
@@ -297,3 +288,12 @@ acceptance. `tests/analyzer-warning-baseline.json` caps production-code warnings
 variable assignment, Invoke-Expression, null comparisons and empty catch blocks. Increases fail
 CI; tests and remaining style rules stay informational. Lower the limits as existing debt is
 removed. Raising a limit requires explicit review and justification in the PR.
+
+## Feedback
+
+Suggestions and improvements are [welcome and encouraged](https://github.com/abrioso/dotfiles-windows/issues)!
+
+## Thanks to…
+
+- @[Anthony Cangialosi](https://github.com/acangialosi)
+- @[Jay Harris](https://github.com/jayharris)
