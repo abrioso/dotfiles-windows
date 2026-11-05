@@ -22,7 +22,10 @@ Describe 'Validation process failure propagation' {
         $fixtureTests = Join-Path $fixtureRoot 'tests'
         New-Item -ItemType Directory -Path $fixtureTests -Force | Out-Null
         $fixtureRunner = Join-Path $fixtureTests 'Invoke-Validation.ps1'
-        Copy-Item -LiteralPath $runnerSource -Destination $fixtureRunner
+        # Normalize the copied fixture so CRLF checkout policy cannot become a whitespace failure
+        # in a fresh repository that does not inherit the source .gitattributes.
+        $runnerText = [IO.File]::ReadAllText($runnerSource).Replace("`r`n", "`n")
+        [IO.File]::WriteAllText($fixtureRunner, $runnerText)
         foreach ($spec in @(@('Pester', '5.7.1'), @('PSScriptAnalyzer', '1.25.0'))) {
             $moduleDirectory = Join-Path $fixtureModules "$($spec[0])/$($spec[1])"
             New-Item -ItemType Directory -Path $moduleDirectory -Force | Out-Null
