@@ -287,3 +287,6 @@ Suggestions and improvements are [welcome and encouraged](https://github.com/abr
 
 - @[Anthony Cangialosi](https://github.com/acangialosi)
 - @[Jay Harris](https://github.com/jayharris)
+
+Configuration values converge exactly, including case-only changes. Git scalar declarations
+replace duplicate global values. `tests/ConfigurationConvergence.Tests.ps1` covers these cases.
