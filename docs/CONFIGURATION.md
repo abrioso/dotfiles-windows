@@ -104,8 +104,9 @@ report and prevents state probes. JSON includes `SchemaVersion`, `Checks`, `Coun
 and `Limitations`. Environment and Git checks use anonymous labels and never report configured
 or observed values, personal paths, repository endpoints, native stderr or exception details.
 Component IDs and source filenames remain visible.
-Git and environment value comparisons are case-sensitive. Existing apply modules compare values
-case-insensitively, so a case-only difference may require a manual correction.
+Git and environment values are compared case-sensitively by both apply and diagnostics.
+Case-only differences are corrected on reapply. Each configured Git key owns a single global
+value; duplicate values are replaced by the declared scalar. Empty Git values remain ignored.
 
 WinGet presence checks require `-CheckPackages`: native WinGet may contact package sources and
 write its own cache/logs. The diagnostic never accepts source agreements or installs/updates packages.
