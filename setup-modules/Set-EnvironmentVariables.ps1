@@ -54,17 +54,17 @@ try {
     foreach ($variable in $variables) {
         if ($MachineOnly -and $variable.Scope -ne 'Machine') { continue }
         $name = $variable.Name
-        $value = $variable.Value
+        $value = [string]$variable.Value
         $scope = $variable.Scope
 
         $currentValue = [System.Environment]::GetEnvironmentVariable($name, $scope)
-        if ($scope -eq 'Machine' -and $currentValue -ne $value -and -not (Test-IsElevated)) {
+        if ($scope -eq 'Machine' -and [string]$currentValue -cne $value -and -not (Test-IsElevated)) {
             if ($MachineOnly) { throw 'Machine environment changes require elevation.' }
             $pendingMachineChanges = $true
             continue
         }
 
-        if ($currentValue -eq $value) {
+        if ([string]$currentValue -ceq $value) {
             Write-Host "Environment variable '$name' is already set correctly in the '$scope' scope. Skipping."
         } else {
             Write-Host "Setting environment variable '$name' in the '$scope' scope..."

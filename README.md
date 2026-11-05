@@ -127,6 +127,9 @@ This folder contains the modular scripts that perform the actual configuration t
     covers migration, idempotency, backups and failure preservation.
 -   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config. Read/write failures stop setup; `tests/GitConfigFailure.Tests.ps1` covers malformed configuration and held locks.
 
+Configuration values converge exactly, including case-only changes. Git scalar declarations
+replace duplicate global values. `tests/ConfigurationConvergence.Tests.ps1` covers these cases.
+
 #### `dotfiles-configurations`
 
 This folder contains tracked `*.json.example` templates and local gitignored `*.json` files. Run `setup-scripts\configure.ps1` to create and edit local configuration interactively. See [Configuration](docs/CONFIGURATION.md) for the full file model and endpoint options.
@@ -164,6 +167,9 @@ it no longer prints profile content or writes reports automatically. See the
 [migration table and compatibility changes](powershell-scripts/README.md).
 `tests/LegacyEntryPoints.Tests.ps1` covers non-mutating retirement in both entry hosts and
 diagnostic delegation, options, exit codes and report privacy in PowerShell 7.
+
+Standalone Ollama helpers require an explicit Compose file, preserve volumes on stop, and
+propagate Docker failures. See [lifecycle and migration](powershell-scripts/README.md#ollama-compose-lifecycle).
 
 ### PowerShell Profile
 
