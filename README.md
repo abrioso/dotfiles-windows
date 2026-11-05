@@ -287,3 +287,13 @@ Suggestions and improvements are [welcome and encouraged](https://github.com/abr
 
 - @[Anthony Cangialosi](https://github.com/acangialosi)
 - @[Jay Harris](https://github.com/jayharris)
+
+CI parses the bootstrap using Windows PowerShell 5.1 and runs the full validation in PowerShell 7.
+Actions are pinned to commits; Dependabot proposes weekly updates against develop. Analyzer
+JSON (including warning counts by rule) and Pester NUnit XML are retained for 30 days, including
+failed runs. Locally, use `tests/Invoke-Validation.ps1 -ReportDirectory <external-directory>`.
+The reports support warning triage and release evidence; they do not replace Windows 11 VM
+acceptance. `tests/analyzer-warning-baseline.json` caps production-code warnings for automatic
+variable assignment, Invoke-Expression, null comparisons and empty catch blocks. Increases fail
+CI; tests and remaining style rules stay informational. Lower the limits as existing debt is
+removed. Raising a limit requires explicit review and justification in the PR.

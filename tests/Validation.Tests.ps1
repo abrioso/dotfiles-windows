@@ -6,10 +6,12 @@ Describe 'Validation process failure propagation' {
         $originalFixtureMode = $env:DOTFILES_VALIDATION_FIXTURE
 
         function Invoke-ValidationFixture {
-            param([string]$Mode)
+            param([string]$Mode, [switch]$Reports)
             $env:DOTFILES_VALIDATION_FIXTURE = $Mode
             $env:PSModulePath = $fixtureModules + [IO.Path]::PathSeparator + $originalModulePath
-            $output = & $hostPath -NoProfile -File $fixtureRunner 2>&1
+            $arguments = @()
+            if ($Reports) { $arguments = @('-ReportDirectory', (Join-Path $TestDrive 'reports')) }
+            $output = & $hostPath -NoProfile -File $fixtureRunner @arguments 2>&1
             [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = ($output -join "`n") }
         }
     }
@@ -47,6 +49,7 @@ function Invoke-ScriptAnalyzer {
             RuleName = 'FixtureRule'
             Severity = if ($env:DOTFILES_VALIDATION_FIXTURE -eq 'AnalyzerError') { 'Error' } else { 'Warning' }
             ScriptName = 'fixture.ps1'
+            ScriptPath = $Path
             Line = 1
             Message = 'Visible fixture diagnostic'
         }
@@ -105,5 +108,18 @@ Export-ModuleMember -Function Invoke-ScriptAnalyzer
         $result.ExitCode | Should -Be 1
         $result.Output | Should -Match 'Untracked-file whitespace validation failed'
         $result.Output | Should -Match 'trailing whitespace'
+    }
+    It 'retains analyzer reports when analysis fails' {
+        $result = Invoke-ValidationFixture -Mode AnalyzerError -Reports
+        $result.ExitCode | Should -Be 1
+        $report = Get-Content (Join-Path $TestDrive 'reports/analyzer.json') -Raw | ConvertFrom-Json
+        $report.Errors | Should -BeGreaterThan 0
+    }
+    It 'rejects an increased production warning count for a tracked rule' {
+        '{"SchemaVersion":1,"Limits":{"FixtureRule":0}}' | Set-Content (Join-Path $fixtureTests 'analyzer-warning-baseline.json')
+        '# fixture' | Set-Content (Join-Path $fixtureRoot 'fixture.ps1')
+        $result = Invoke-ValidationFixture -Mode AnalyzerWarning
+        $result.ExitCode | Should -Be 1
+        $result.Output | Should -Match 'warning baseline exceeded'
     }
 }
