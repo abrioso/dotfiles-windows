@@ -113,10 +113,11 @@ A failed query is inconclusive, not evidence of absence. A successful scoped exa
 installer type remains `Unknown` when constrained by the catalog. Package versions are not
 constrained by the current catalog. Native queries time out after 15 seconds per item.
 
-This first diagnostic does not probe Nerd Font registration, HOME alias correctness or WSL distro
-state. Selected modules without probes are explicitly `Unknown`. With default selections and without
-package opt-in, expect an inconclusive report even when the implemented checks pass. Use the check
-messages to assess coverage; do not treat `Unknown` as a successful installation.
+The diagnostic probes Nerd Font registration, HOME alias correctness and WSL default/Ubuntu
+version state. Selected modules without probes and checks with unavailable evidence are explicitly
+`Unknown`. Package checks remain opt-in, so a report can be inconclusive even when the implemented
+checks pass. Use the check messages and the component coverage section below to assess coverage;
+do not treat `Unknown` as a successful installation.
 
 ## Setup plan
 
