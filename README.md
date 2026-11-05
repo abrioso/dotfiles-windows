@@ -119,6 +119,9 @@ This folder contains the modular scripts that perform the actual configuration t
     covers migration, idempotency, backups and failure preservation.
 -   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config. Read/write failures stop setup; `tests/GitConfigFailure.Tests.ps1` covers malformed configuration and held locks.
 
+Configuration values converge exactly, including case-only changes. Git scalar declarations
+replace duplicate global values. `tests/ConfigurationConvergence.Tests.ps1` covers these cases.
+
 #### `dotfiles-configurations`
 
 This folder contains tracked `*.json.example` templates and local gitignored `*.json` files. Run `setup-scripts\configure.ps1` to create and edit local configuration interactively. See [Configuration](docs/CONFIGURATION.md) for the full file model and endpoint options.
