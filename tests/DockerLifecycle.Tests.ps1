@@ -9,6 +9,7 @@ function docker {
     ConvertTo-Json -InputObject @($args) -Compress | Add-Content -LiteralPath $CallsPath
     $global:LASTEXITCODE = $DockerExitCode
 }
+$ConfirmPreference = 'None'
 $parameters = Get-Content -LiteralPath $ParametersPath -Raw | ConvertFrom-Json -AsHashtable
 & $ScriptPath @parameters
 if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE }
@@ -17,7 +18,7 @@ if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE }
             param([string]$Script, [hashtable]$Parameters, [int]$Failure = 0)
             $parametersPath = Join-Path $TestDrive 'parameters.json'
             $Parameters | ConvertTo-Json | Set-Content $parametersPath
-            $output = & $hostPath -NoProfile -File $harness -ScriptPath "$root/powershell-scripts/$Script" `
+            $output = & $hostPath -NoProfile -NonInteractive -File $harness -ScriptPath "$root/powershell-scripts/$Script" `
                 -ParametersPath $parametersPath -CallsPath $callsPath -DockerExitCode $Failure 2>&1
             [pscustomobject]@{ExitCode=$LASTEXITCODE;Output=($output -join "`n")}
         }
@@ -48,6 +49,11 @@ if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE }
     }
     It 'does not invoke Docker for a purge preview' {
         (Invoke-DockerFixture '13.docker.ollama.user.stop.ps1' @{ComposePath=$composePath;Action='Purge';WhatIf=$true}).ExitCode | Should -Be 0
+        Test-Path $callsPath | Should -BeFalse
+    }
+    It 'requires explicit confirmation even when ambient confirmation is disabled' {
+        $result = Invoke-DockerFixture '13.docker.ollama.user.stop.ps1' @{ComposePath=$composePath;Action='Purge'}
+        $result.ExitCode | Should -Be 1
         Test-Path $callsPath | Should -BeFalse
     }
     It 'purges only when explicitly requested' {

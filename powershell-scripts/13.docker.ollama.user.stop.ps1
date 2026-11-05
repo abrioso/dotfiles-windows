@@ -9,7 +9,9 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/docker-compose-functions.ps1"
 try {
     $composeArguments = @(Get-DotfilesComposeArguments -ComposePath $ComposePath -ProjectName $ProjectName)
-    if ($Action -ne 'Purge' -and -not $PSBoundParameters.ContainsKey('Confirm')) { $ConfirmPreference = 'None' }
+    if (-not $PSBoundParameters.ContainsKey('Confirm')) {
+        $ConfirmPreference = if ($Action -eq 'Purge') { 'High' } else { 'None' }
+    }
     $description = if ($Action -eq 'Purge') { 'Remove containers AND persistent models, chats and configuration volumes' } else { $Action }
     if (-not $PSCmdlet.ShouldProcess($ComposePath, $description)) { return }
     [string[]]$operation = if ($Action -eq 'Stop') { @('stop') } else { @('down') }
