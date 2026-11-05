@@ -160,6 +160,9 @@ it no longer prints profile content or writes reports automatically. See the
 `tests/LegacyEntryPoints.Tests.ps1` covers non-mutating retirement in both entry hosts and
 diagnostic delegation, options, exit codes and report privacy in PowerShell 7.
 
+Standalone Ollama helpers require an explicit Compose file, preserve volumes on stop, and
+propagate Docker failures. See [lifecycle and migration](powershell-scripts/README.md#ollama-compose-lifecycle).
+
 ### PowerShell Profile
 
 The setup deploys per-machine PowerShell profiles: the real profile files live in `%LOCALAPPDATA%\dotfiles\powershell-profiles` (never OneDrive-synced), and a small marker stub in the profile directory dot-sources them. This keeps your profile configuration tracked in this repository while staying personal to each machine, even when Documents is synchronised by OneDrive. The profile is composed of several files located in the `powershell-profiles` directory.
