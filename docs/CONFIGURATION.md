@@ -32,6 +32,16 @@ For non-interactive bootstrap flows, the TUI can create local files from templat
 .\setup-scripts\configure.ps1 -NonInteractive
 ```
 
+The default console selector uses arrow keys to move and Space to enable/disable a group.
+A selects all, N clears all, Enter confirms a group, and Esc cancels without saving edits.
+Selections remain arrays even when zero or one items are enabled. The final summary includes
+package dependencies added by settings; the save prompt commits both bootstrap and Git choices.
+The staged configuration passes preflight before atomic replacement; backups support rollback
+if a later write fails. Unsupported consoles and `-TextMode` use numbered text prompts.
+Missing default files are initialized before editing, including on first-run cancellation.
+`setup-scripts/configuration-ui.ps1` owns selectors and configuration persistence;
+`tests/ConfigurationUi.Tests.ps1` covers keyboard behavior and the TUI/JSON/preflight round trip.
+
 The TUI automatically adds package groups required by selected setting groups. Setup validates the same dependency metadata before running any module, including when local JSON files are edited manually.
 
 ## Setup preflight
