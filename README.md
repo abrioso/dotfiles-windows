@@ -92,6 +92,10 @@ The diagnostic reports confirmed drift and inconclusive checks without applying 
 queries require opt-in. See [Installed-state diagnostic](docs/CONFIGURATION.md#installed-state-diagnostic)
 for coverage, exit codes and limitations.
 
+Installed-state diagnostics include WSL defaults/Ubuntu version, HOME alias consistency and
+Nerd Font completion metadata, files and registration. `setup-scripts/component-probes.ps1`
+implements these read-only checks; `tests/ComponentProbes.Tests.ps1` tests drift and failures.
+
 ### Core Components
 
 #### `setup-scripts`
