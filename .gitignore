@@ -8,6 +8,7 @@ logs/*.txt
 
 # Exclude test results
 tests/*.results.json
+/testResults.xml
 
 # Local machine-specific dotfiles configuration
 dotfiles-configurations/*.json

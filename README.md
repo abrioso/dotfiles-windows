@@ -11,6 +11,14 @@ that are unavailable or unwanted on a particular machine.
 > **Note:** To make this work, you need to set your PowerShell execution policy to allow scripts to run. You can do this for your user account by running the following command in PowerShell:
 > `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force`
 
+The configuration TUI uses Up/Down to move, Space to toggle, A/N to select all/none,
+and Enter to confirm each group. Review the selections and save once at the end.
+Esc cancels a selector without saving edits. Existing configuration is validated before
+atomic replacement, with backups under `%LOCALAPPDATA%\dotfiles-windows\config-backups`.
+Use `configure.ps1 -TextMode` for numbered input; unsupported consoles use it automatically.
+`-NonInteractive` still initializes missing defaults without prompting. First-run defaults
+may already have been created when an interactive session is cancelled.
+
 ### Using Git and the Bootstrap Script
 
 Clone the repository to your local machine (e.g., into `~\workspace\dotfiles-windows`). Once cloned, you can run the main setup script.
@@ -84,6 +92,10 @@ The diagnostic reports confirmed drift and inconclusive checks without applying 
 queries require opt-in. See [Installed-state diagnostic](docs/CONFIGURATION.md#installed-state-diagnostic)
 for coverage, exit codes and limitations.
 
+Installed-state diagnostics include WSL defaults/Ubuntu version, HOME alias consistency and
+Nerd Font completion metadata, files and registration. `setup-scripts/component-probes.ps1`
+implements these read-only checks; `tests/ComponentProbes.Tests.ps1` tests drift and failures.
+
 ### Core Components
 
 #### `setup-scripts`
@@ -118,6 +130,9 @@ This folder contains the modular scripts that perform the actual configuration t
     not change a deployed theme until setup is applied again. `tests/ThemeDeployment.Tests.ps1`
     covers migration, idempotency, backups and failure preservation.
 -   `Apply-GitConfig.ps1`: Reads local `git-variables.json` and applies the settings to your global Git config. Read/write failures stop setup; `tests/GitConfigFailure.Tests.ps1` covers malformed configuration and held locks.
+
+Configuration values converge exactly, including case-only changes. Git scalar declarations
+replace duplicate global values. `tests/ConfigurationConvergence.Tests.ps1` covers these cases.
 
 #### `dotfiles-configurations`
 
@@ -156,6 +171,9 @@ it no longer prints profile content or writes reports automatically. See the
 [migration table and compatibility changes](powershell-scripts/README.md).
 `tests/LegacyEntryPoints.Tests.ps1` covers non-mutating retirement in both entry hosts and
 diagnostic delegation, options, exit codes and report privacy in PowerShell 7.
+
+Standalone Ollama helpers require an explicit Compose file, preserve volumes on stop, and
+propagate Docker failures. See [lifecycle and migration](powershell-scripts/README.md#ollama-compose-lifecycle).
 
 ### PowerShell Profile
 
@@ -278,6 +296,20 @@ and rollback checks in [Release testing](docs/RELEASE_TESTING.md). Copy the reus
 [release evidence template](docs/RELEASE_EVIDENCE_TEMPLATE.md) outside the repository and fill it
 against the exact release commit under test. Releases follow the `vYYYY.MM.N` Calendar Versioning
 and Git Flow process documented in [Gitflow Policy](docs/GITFLOW.md).
+
+For the v2026.11.1 candidate, see the [proposed release notes](docs/releases/v2026.11.1.md)
+and [version-specific acceptance checklist](docs/releases/v2026.11.1-acceptance.md).
+Manual acceptance is pending; record results outside the tested checkout.
+
+CI parses the bootstrap using Windows PowerShell 5.1 and runs the full validation in PowerShell 7.
+Actions are pinned to commits; Dependabot proposes weekly updates against develop. Analyzer
+JSON (including warning counts by rule) and Pester NUnit XML are retained for 30 days, including
+failed runs. Locally, use `tests/Invoke-Validation.ps1 -ReportDirectory <external-directory>`.
+The reports support warning triage and release evidence; they do not replace Windows 11 VM
+acceptance. `tests/analyzer-warning-baseline.json` caps production-code warnings for automatic
+variable assignment, Invoke-Expression, null comparisons and empty catch blocks. Increases fail
+CI; tests and remaining style rules stay informational. Lower the limits as existing debt is
+removed. Raising a limit requires explicit review and justification in the PR.
 
 ## Feedback
 
