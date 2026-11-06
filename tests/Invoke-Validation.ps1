@@ -16,7 +16,8 @@ pwsh -NoProfile -File ./tests/Invoke-Validation.ps1 -InstallDependencies
 [CmdletBinding()]
 param(
     [switch]$InstallDependencies,
-    [string]$BaseRef
+    [string]$BaseRef,
+    [string]$ReportDirectory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,6 +27,16 @@ $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $validationModules = [ordered]@{
     Pester = '5.7.1'
     PSScriptAnalyzer = '1.25.0'
+}
+
+if ($ReportDirectory) {
+    $ReportDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ReportDirectory)
+    $prefix = $repositoryRoot.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    if ($ReportDirectory.Equals($repositoryRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        $ReportDirectory.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'ReportDirectory must be outside the repository so generated reports do not affect validation.'
+    }
+    $null = New-Item -ItemType Directory -Path $ReportDirectory -Force -ErrorAction Stop
 }
 
 Push-Location -LiteralPath $repositoryRoot
@@ -73,7 +84,32 @@ try {
     $analyzerErrors = @($diagnostics | Where-Object Severity -EQ 'Error')
     $analyzerWarnings = @($diagnostics | Where-Object Severity -EQ 'Warning')
     Write-Host "PSScriptAnalyzer: $($analyzerErrors.Count) errors, $($analyzerWarnings.Count) warnings."
+    if ($ReportDirectory) {
+        [pscustomobject]@{
+            SchemaVersion = 1
+            AnalyzerVersion = $validationModules.PSScriptAnalyzer
+            Errors = $analyzerErrors.Count
+            Warnings = $analyzerWarnings.Count
+            WarningCounts = @($analyzerWarnings | Group-Object RuleName | Sort-Object Name | Select-Object Name, Count)
+            Diagnostics = @($diagnostics | Select-Object RuleName, Severity, ScriptName, Line, Message)
+        } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $ReportDirectory 'analyzer.json') -Encoding UTF8
+    }
     if ($analyzerErrors.Count -gt 0) { throw 'PSScriptAnalyzer reported errors.' }
+    $baselinePath = Join-Path $PSScriptRoot 'analyzer-warning-baseline.json'
+    if (Test-Path -LiteralPath $baselinePath) {
+        $baseline = Get-Content -LiteralPath $baselinePath -Raw | ConvertFrom-Json -ErrorAction Stop
+        if ($baseline.SchemaVersion -ne 1 -or $null -eq $baseline.Limits) { throw 'Invalid analyzer warning baseline.' }
+        foreach ($limit in $baseline.Limits.PSObject.Properties) {
+            $count = @($analyzerWarnings | Where-Object {
+                $relative = ([string]$_.ScriptPath -replace ('^' + [regex]::Escape($repositoryRoot)), '').Replace('\', '/').TrimStart('/')
+                $_.RuleName -eq $limit.Name -and $relative -notlike 'tests/*'
+            }).Count
+            if ($limit.Value -isnot [int] -and $limit.Value -isnot [long]) { throw 'Warning limits must be integers.' }
+            if ($limit.Value -lt 0 -or $count -gt $limit.Value) {
+                throw "Analyzer warning baseline exceeded for $($limit.Name): $count production diagnostics, limit $($limit.Value). Fix the regression or explicitly review the baseline."
+            }
+        }
+    }
 
     git diff --check
     if ($LASTEXITCODE -ne 0) { throw 'Working-tree whitespace validation failed.' }
@@ -91,7 +127,15 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Committed whitespace validation failed for '$BaseRef' through HEAD." }
     }
 
-    $result = Invoke-Pester -Path (Join-Path $repositoryRoot 'tests') -PassThru
+    if ($ReportDirectory) {
+        $configuration = @{
+            Run = @{ Path = (Join-Path $repositoryRoot 'tests'); PassThru = $true }
+            TestResult = @{ Enabled = $true; OutputPath = (Join-Path $ReportDirectory 'pester.xml'); OutputFormat = 'NUnitXml' }
+        }
+        $result = Invoke-Pester -Configuration $configuration
+    } else {
+        $result = Invoke-Pester -Path (Join-Path $repositoryRoot 'tests') -PassThru
+    }
     if ($result.FailedCount -gt 0 -or $result.FailedContainersCount -gt 0 -or $result.TotalCount -eq 0) {
         throw "Pester validation failed: $($result.FailedCount) failed tests, $($result.FailedContainersCount) failed containers, $($result.TotalCount) total tests."
     }

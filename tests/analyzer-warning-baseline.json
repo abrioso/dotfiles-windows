@@ -1,0 +1,9 @@
+{
+  "SchemaVersion": 1,
+  "Limits": {
+    "PSAvoidAssignmentToAutomaticVariable": 3,
+    "PSAvoidUsingInvokeExpression": 4,
+    "PSPossibleIncorrectComparisonWithNull": 3,
+    "PSAvoidUsingEmptyCatchBlock": 7
+  }
+}
