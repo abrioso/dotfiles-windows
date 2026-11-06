@@ -11,6 +11,14 @@ that are unavailable or unwanted on a particular machine.
 > **Note:** To make this work, you need to set your PowerShell execution policy to allow scripts to run. You can do this for your user account by running the following command in PowerShell:
 > `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force`
 
+The configuration TUI uses Up/Down to move, Space to toggle, A/N to select all/none,
+and Enter to confirm each group. Review the selections and save once at the end.
+Esc cancels a selector without saving edits. Existing configuration is validated before
+atomic replacement, with backups under `%LOCALAPPDATA%\dotfiles-windows\config-backups`.
+Use `configure.ps1 -TextMode` for numbered input; unsupported consoles use it automatically.
+`-NonInteractive` still initializes missing defaults without prompting. First-run defaults
+may already have been created when an interactive session is cancelled.
+
 ### Using Git and the Bootstrap Script
 
 Clone the repository to your local machine (e.g., into `~\workspace\dotfiles-windows`). Once cloned, you can run the main setup script.
