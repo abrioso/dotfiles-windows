@@ -307,6 +307,15 @@ variable assignment, Invoke-Expression, null comparisons and empty catch blocks.
 CI; tests and remaining style rules stay informational. Lower the limits as existing debt is
 removed. Raising a limit requires explicit review and justification in the PR.
 
+## Related repositories
+
+The same owner keeps one dotfiles repository per platform. All of them follow the gitflow,
+Conventional Commits and `vYYYY.MM.N` Calendar Versioning policy documented here, ship the same
+`git-hooks`, and validate every pull request in CI; this repository is the reference.
+
+- [dotfiles-linux](https://github.com/abrioso/dotfiles-linux) — Ubuntu/Debian and RHEL/Fedora workstations and servers (zsh, stow, shellcheck CI)
+- [dotfiles-termux](https://github.com/abrioso/dotfiles-termux) — Android Termux (same zsh, vim and Git defaults as dotfiles-linux)
+
 ## Feedback
 
 Suggestions and improvements are [welcome and encouraged](https://github.com/abrioso/dotfiles-windows/issues)!
