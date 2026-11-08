@@ -7,7 +7,7 @@ if [ -n "$GITFLOW_HOOK_BYPASS" ]; then
     exit 0
 fi
 
-while read local_ref local_sha remote_ref remote_sha; do
+while read -r _ _ remote_ref _; do
     branch=$(echo "$remote_ref" | sed -e 's,.*/\(.*\),\1,')
     if echo "$branch" | grep -Eq "$protected_branches"; then
         echo ""
