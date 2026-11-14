@@ -32,6 +32,16 @@ For non-interactive bootstrap flows, the TUI can create local files from templat
 .\setup-scripts\configure.ps1 -NonInteractive
 ```
 
+The default console selector uses arrow keys to move and Space to enable/disable a group.
+A selects all, N clears all, Enter confirms a group, and Esc cancels without saving edits.
+Selections remain arrays even when zero or one items are enabled. The final summary includes
+package dependencies added by settings; the save prompt commits both bootstrap and Git choices.
+The staged configuration passes preflight before atomic replacement; backups support rollback
+if a later write fails. Unsupported consoles and `-TextMode` use numbered text prompts.
+Missing default files are initialized before editing, including on first-run cancellation.
+`setup-scripts/configuration-ui.ps1` owns selectors and configuration persistence;
+`tests/ConfigurationUi.Tests.ps1` covers keyboard behavior and the TUI/JSON/preflight round trip.
+
 The TUI automatically adds package groups required by selected setting groups. Setup validates the same dependency metadata before running any module, including when local JSON files are edited manually.
 
 ## Setup preflight
@@ -104,19 +114,21 @@ report and prevents state probes. JSON includes `SchemaVersion`, `Checks`, `Coun
 and `Limitations`. Environment and Git checks use anonymous labels and never report configured
 or observed values, personal paths, repository endpoints, native stderr or exception details.
 Component IDs and source filenames remain visible.
-Git and environment value comparisons are case-sensitive. Existing apply modules compare values
-case-insensitively, so a case-only difference may require a manual correction.
+Git and environment values are compared case-sensitively by both apply and diagnostics.
+Case-only differences are corrected on reapply. Each configured Git key owns a single global
+value; duplicate values are replaced by the declared scalar. Empty Git values remain ignored.
 
 WinGet presence checks require `-CheckPackages`: native WinGet may contact package sources and
 write its own cache/logs. The diagnostic never accepts source agreements or installs/updates packages.
-A failed query is inconclusive, not evidence of absence. A successful exact-ID query does not verify
-requested scope or installer type; those constraints remain `Unknown`. Package versions are not
+A failed query is inconclusive, not evidence of absence. A successful scoped exact-ID query verifies presence and the requested scope. Installed
+installer type remains `Unknown` when constrained by the catalog. Package versions are not
 constrained by the current catalog. Native queries time out after 15 seconds per item.
 
-This first diagnostic does not probe Nerd Font registration, HOME alias correctness or WSL distro
-state. Selected modules without probes are explicitly `Unknown`. With default selections and without
-package opt-in, expect an inconclusive report even when the implemented checks pass. Use the check
-messages to assess coverage; do not treat `Unknown` as a successful installation.
+The diagnostic probes Nerd Font registration, HOME alias correctness and WSL default/Ubuntu
+version state. Selected modules without probes and checks with unavailable evidence are explicitly
+`Unknown`. Package checks remain opt-in, so a report can be inconclusive even when the implemented
+checks pass. Use the check messages and the component coverage section below to assess coverage;
+do not treat `Unknown` as a successful installation.
 
 ## Setup plan
 
@@ -436,3 +448,15 @@ restore upstream contents or discard uncommitted edits. `verify.ps1` reports lin
 
 The CaskaydiaCove Nerd Font is installed by the `base` settings group, since it is required for
 terminal rendering regardless of the Oh My Posh selection.
+
+### Additional component probes
+
+Selected WSL2 setup is checked using the per-user default-version registry value and read-only
+WSL distribution listings. An unregistered Ubuntu distribution is skipped, matching apply's
+first-launch contract. No distro is launched, converted or stopped by verify.
+Nerd Font checks compare the completion record to downloads.lock.json, then validate every
+recorded file hash and per-user registration. This certifies local recorded state, not the
+independent authenticity/completeness of mutable local metadata.
+HOME alias checks reuse setup's read-only preflight. ASCII-only profile paths are skipped;
+missing aliases or incorrect persistent HOME are drift, and inaccessible/conflicting aliases
+remain Unknown. Private paths and raw exception details are not included in reports.

@@ -8,12 +8,14 @@
 [CmdletBinding()]
 param (
     [string]$ConfigDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'dotfiles-configurations'),
-    [switch]$NonInteractive
+    [switch]$NonInteractive,
+    [switch]$TextMode
 )
 
 $ErrorActionPreference = 'Stop'
 $dotfilesRoot = Split-Path -Parent $PSScriptRoot
 . "$dotfilesRoot\setup-scripts\setup-functions.ps1"
+. "$dotfilesRoot\setup-scripts\configuration-ui.ps1"
 
 function Write-Section {
     param([string]$Title)
@@ -26,14 +28,6 @@ function Read-JsonFile {
     $content = Get-Content -LiteralPath $Path -Raw
     if ([string]::IsNullOrWhiteSpace($content)) { return [pscustomobject]@{} }
     return $content | ConvertFrom-Json
-}
-
-function Save-JsonFile {
-    param(
-        [Parameter(Mandatory)]$Value,
-        [Parameter(Mandatory)][string]$Path
-    )
-    $Value | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
 function Ensure-ConfigFile {
@@ -87,35 +81,9 @@ function Prompt-Choice {
 }
 
 function Prompt-MultiChoice {
-    param(
-        [Parameter(Mandatory)][string]$Label,
-        [Parameter(Mandatory)][string[]]$Choices,
-        [AllowNull()][object[]]$CurrentValues
-    )
-
-    $current = @($CurrentValues | Where-Object { $_ })
-    Write-Host $Label
-    for ($i = 0; $i -lt $Choices.Count; $i++) {
-        $marker = if ($current -contains $Choices[$i]) { '*' } else { ' ' }
-        Write-Host ("  {0}) [{1}] {2}" -f ($i + 1), $marker, $Choices[$i])
-    }
-
-    $answer = Read-Host "Choose comma-separated numbers, 'all', 'none', or Enter to keep current"
-    if ([string]::IsNullOrWhiteSpace($answer)) { return $current }
-    if ($answer.Trim().ToLowerInvariant() -eq 'all') { return $Choices }
-    if ($answer.Trim().ToLowerInvariant() -eq 'none') { return @() }
-
-    $selected = [System.Collections.Generic.List[string]]::new()
-    foreach ($part in ($answer -split ',')) {
-        $index = 0
-        if ([int]::TryParse($part.Trim(), [ref]$index) -and $index -ge 1 -and $index -le $Choices.Count) {
-            $choice = $Choices[$index - 1]
-            if (-not $selected.Contains($choice)) { $selected.Add($choice) }
-        } else {
-            Write-Warning "Ignoring invalid selection: $part"
-        }
-    }
-    return $selected.ToArray()
+    param([string]$Label, [AllowEmptyCollection()][string[]]$Choices, [AllowNull()][object[]]$CurrentValues)
+    Read-DotfilesMultiSelection -Label $Label -Choices $Choices -CurrentValues $CurrentValues `
+        -TextMode:($TextMode -or -not (Test-DotfilesToggleConsole))
 }
 
 if (-not (Test-Path -LiteralPath $ConfigDirectory)) {
@@ -167,21 +135,21 @@ Write-Section 'Local paths'
 $bootstrap.WORKSPACE_FOLDER = Prompt-Value -Label 'Workspace folder under USERPROFILE' -CurrentValue $bootstrap.WORKSPACE_FOLDER
 
 Write-Section 'Package groups'
-$packageGroups = @($wingetConfig.PSObject.Properties.Name | Sort-Object)
-$bootstrap.INSTALL_PACKAGES = Prompt-MultiChoice -Label 'Package groups to install' -Choices $packageGroups -CurrentValues $bootstrap.INSTALL_PACKAGES
+$packageGroups = @($wingetConfig.PSObject.Properties.Name)
+$bootstrap.INSTALL_PACKAGES = @(Prompt-MultiChoice -Label 'Package groups to install' -Choices $packageGroups -CurrentValues $bootstrap.INSTALL_PACKAGES)
 
 Write-Section 'Windows feature groups'
-$featureGroups = if ($featuresConfig) { @($featuresConfig.PSObject.Properties.Name | Sort-Object) } else { @() }
-$bootstrap.INSTALL_FEATURES = Prompt-MultiChoice -Label 'Windows feature groups to enable' -Choices $featureGroups -CurrentValues $bootstrap.INSTALL_FEATURES
+$featureGroups = if ($featuresConfig) { @($featuresConfig.PSObject.Properties.Name) } else { @() }
+$bootstrap.INSTALL_FEATURES = @(Prompt-MultiChoice -Label 'Windows feature groups to enable' -Choices $featureGroups -CurrentValues $bootstrap.INSTALL_FEATURES)
 
 Write-Section 'Windows capability groups'
-$capabilityGroups = if ($capabilitiesConfig) { @($capabilitiesConfig.PSObject.Properties.Name | Sort-Object) } else { @() }
+$capabilityGroups = if ($capabilitiesConfig) { @($capabilitiesConfig.PSObject.Properties.Name) } else { @() }
 $currentCapabilities = if (Test-DotfilesObjectProperty -InputObject $bootstrap -Name 'INSTALL_CAPABILITIES') {
     $bootstrap.INSTALL_CAPABILITIES
 } else {
     @()
 }
-$selectedCapabilities = Prompt-MultiChoice -Label 'Windows capability groups to install' -Choices $capabilityGroups -CurrentValues $currentCapabilities
+$selectedCapabilities = @(Prompt-MultiChoice -Label 'Windows capability groups to install' -Choices $capabilityGroups -CurrentValues $currentCapabilities)
 if (Test-DotfilesObjectProperty -InputObject $bootstrap -Name 'INSTALL_CAPABILITIES') {
     $bootstrap.INSTALL_CAPABILITIES = $selectedCapabilities
 } else {
@@ -189,8 +157,8 @@ if (Test-DotfilesObjectProperty -InputObject $bootstrap -Name 'INSTALL_CAPABILIT
 }
 
 Write-Section 'Setup setting groups'
-$settingGroups = if ($setupModulesConfig.settings) { @($setupModulesConfig.settings.PSObject.Properties.Name | Sort-Object) } else { @() }
-$bootstrap.INSTALL_SETTINGS = Prompt-MultiChoice -Label 'Setting groups to apply' -Choices $settingGroups -CurrentValues $bootstrap.INSTALL_SETTINGS
+$settingGroups = if ($setupModulesConfig.settings) { @($setupModulesConfig.settings.PSObject.Properties.Name) } else { @() }
+$bootstrap.INSTALL_SETTINGS = @(Prompt-MultiChoice -Label 'Setting groups to apply' -Choices $settingGroups -CurrentValues $bootstrap.INSTALL_SETTINGS)
 
 $requiredPackageGroups = Get-DotfilesRequiredPackageGroup -SetupConfig $setupModulesConfig -SelectedSettings $bootstrap.INSTALL_SETTINGS
 $selectedPackageGroups = [System.Collections.Generic.List[string]]::new()
@@ -212,8 +180,16 @@ $gitConfig.'user.name' = Prompt-Value -Label 'git user.name' -CurrentValue $gitC
 $gitConfig.'user.email' = Prompt-Value -Label 'git user.email' -CurrentValue $gitConfig.'user.email'
 $gitConfig.'core.editor' = Prompt-Value -Label 'git core.editor' -CurrentValue $gitConfig.'core.editor'
 
-Save-JsonFile -Value $bootstrap -Path $bootstrapPath
-Save-JsonFile -Value $gitConfig -Path $gitPath
+Write-Section 'Review selected groups'
+foreach ($selector in @('INSTALL_PACKAGES', 'INSTALL_FEATURES', 'INSTALL_CAPABILITIES', 'INSTALL_SETTINGS')) {
+    Write-Host ("{0}: {1}" -f $selector, (@($bootstrap.$selector) -join ', '))
+}
+$save = Read-Host 'Save these selections? [Y/n]'
+if (-not [string]::IsNullOrWhiteSpace($save) -and $save.Trim() -notin @('y', 'yes')) {
+    throw [OperationCanceledException]::new('Configuration cancelled. Selections were not saved.')
+}
+Save-DotfilesConfiguration -ConfigDirectory $ConfigDirectory -ModuleDirectory (Join-Path $dotfilesRoot 'setup-modules') `
+    -Bootstrap $bootstrap -GitConfig $gitConfig
 
 Write-Host ""
 Write-Host "Configuration complete." -ForegroundColor Green

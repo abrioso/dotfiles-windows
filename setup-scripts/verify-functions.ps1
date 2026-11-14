@@ -1,4 +1,5 @@
 . "$PSScriptRoot/winget-functions.ps1"
+. "$PSScriptRoot/component-probes.ps1"
 
 function New-DotfilesDiagnosticResult {
     param(
@@ -257,8 +258,18 @@ function Get-DotfilesSetupDiagnostic {
                 New-DotfilesDiagnosticResult Passed 'Settings exist and parse as JSON; local customizations are not compared to the template.'
             }
         }
+        if ($scripts -contains 'Install-NerdFont.ps1') {
+            Add-DotfilesDiagnosticCheck $checks Font 'CaskaydiaCove' { Get-DotfilesFontDiagnostic $RepositoryRoot $LocalAppData }
+        }
+        if ($scripts -contains 'Configure-WSL2.ps1') {
+            Add-DotfilesDiagnosticCheck $checks WSL 'Default version' { Get-DotfilesWslDefaultDiagnostic }
+            Add-DotfilesDiagnosticCheck $checks WSL 'Ubuntu version' { Get-DotfilesWslDistributionDiagnostic }
+        }
+        if ($scripts -contains 'Set-UserHomeAlias.ps1') {
+            Add-DotfilesDiagnosticCheck $checks Home 'Alias' { Get-DotfilesHomeDiagnostic -UserProfile $UserProfile }
+        }
         # Selected modules without a reliable read-only implementation must never silently pass.
-        $covered = @('Configure-WindowsFeatures.ps1', 'Configure-WindowsCapabilities.ps1', 'Install-WingetPackages.ps1', 'Set-EnvironmentVariables.ps1', 'Apply-GitConfig.ps1', 'Install-LocalPowerShellProfiles.ps1', 'Install-OmpConfig.ps1', 'Install-WindowsTerminalSettings.ps1')
+        $covered = @('Install-NerdFont.ps1', 'Configure-WSL2.ps1', 'Set-UserHomeAlias.ps1', 'Configure-WindowsFeatures.ps1', 'Configure-WindowsCapabilities.ps1', 'Install-WingetPackages.ps1', 'Set-EnvironmentVariables.ps1', 'Apply-GitConfig.ps1', 'Install-LocalPowerShellProfiles.ps1', 'Install-OmpConfig.ps1', 'Install-WindowsTerminalSettings.ps1')
         foreach ($module in $preview.Modules) {
             if ($covered -notcontains $module.Script) {
                 Add-DotfilesDiagnosticCheck $checks Module $module.Script { New-DotfilesDiagnosticResult Unknown 'This selected module has no installed-state probe yet.' }

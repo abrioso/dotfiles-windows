@@ -1,14 +1,15 @@
-# 13.docker.ollama.user.ps1
-# PowerShell script to set up Docker Compose for Ollama and recommended services
+[CmdletBinding(SupportsShouldProcess)]
+param(
+    [Parameter(Mandatory)][string]$ComposePath,
+    [ValidatePattern('^[a-z0-9][a-z0-9_-]*$')][string]$ProjectName
+)
 
-# Ensure Docker is installed and running
-if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    Write-Error "Docker is not installed. Please install Docker Desktop first."
-    exit 1
-}
+$ErrorActionPreference = 'Stop'
+. "$PSScriptRoot/docker-compose-functions.ps1"
 
 # Define the docker-compose.yml content
 $composeContent = @"
+# dotfiles-managed ollama compose v1
 services:
   ollama:
     image: ollama/ollama:latest
@@ -23,7 +24,7 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped
@@ -33,7 +34,7 @@ services:
     image: portainer/portainer-ce:latest
     container_name: portainer
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     volumes:
       - portainer_data:/data
       - /var/run/docker.sock:/var/run/docker.sock
@@ -41,6 +42,7 @@ services:
 
   # Recommended: Watchtower for automatic updates
   watchtower:
+    profiles: [automatic-updates]
     image: containrrr/watchtower:latest
     container_name: watchtower
     volumes:
@@ -52,7 +54,7 @@ services:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
     ports:
-      - "3000:8080"
+      - "127.0.0.1:3000:8080"
     environment:
       - OLLAMA_API_BASE_URL=http://ollama:11434
     volumes:
@@ -67,16 +69,26 @@ volumes:
   openwebui_data:
 "@
 
-# Write docker-compose.yml to current directory
-$composeFile = "docker-compose.yml"
-Set-Content -Path $composeFile -Value $composeContent -Encoding UTF8
-
-Write-Host "docker-compose.yml created."
-
-# Start the containers
-docker compose up -d
-
-Write-Host "Ollama and recommended Docker services are starting."
-Write-Host "Ollama API: http://localhost:11434"
-Write-Host "Portainer UI: http://localhost:9000"
-Write-Host "Open WebUI: http://localhost:3000"
+try {
+    $composeFile = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ComposePath)
+    if (-not $PSCmdlet.ShouldProcess($composeFile, 'Create missing Compose file and start services')) { return }
+    if (-not (Test-Path -LiteralPath $composeFile)) {
+        $parent = Split-Path -Parent $composeFile
+        $null = New-Item -ItemType Directory -Path $parent -Force -ErrorAction Stop
+        # CreateNew refuses to overwrite a file that appears between the existence check and write.
+        $stream = [IO.File]::Open($composeFile, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
+        try {
+            $bytes = [Text.UTF8Encoding]::new($false).GetBytes($composeContent)
+            $stream.Write($bytes, 0, $bytes.Length)
+        } finally { $stream.Dispose() }
+        Write-Host "Created Compose file: $composeFile"
+    }
+    $composeArguments = @(Get-DotfilesComposeArguments -ComposePath $composeFile -ProjectName $ProjectName)
+    Invoke-DotfilesDocker -Arguments ($composeArguments + @('config', '--quiet'))
+    Invoke-DotfilesDocker -Arguments ($composeArguments + @('up', '-d', '--wait', '--wait-timeout', '120'))
+    Write-Host 'Compose services reached running/healthy state. Persistent volumes were preserved.'
+    Write-Host 'Ollama: http://localhost:11434 | Portainer: http://localhost:9000 | Open WebUI: http://localhost:3000'
+} catch {
+    Write-Error $_ -ErrorAction Continue
+    exit 1
+}

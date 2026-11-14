@@ -211,7 +211,7 @@ Describe 'Setup configuration preflight' {
         New-Item -ItemType Directory -Path "$fixtureRoot/setup-scripts" -Force | Out-Null
         Copy-Item -LiteralPath $configDirectory -Destination "$fixtureRoot/dotfiles-configurations" -Recurse
         Copy-Item -LiteralPath $moduleDirectory -Destination "$fixtureRoot/setup-modules" -Recurse
-        Copy-Item "$repositoryRoot/setup-scripts/setup.ps1", "$repositoryRoot/setup-scripts/setup-functions.ps1", "$repositoryRoot/setup-scripts/configure.ps1" "$fixtureRoot/setup-scripts"
+        Copy-Item "$repositoryRoot/setup-scripts/setup.ps1", "$repositoryRoot/setup-scripts/setup-functions.ps1", "$repositoryRoot/setup-scripts/configure.ps1", "$repositoryRoot/setup-scripts/configuration-ui.ps1" "$fixtureRoot/setup-scripts"
         @'
 function Start-Logging { param($LogFilePath, [switch]$PassThru, [switch]$Append) return $LogFilePath }
 function Complete-DotfilesSetupLogging { param($LogFilePath, $DotfilesDirectory) return $LogFilePath }
