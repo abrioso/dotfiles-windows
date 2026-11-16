@@ -6,9 +6,11 @@ and evidence for every required scenario. Copy
 [RELEASE_EVIDENCE_TEMPLATE.md](RELEASE_EVIDENCE_TEMPLATE.md) outside the repository before filling
 it; completed evidence and raw artifacts must not modify the release candidate under test.
 
-The [v2026.11.1 checklist](releases/v2026.11.1-acceptance.md) adds the release-specific TUI,
-configuration convergence, diagnostic and Docker lifecycle scenarios. Execute it alongside this
-full gate and record the candidate head from the release PR, not the integration baseline SHA.
+Version-specific checklists live in [releases/](releases/). The
+[v2026.11.1 checklist](releases/v2026.11.1-acceptance.md), used for the published v2026.11.1
+release, adds TUI, configuration convergence, diagnostic and Docker lifecycle scenarios. Execute
+a release's checklist alongside this full gate and record the candidate head from the release PR,
+not the integration baseline SHA.
 
 ## Test topology
 
