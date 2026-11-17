@@ -297,9 +297,9 @@ and rollback checks in [Release testing](docs/RELEASE_TESTING.md). Copy the reus
 against the exact release commit under test. Releases follow the `vYYYY.MM.N` Calendar Versioning
 and Git Flow process documented in [Gitflow Policy](docs/GITFLOW.md).
 
-For the v2026.11.1 candidate, see the [proposed release notes](docs/releases/v2026.11.1.md)
+The current release is v2026.11.1. See its [release notes](docs/releases/v2026.11.1.md)
 and [version-specific acceptance checklist](docs/releases/v2026.11.1-acceptance.md).
-Manual acceptance is pending; record results outside the tested checkout.
+Record acceptance results outside the tested checkout.
 
 CI parses the bootstrap using Windows PowerShell 5.1 and runs the full validation in PowerShell 7.
 Actions are pinned to commits; Dependabot proposes weekly updates against develop. Analyzer
